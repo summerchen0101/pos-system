@@ -109,3 +109,8 @@ export async function setGiftStock(
     .upsert({ gift_id: giftId, stock: s }, { onConflict: "gift_id" });
   if (error) throw error;
 }
+
+export async function deleteGift(id: string): Promise<void> {
+  const { error } = await supabase.from("gifts").delete().eq("id", id);
+  if (error) throw error;
+}

@@ -13,6 +13,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useState } from "react";
 import {
   createBooth,
+  deleteBooth,
   listBoothsAdmin,
   updateBooth,
   type AdminBooth,
@@ -28,8 +29,15 @@ type FormValues = {
   location?: string;
 };
 
+function boothDeleteErrorMessage(raw: string): string {
+  if (raw === "BOOTH_DELETE_DEFAULT") return b.cannotDeleteDefault;
+  if (raw === "BOOTH_HAS_ORDERS") return b.deleteBlockedOrders;
+  if (raw === "BOOTH_HAS_PROMOTIONS") return b.deleteBlockedPromotions;
+  return b.deleteError;
+}
+
 export function AdminBoothsPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [form] = Form.useForm<FormValues>();
   const [rows, setRows] = useState<AdminBooth[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +66,25 @@ export function AdminBoothsPage() {
     form.resetFields();
     form.setFieldsValue({ name: "", location: "" });
     setModalOpen(true);
+  };
+
+  const onDelete = (row: AdminBooth) => {
+    modal.confirm({
+      title: b.deleteTitle,
+      content: b.deleteBody(row.name),
+      okText: common.delete,
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deleteBooth(row.id);
+          message.success(b.deleted);
+          await load();
+        } catch (e) {
+          const code = e instanceof Error ? e.message : "";
+          message.error(boothDeleteErrorMessage(code));
+        }
+      },
+    });
   };
 
   const openEdit = (row: AdminBooth) => {
@@ -111,13 +138,18 @@ export function AdminBoothsPage() {
       render: (loc: string | null) => loc?.trim() || common.dash,
     },
     {
-      title: "",
+      title: b.colActions,
       key: "act",
-      width: 100,
+      width: 148,
       render: (_, row) => (
-        <Button type="link" size="small" onClick={() => openEdit(row)}>
-          {common.edit}
-        </Button>
+        <Space size={0} wrap>
+          <Button type="link" size="small" onClick={() => openEdit(row)}>
+            {common.edit}
+          </Button>
+          <Button type="link" size="small" danger onClick={() => onDelete(row)}>
+            {common.delete}
+          </Button>
+        </Space>
       ),
     },
   ];

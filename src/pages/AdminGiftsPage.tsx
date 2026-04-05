@@ -16,6 +16,7 @@ import type { ColumnsType } from 'antd/es/table'
 import { useCallback, useEffect, useState } from 'react'
 import {
   createGift,
+  deleteGift,
   listGiftsAdmin,
   setGiftStock,
   updateGift,
@@ -34,11 +35,12 @@ type FormValues = {
 }
 
 export function AdminGiftsPage() {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const [form] = Form.useForm<FormValues>()
   const [gifts, setGifts] = useState<AdminGift[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [stockModalGift, setStockModalGift] = useState<AdminGift | null>(null)
   const [stockValue, setStockValue] = useState<number>(0)
@@ -60,6 +62,7 @@ export function AdminGiftsPage() {
   }, [load])
 
   const openCreate = () => {
+    setEditingId(null)
     form.resetFields()
     form.setFieldsValue({
       name: '',
@@ -69,21 +72,41 @@ export function AdminGiftsPage() {
     setModalOpen(true)
   }
 
+  const openEdit = (row: AdminGift) => {
+    setEditingId(row.id)
+    form.setFieldsValue({
+      name: row.name,
+      isActive: row.isActive,
+    })
+    setModalOpen(true)
+  }
+
   const closeModal = () => {
     setModalOpen(false)
+    setEditingId(null)
     form.resetFields()
   }
 
-  const submitCreate = async () => {
+  const submit = async () => {
     try {
-      const values = await form.validateFields()
+      const values = editingId
+        ? await form.validateFields(['name', 'isActive'])
+        : await form.validateFields()
       setSaving(true)
-      await createGift({
-        name: values.name,
-        isActive: values.isActive,
-        initialStock: values.initialStock,
-      })
-      message.success(g.created)
+      if (editingId) {
+        await updateGift(editingId, {
+          name: values.name,
+          isActive: values.isActive,
+        })
+        message.success(g.updated)
+      } else {
+        await createGift({
+          name: values.name,
+          isActive: values.isActive,
+          initialStock: values.initialStock,
+        })
+        message.success(g.created)
+      }
       closeModal()
       await load()
     } catch (e) {
@@ -92,6 +115,24 @@ export function AdminGiftsPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const onDelete = (row: AdminGift) => {
+    modal.confirm({
+      title: g.deleteTitle,
+      content: g.deleteBody(row.name),
+      okText: common.delete,
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deleteGift(row.id)
+          message.success(g.deleted)
+          await load()
+        } catch (e) {
+          message.error(e instanceof Error ? e.message : g.deleteError)
+        }
+      },
+    })
   }
 
   const onToggleActive = async (row: AdminGift, active: boolean) => {
@@ -149,6 +190,21 @@ export function AdminGiftsPage() {
         <Switch checked={active} onChange={(v) => void onToggleActive(row, v)} />
       ),
     },
+    {
+      title: g.colActions,
+      key: 'actions',
+      width: 148,
+      render: (_, row) => (
+        <Space size={0} wrap>
+          <Button type="link" size="small" onClick={() => openEdit(row)}>
+            {common.edit}
+          </Button>
+          <Button type="link" size="small" danger onClick={() => onDelete(row)}>
+            {common.delete}
+          </Button>
+        </Space>
+      ),
+    },
   ]
 
   return (
@@ -175,10 +231,10 @@ export function AdminGiftsPage() {
       </Space>
 
       <Modal
-        title={g.modalCreate}
+        title={editingId ? g.modalEdit : g.modalCreate}
         open={modalOpen}
         onCancel={closeModal}
-        onOk={() => void submitCreate()}
+        onOk={() => void submit()}
         confirmLoading={saving}
         destroyOnClose
         okText={common.save}
@@ -187,13 +243,19 @@ export function AdminGiftsPage() {
           <Form.Item name="name" label={g.labelName} rules={[{ required: true, message: common.required }]}>
             <Input placeholder={g.namePh} />
           </Form.Item>
-          <Form.Item
-            name="initialStock"
-            label={g.labelInitialStock}
-            rules={[{ required: true, type: 'number', min: 0 }]}
-          >
-            <InputNumber min={0} precision={0} style={{ width: '100%' }} />
-          </Form.Item>
+          {editingId ? (
+            <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+              {g.editStockHint}
+            </Text>
+          ) : (
+            <Form.Item
+              name="initialStock"
+              label={g.labelInitialStock}
+              rules={[{ required: true, type: 'number', min: 0 }]}
+            >
+              <InputNumber min={0} precision={0} style={{ width: '100%' }} />
+            </Form.Item>
+          )}
           <Form.Item name="isActive" label={g.colActive} valuePropName="checked">
             <Switch />
           </Form.Item>
