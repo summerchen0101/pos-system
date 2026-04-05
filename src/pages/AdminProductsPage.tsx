@@ -3,10 +3,12 @@ import {
   AutoComplete,
   Button,
   Card,
+  Divider,
   Form,
   Input,
   InputNumber,
   Modal,
+  Radio,
   Select,
   Space,
   Switch,
@@ -48,10 +50,14 @@ type FormValues = {
   isActive: boolean
 }
 
+type BulkStockMode = 'set' | 'adjust'
+
 type BulkFormValues = {
   bulkCategoryId?: string | null
   bulkSize?: string
   bulkPriceDollars?: number | null
+  bulkStockMode?: BulkStockMode
+  bulkStockValue?: number | null
 }
 
 type FilterFormValues = {
@@ -112,6 +118,7 @@ export function AdminProductsPage() {
   const watchFilterSku = Form.useWatch('filterSku', filterForm)
   const watchFilterSize = Form.useWatch('filterSize', filterForm)
   const watchFilterCategoryId = Form.useWatch('filterCategoryId', filterForm)
+  const bulkStockMode = (Form.useWatch('bulkStockMode', bulkForm) ?? 'set') as BulkStockMode
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -247,6 +254,7 @@ export function AdminProductsPage() {
 
   const openBulkEdit = () => {
     bulkForm.resetFields()
+    bulkForm.setFieldsValue({ bulkStockMode: 'set' })
     setBulkModalOpen(true)
   }
 
@@ -265,8 +273,9 @@ export function AdminProductsPage() {
     const categoryTouched = bulkForm.isFieldTouched('bulkCategoryId')
     const sizeTouched = bulkForm.isFieldTouched('bulkSize')
     const priceTouched = bulkForm.isFieldTouched('bulkPriceDollars')
+    const stockTouched = bulkForm.isFieldTouched('bulkStockValue')
 
-    if (!categoryTouched && !sizeTouched && !priceTouched) {
+    if (!categoryTouched && !sizeTouched && !priceTouched && !stockTouched) {
       message.warning(p.bulkFieldWarn)
       return
     }
@@ -286,6 +295,19 @@ export function AdminProductsPage() {
           return
         }
         patch.priceCents = dollarsToCents(values.bulkPriceDollars)
+      }
+      if (stockTouched) {
+        const raw = values.bulkStockValue
+        if (raw == null || Number.isNaN(Number(raw))) {
+          message.warning(p.bulkStockWarn)
+          return
+        }
+        const n = Math.trunc(Number(raw))
+        if (values.bulkStockMode === 'adjust') {
+          patch.stockAdjust = n
+        } else {
+          patch.stockSet = Math.max(0, n)
+        }
       }
 
       setBulkSaving(true)
@@ -532,13 +554,13 @@ export function AdminProductsPage() {
         onOk={() => void submitBulk()}
         confirmLoading={bulkSaving}
         destroyOnClose
-        width={480}
+        width={520}
         okText={p.bulkApply}
       >
         <Typography.Paragraph type="secondary" style={{ marginBottom: 16 }}>
           {p.bulkHint}
         </Typography.Paragraph>
-        <Form<BulkFormValues> form={bulkForm} layout="vertical">
+        <Form<BulkFormValues> form={bulkForm} layout="vertical" initialValues={{ bulkStockMode: 'set' }}>
           <Form.Item name="bulkCategoryId" label={p.bulkCategory}>
             <Select
               allowClear
@@ -563,6 +585,31 @@ export function AdminProductsPage() {
               precision={2}
               style={{ width: '100%' }}
               placeholder={p.bulkPricePh}
+            />
+          </Form.Item>
+
+          <Divider plain style={{ margin: '8px 0 12px' }}>
+            {p.bulkStockTitle}
+          </Divider>
+          <Form.Item name="bulkStockMode" label={p.bulkStockModeLabel}>
+            <Radio.Group>
+              <Radio value="set">{p.bulkStockSet}</Radio>
+              <Radio value="adjust">{p.bulkStockAdjust}</Radio>
+            </Radio.Group>
+          </Form.Item>
+          <Form.Item
+            name="bulkStockValue"
+            label={
+              bulkStockMode === 'adjust' ? p.bulkStockValueAdjustLabel : p.bulkStockValueSetLabel
+            }
+            extra={p.bulkStockExtra}
+          >
+            <InputNumber
+              step={1}
+              precision={0}
+              min={bulkStockMode === 'set' ? 0 : undefined}
+              style={{ width: '100%' }}
+              placeholder={p.bulkStockPh}
             />
           </Form.Item>
         </Form>

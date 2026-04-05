@@ -125,9 +125,19 @@ export type ProductBulkPatch = {
   categoryId?: string | null
   size?: string | null
   priceCents?: number
+  /** Absolute stock (>= 0). Mutually exclusive with `stockAdjust` in normal use. */
+  stockSet?: number
+  /** Added to current stock; result clamped to >= 0. */
+  stockAdjust?: number
 }
 
 function mergedProductInput(p: Product, patch: ProductBulkPatch): ProductInput {
+  let stock = p.stock
+  if (patch.stockSet !== undefined) {
+    stock = Math.max(0, Math.trunc(patch.stockSet))
+  } else if (patch.stockAdjust !== undefined) {
+    stock = Math.max(0, p.stock + Math.trunc(patch.stockAdjust))
+  }
   return {
     categoryId: patch.categoryId !== undefined ? patch.categoryId : p.categoryId,
     name: p.name,
@@ -136,7 +146,7 @@ function mergedProductInput(p: Product, patch: ProductBulkPatch): ProductInput {
     size: patch.size !== undefined ? patch.size : p.size,
     sku: p.sku,
     priceCents: patch.priceCents !== undefined ? patch.priceCents : p.price,
-    stock: p.stock,
+    stock,
     isActive: p.isActive,
   }
 }
