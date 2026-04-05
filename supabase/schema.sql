@@ -38,7 +38,6 @@ create index if not exists products_category_id_idx on public.products (category
 
 create table if not exists public.gifts (
   id uuid primary key default gen_random_uuid(),
-  product_id uuid not null references public.products (id) on delete restrict,
   name text not null,
   is_active boolean not null default true
 );
@@ -47,8 +46,6 @@ create table if not exists public.gift_inventory (
   gift_id uuid primary key references public.gifts (id) on delete cascade,
   stock integer not null default 0 check (stock >= 0)
 );
-
-create index if not exists gifts_product_id_idx on public.gifts (product_id);
 
 create table if not exists public.promotions (
   id uuid primary key default gen_random_uuid(),
@@ -218,7 +215,7 @@ create index if not exists orders_created_at_idx on public.orders (created_at de
 create table if not exists public.order_items (
   id uuid primary key default gen_random_uuid(),
   order_id uuid not null references public.orders (id) on delete cascade,
-  product_id uuid not null references public.products (id) on delete restrict,
+  product_id uuid references public.products (id) on delete restrict,
   product_name text not null,
   size text,
   quantity integer not null check (quantity >= 1),

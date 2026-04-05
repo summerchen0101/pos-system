@@ -6,7 +6,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Select,
   Space,
   Switch,
   Table,
@@ -15,7 +14,6 @@ import {
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useCallback, useEffect, useState } from 'react'
-import { fetchAllProducts } from '../api/fetchAllProducts'
 import {
   createGift,
   listGiftsAdmin,
@@ -24,7 +22,6 @@ import {
   type AdminGift,
 } from '../api/giftsAdmin'
 import { zhtw } from '../locales/zhTW'
-import type { Product } from '../types/pos'
 
 const { Title, Text } = Typography
 const g = zhtw.admin.gifts
@@ -32,7 +29,6 @@ const common = zhtw.common
 
 type FormValues = {
   name: string
-  productId: string
   isActive: boolean
   initialStock: number
 }
@@ -41,7 +37,6 @@ export function AdminGiftsPage() {
   const { message } = App.useApp()
   const [form] = Form.useForm<FormValues>()
   const [gifts, setGifts] = useState<AdminGift[]>([])
-  const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -51,9 +46,8 @@ export function AdminGiftsPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [gList, pList] = await Promise.all([listGiftsAdmin(), fetchAllProducts()])
+      const gList = await listGiftsAdmin()
       setGifts(gList)
-      setProducts(pList)
     } catch (e) {
       message.error(e instanceof Error ? e.message : g.loadError)
     } finally {
@@ -69,7 +63,6 @@ export function AdminGiftsPage() {
     form.resetFields()
     form.setFieldsValue({
       name: '',
-      productId: undefined,
       isActive: true,
       initialStock: 0,
     })
@@ -87,7 +80,6 @@ export function AdminGiftsPage() {
       setSaving(true)
       await createGift({
         name: values.name,
-        productId: values.productId,
         isActive: values.isActive,
         initialStock: values.initialStock,
       })
@@ -129,27 +121,12 @@ export function AdminGiftsPage() {
     }
   }
 
-  const productOptions = products.map((p) => ({
-    label: `${p.name}${p.size ? ` (${p.size})` : ''} · ${p.sku}`,
-    value: p.id,
-  }))
-
   const columns: ColumnsType<AdminGift> = [
     {
       title: g.colName,
       dataIndex: 'name',
       key: 'name',
-      render: (name: string, row) => (
-        <Space direction="vertical" size={0}>
-          <Text strong>{name}</Text>
-          {row.product ? (
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {row.product.name}
-              {row.product.size ? ` (${row.product.size})` : ''} · {row.product.sku}
-            </Text>
-          ) : null}
-        </Space>
-      ),
+      render: (name: string) => <Text strong>{name}</Text>,
     },
     {
       title: g.colStock,
@@ -209,14 +186,6 @@ export function AdminGiftsPage() {
         <Form<FormValues> form={form} layout="vertical" style={{ marginTop: 8 }}>
           <Form.Item name="name" label={g.labelName} rules={[{ required: true, message: common.required }]}>
             <Input placeholder={g.namePh} />
-          </Form.Item>
-          <Form.Item name="productId" label={g.labelProduct} rules={[{ required: true, message: common.required }]}>
-            <Select
-              showSearch
-              optionFilterProp="label"
-              placeholder={g.productPh}
-              options={productOptions}
-            />
           </Form.Item>
           <Form.Item
             name="initialStock"

@@ -527,7 +527,7 @@ export function AdminPromotionsPage() {
   }))
 
   const giftOptions = gifts.map((x) => ({
-    label: `${x.name}${x.product ? ` · ${x.product.sku}` : ''}`,
+    label: x.name,
     value: x.id,
   }))
 

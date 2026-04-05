@@ -69,10 +69,8 @@ export type PromotionTierRule = {
 export type PromotionGiftDetail = {
   giftId: string
   displayName: string
-  productId: string
   stock: number
   isActive: boolean
-  product: Product | null
 }
 
 export type Promotion = {
@@ -94,7 +92,7 @@ export type Promotion = {
   giftId: string | null
   /** Threshold in minor units; only for `GIFT_WITH_THRESHOLD`. */
   thresholdAmountCents: number | null
-  /** Joined gift + inventory + product when `gift_id` is set. */
+  /** Joined gift + inventory when `gift_id` is set (no catalog product). */
   gift: PromotionGiftDetail | null
   /**
    * `FREE_ITEMS` only — from `promotion_products.quantity` (each product’s gift count).

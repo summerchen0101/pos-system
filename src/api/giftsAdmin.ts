@@ -1,32 +1,24 @@
 import { supabase } from '../supabase'
-import { mapProductRow, productSelectWithCategory, type ProductRowWithCategory } from './productMapper'
-import type { Product } from '../types/pos'
 
 const giftSelect = `
   id,
   name,
-  product_id,
   is_active,
-  gift_inventory ( stock ),
-  products ( ${productSelectWithCategory} )
+  gift_inventory ( stock )
 `
 
 export type AdminGift = {
   id: string
   name: string
-  productId: string
   isActive: boolean
   stock: number
-  product: Product | null
 }
 
 type GiftRowRaw = {
   id: string
   name: string
-  product_id: string
   is_active: boolean
   gift_inventory?: { stock: number } | { stock: number }[] | null
-  products?: ProductRowWithCategory | ProductRowWithCategory[] | null
 }
 
 function unwrapOne<T>(x: T | T[] | null | undefined): T | null {
@@ -43,14 +35,11 @@ function firstGiftInv(
 
 function mapGiftRow(row: GiftRowRaw): AdminGift {
   const inv = firstGiftInv(row.gift_inventory)
-  const prodRow = unwrapOne(row.products)
   return {
     id: row.id,
     name: row.name,
-    productId: row.product_id,
     isActive: row.is_active,
     stock: inv?.stock ?? 0,
-    product: prodRow ? mapProductRow(prodRow) : null,
   }
 }
 
@@ -62,7 +51,6 @@ export async function listGiftsAdmin(): Promise<AdminGift[]> {
 
 export type GiftCreateInput = {
   name: string
-  productId: string
   isActive: boolean
   initialStock: number
 }
@@ -78,7 +66,6 @@ export async function createGift(input: GiftCreateInput): Promise<AdminGift> {
     .from('gifts')
     .insert({
       name: input.name.trim(),
-      product_id: input.productId,
       is_active: input.isActive,
     })
     .select('id')
@@ -98,11 +85,10 @@ export async function createGift(input: GiftCreateInput): Promise<AdminGift> {
 
 export async function updateGift(
   id: string,
-  patch: { name?: string; productId?: string; isActive?: boolean },
+  patch: { name?: string; isActive?: boolean },
 ): Promise<AdminGift> {
   const row: Record<string, unknown> = {}
   if (patch.name !== undefined) row.name = patch.name.trim()
-  if (patch.productId !== undefined) row.product_id = patch.productId
   if (patch.isActive !== undefined) row.is_active = patch.isActive
   if (Object.keys(row).length > 0) {
     const { error } = await supabase.from('gifts').update(row).eq('id', id)

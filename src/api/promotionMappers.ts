@@ -1,4 +1,3 @@
-import { mapProductRow, type ProductRowWithCategory } from './productMapper'
 import type {
   Promotion,
   PromotionApplyMode,
@@ -20,11 +19,9 @@ type GiftInventoryNestedRow = { stock: number }
 type GiftNestedRow = {
   id: string
   name: string
-  product_id: string
   is_active: boolean
   /** PostgREST may return one object or a single-element array. */
   gift_inventory?: GiftInventoryNestedRow | GiftInventoryNestedRow[] | null
-  products?: ProductRowWithCategory | ProductRowWithCategory[] | null
 }
 
 export type PromotionRowWithProducts = PromotionRow & {
@@ -50,14 +47,11 @@ function mapGiftDetail(row: GiftNestedRow | null): PromotionGiftDetail | null {
   if (!row) return null
   const inv = firstInventory(row.gift_inventory)
   const stock = inv?.stock ?? 0
-  const prodRow = unwrapOne(row.products)
   return {
     giftId: row.id,
     displayName: row.name,
-    productId: row.product_id,
     stock,
     isActive: row.is_active,
-    product: prodRow ? mapProductRow(prodRow) : null,
   }
 }
 

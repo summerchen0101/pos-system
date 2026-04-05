@@ -88,7 +88,8 @@ export type OrderInsert = {
 
 /** Payload for `checkout_order_deduct_stock` line objects (DB snake_case). */
 export type CheckoutLinePayload = {
-  productId: string
+  /** Omit or null when `gift_id` is set (threshold gift). */
+  productId: string | null
   quantity: number
   unitPriceCents: number
   productName: string
@@ -101,7 +102,6 @@ export type CheckoutLinePayload = {
 
 function lineToRpcJson(l: CheckoutLinePayload): Record<string, unknown> {
   const row: Record<string, unknown> = {
-    product_id: l.productId,
     quantity: l.quantity,
     unit_price_cents: l.unitPriceCents,
     product_name: l.productName,
@@ -109,6 +109,7 @@ function lineToRpcJson(l: CheckoutLinePayload): Record<string, unknown> {
     is_gift: l.isGift,
     is_manual_free: l.isManualFree,
   }
+  if (l.productId) row.product_id = l.productId
   if (l.giftId) row.gift_id = l.giftId
   if (l.source) row.source = l.source
   return row

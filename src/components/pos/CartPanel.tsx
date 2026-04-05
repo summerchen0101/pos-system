@@ -95,7 +95,7 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
         const checkoutLines: CheckoutLinePayload[] = lines.map((l) => {
           const isFs = isFreeSelectionCartLine(l, promotions)
           return {
-            productId: l.product.id,
+            productId: l.giftId ? null : l.product.id,
             quantity: l.quantity,
             unitPriceCents: l.isGift || l.isManualFree ? 0 : l.product.price,
             productName: l.product.name,

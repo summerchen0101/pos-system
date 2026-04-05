@@ -44,7 +44,6 @@ export type PromotionSelectableItemRow = {
 
 export type GiftRow = {
   id: string
-  product_id: string
   name: string
   is_active: boolean
 }
@@ -82,7 +81,7 @@ export type OrderRow = {
 export type OrderItemRow = {
   id: string
   order_id: string
-  product_id: string
+  product_id: string | null
   product_name: string
   size: string | null
   quantity: number
@@ -136,15 +135,7 @@ export type Database = {
         Row: GiftRow
         Insert: Omit<GiftRow, 'id'> & { id?: string }
         Update: Partial<GiftRow>
-        Relationships: [
-          {
-            foreignKeyName: 'gifts_product_id_fkey'
-            columns: ['product_id']
-            isOneToOne: false
-            referencedRelation: 'products'
-            referencedColumns: ['id']
-          },
-        ]
+        Relationships: []
       }
       gift_inventory: {
         Row: GiftInventoryRow

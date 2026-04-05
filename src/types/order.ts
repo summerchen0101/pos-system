@@ -26,7 +26,8 @@ export type OrderPromotionSnapshot = {
 
 export type OrderItem = {
   id: string
-  productId: string
+  /** Null for threshold gift lines (catalog gift only). */
+  productId: string | null
   productName: string
   size: string | null
   quantity: number

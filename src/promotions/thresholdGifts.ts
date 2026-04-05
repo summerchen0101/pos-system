@@ -1,4 +1,5 @@
 import { formatMoney } from '../lib/money'
+import { syntheticProductForThresholdGift } from '../lib/giftCartProduct'
 import type { CartLine, Promotion } from '../types/pos'
 import { payableAmountBeforeGiftsCents } from './computeCartPromotionBreakdown'
 
@@ -17,12 +18,10 @@ export function buildThresholdGiftLines(
     if (!g.isActive || g.stock < 1) continue
     const threshold = pr.thresholdAmountCents ?? 0
     if (threshold < 1 || basisCents < threshold) continue
-    const prod = g.product
-    if (!prod) continue
 
     desired.push({
       lineId: `gift:${pr.id}`,
-      product: { ...prod, price: 0 },
+      product: syntheticProductForThresholdGift(g),
       quantity: 1,
       isGift: true,
       giftId: g.giftId,
@@ -65,7 +64,7 @@ export function thresholdGiftSummaryLines(
   for (const pr of promotions) {
     if (!pr.active || pr.kind !== 'GIFT_WITH_THRESHOLD' || !pr.gift) continue
     const g = pr.gift
-    if (!g.isActive || g.stock < 1 || !g.product) continue
+    if (!g.isActive || g.stock < 1) continue
     const threshold = pr.thresholdAmountCents ?? 0
     if (threshold < 1 || basisCents < threshold) continue
     out.push(template(formatMoney(threshold), g.displayName))
