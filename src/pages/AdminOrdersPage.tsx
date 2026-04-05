@@ -3,10 +3,12 @@ import type { ColumnsType } from 'antd/es/table'
 import dayjs, { type Dayjs } from 'dayjs'
 import { useCallback, useEffect, useState } from 'react'
 import { fetchOrdersForDateRange } from '../api/ordersApi'
+import { zhtw } from '../locales/zhTW'
 import { formatMoney } from '../lib/money'
 import type { Order } from '../types/order'
 
 const { Title } = Typography
+const o = zhtw.admin.orders
 
 function startEndOfDay(d: Dayjs): { start: Date; end: Date } {
   const start = d.startOf('day').toDate()
@@ -38,27 +40,27 @@ export function AdminOrdersPage() {
 
   const columns: ColumnsType<Order> = [
     {
-      title: 'Date',
+      title: o.colDate,
       dataIndex: 'createdAt',
       key: 'createdAt',
       render: (iso: string) => dayjs(iso).format('YYYY-MM-DD HH:mm'),
     },
     {
-      title: 'Total',
+      title: o.colTotal,
       dataIndex: 'totalAmountCents',
       key: 'total',
       align: 'right',
       render: (cents: number) => formatMoney(cents),
     },
     {
-      title: 'Discount',
+      title: o.colDiscount,
       dataIndex: 'discountAmountCents',
       key: 'discount',
       align: 'right',
       render: (cents: number) => formatMoney(cents),
     },
     {
-      title: 'Final',
+      title: o.colFinal,
       dataIndex: 'finalAmountCents',
       key: 'final',
       align: 'right',
@@ -69,10 +71,10 @@ export function AdminOrdersPage() {
   return (
     <div className="admin-page">
       <Title level={4} style={{ marginTop: 0 }}>
-        Order History
+        {o.pageTitle}
       </Title>
       <div style={{ marginBottom: 16 }}>
-        <span style={{ marginRight: 8 }}>Date</span>
+        <span style={{ marginRight: 8 }}>{o.dateLabel}</span>
         <DatePicker value={selectedDay} onChange={(d) => d && setSelectedDay(d)} allowClear={false} />
       </div>
       <Table<Order>

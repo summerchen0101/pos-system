@@ -1,3 +1,4 @@
+import { zhtw } from '../../locales/zhTW'
 import { formatMoney } from '../../lib/money'
 import type { CartTotals } from '../../store/cartStore'
 
@@ -24,28 +25,31 @@ export function OrderSummary({
 
   let discountCaption: string
   if (isEmpty) {
-    discountCaption = '—'
+    discountCaption = zhtw.pos.discountEmpty
   } else if (promotionsFailed) {
-    discountCaption = 'Promotions unavailable — list prices only'
+    discountCaption = zhtw.pos.discountPromoFail
   } else if (hasDiscount && appliedPromotionName) {
-    discountCaption = `Best offer: ${appliedPromotionName}${pctOff != null ? ` (−${pctOff}%)` : ''}`
+    discountCaption = zhtw.pos.discountBest(
+      appliedPromotionName,
+      pctOff != null ? String(pctOff) : null,
+    )
   } else if (hasPromotionRules) {
-    discountCaption = 'No qualifying promotion for this cart'
+    discountCaption = zhtw.pos.discountNoQualify
   } else {
-    discountCaption = 'No active promotions'
+    discountCaption = zhtw.pos.discountNone
   }
 
   return (
     <div className="pos-order-summary">
-      <h3 className="pos-order-summary__title">Totals</h3>
+      <h3 className="pos-order-summary__title">{zhtw.pos.totals}</h3>
       <dl className="pos-order-summary__rows">
         <div className="pos-order-summary__row">
-          <dt>Subtotal</dt>
+          <dt>{zhtw.pos.subtotal}</dt>
           <dd>{formatMoney(totals.subtotalCents)}</dd>
         </div>
         <div className="pos-order-summary__row pos-order-summary__row--discount">
           <dt>
-            <span className="pos-order-summary__discount-label">Discount</span>
+            <span className="pos-order-summary__discount-label">{zhtw.pos.discount}</span>
             <span className="pos-order-summary__discount-caption">{discountCaption}</span>
           </dt>
           <dd className={hasDiscount ? 'is-savings' : undefined}>
@@ -53,7 +57,7 @@ export function OrderSummary({
           </dd>
         </div>
         <div className="pos-order-summary__row pos-order-summary__row--final">
-          <dt>Total due</dt>
+          <dt>{zhtw.pos.totalDue}</dt>
           <dd>{formatMoney(totals.finalCents)}</dd>
         </div>
       </dl>

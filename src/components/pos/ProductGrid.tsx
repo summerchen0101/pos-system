@@ -1,3 +1,4 @@
+import { zhtw } from '../../locales/zhTW'
 import type { Product } from '../../types/pos'
 import { ProductButton } from './ProductButton'
 
@@ -14,7 +15,7 @@ export function ProductGrid({ products, loading, error, onAddProduct, emptyMessa
   if (loading) {
     return (
       <p className="pos-product-grid__status" role="status">
-        Loading products…
+        {zhtw.common.loading}
       </p>
     )
   }
@@ -30,13 +31,13 @@ export function ProductGrid({ products, loading, error, onAddProduct, emptyMessa
   if (products.length === 0) {
     return (
       <p className="pos-product-grid__status">
-        {emptyMessage ?? 'No products in Supabase yet. Add rows to the products table.'}
+        {emptyMessage ?? zhtw.pos.emptyCatalog}
       </p>
     )
   }
 
   return (
-    <section className="pos-product-grid" aria-label="Products">
+    <section className="pos-product-grid" aria-label={zhtw.pos.productsAria}>
       {products.map((product) => (
         <ProductButton key={product.id} product={product} onAdd={onAddProduct} />
       ))}

@@ -1,5 +1,11 @@
-import type { CartLine } from '../../types/pos'
+import { zhtw } from '../../locales/zhTW'
+import type { CartLine, Product } from '../../types/pos'
 import { formatMoney } from '../../lib/money'
+
+function productCartLabel(p: Product): string {
+  const size = p.size?.trim()
+  return size ? `${p.name} (${size})` : p.name
+}
 
 type Props = {
   line: CartLine
@@ -11,20 +17,25 @@ type Props = {
 export function CartLineRow({ line, onIncrement, onDecrement, onRemove }: Props) {
   const { product, quantity } = line
   const lineTotal = product.price * quantity
+  const label = productCartLabel(product)
 
   return (
     <li className="pos-cart-line">
       <div className="pos-cart-line__info">
-        <span className="pos-cart-line__name">{product.name}</span>
-        <span className="pos-cart-line__unit">{formatMoney(product.price)} each</span>
+        <span className="pos-cart-line__name">{label}</span>
+        <span className="pos-cart-line__unit">
+          {formatMoney(product.price)}
+          {zhtw.pos.each}
+        </span>
+        <span className="pos-cart-line__stock">{zhtw.pos.stockCount(product.stock)}</span>
       </div>
       <div className="pos-cart-line__controls">
-        <div className="pos-qty" role="group" aria-label={`Quantity for ${product.name}`}>
+        <div className="pos-qty" role="group" aria-label={zhtw.pos.qtyGroup(label)}>
           <button
             type="button"
             className="pos-qty__btn"
             onClick={() => onDecrement(product.id)}
-            aria-label="Decrease quantity"
+            aria-label={zhtw.pos.decreaseQty}
           >
             −
           </button>
@@ -33,7 +44,7 @@ export function CartLineRow({ line, onIncrement, onDecrement, onRemove }: Props)
             type="button"
             className="pos-qty__btn"
             onClick={() => onIncrement(product.id)}
-            aria-label="Increase quantity"
+            aria-label={zhtw.pos.increaseQty}
           >
             +
           </button>
@@ -43,7 +54,7 @@ export function CartLineRow({ line, onIncrement, onDecrement, onRemove }: Props)
           type="button"
           className="pos-cart-line__remove"
           onClick={() => onRemove(product.id)}
-          aria-label={`Remove ${product.name}`}
+          aria-label={zhtw.pos.removeLine(label)}
         >
           ×
         </button>

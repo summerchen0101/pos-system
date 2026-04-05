@@ -25,29 +25,33 @@ import {
   type PromotionInput,
   type PromotionTierInput,
 } from '../api/promotionsAdmin'
+import { zhtw } from '../locales/zhTW'
 import type { Product, Promotion, PromotionKind } from '../types/pos'
 
 const { Title, Text } = Typography
+const pr = zhtw.admin.promotions
+const common = zhtw.common
 
 const KIND_OPTIONS: { value: PromotionKind; label: string }[] = [
-  { value: 'BUY_X_GET_Y', label: 'Buy X get Y free' },
-  { value: 'BULK_DISCOUNT', label: 'Bulk discount' },
-  { value: 'SINGLE_DISCOUNT', label: 'Single product discount' },
-  { value: 'TIERED', label: 'Tiered (multiple rules)' },
+  { value: 'BUY_X_GET_Y', label: pr.kindBogo },
+  { value: 'BULK_DISCOUNT', label: pr.kindBulk },
+  { value: 'SINGLE_DISCOUNT', label: pr.kindSingle },
+  { value: 'TIERED', label: pr.kindTiered },
 ]
 
 function promotionSummary(p: Promotion): string {
+  const dash = common.dash
   switch (p.kind) {
     case 'BUY_X_GET_Y':
-      return `Buy ${p.buyQty ?? '—'} get ${p.freeQty ?? '—'} free`
+      return pr.summaryBogo(String(p.buyQty ?? dash), String(p.freeQty ?? dash))
     case 'BULK_DISCOUNT':
-      return `≥${p.buyQty ?? '—'} units → ${p.discountPercent ?? 0}% off`
+      return pr.summaryBulk(String(p.buyQty ?? dash), p.discountPercent ?? 0)
     case 'SINGLE_DISCOUNT':
-      return `${p.discountPercent ?? 0}% off selected SKU(s)`
+      return pr.summarySingle(p.discountPercent ?? 0)
     case 'TIERED':
-      return `${p.rules.length} tier(s) — best match applies`
+      return pr.summaryTiered(p.rules.length)
     default:
-      return '—'
+      return dash
   }
 }
 
@@ -76,9 +80,9 @@ function buildTierInputs(rows: TierFormRow[]): PromotionTierInput[] {
     const dp = t.discount_percent
     const hasFree = fq != null && fq >= 1
     const hasPct = dp != null && dp >= 1 && dp <= 100
-    if (minQty < 1) throw new Error(`Tier ${i + 1}: min qty must be ≥ 1`)
+    if (minQty < 1) throw new Error(pr.tierMinError(i + 1))
     if (hasFree === hasPct) {
-      throw new Error(`Tier ${i + 1}: set either free qty OR discount %`)
+      throw new Error(pr.tierExclusiveError(i + 1))
     }
     if (hasFree) {
       return { minQty, freeQty: fq!, discountPercent: null, sortOrder: i }
@@ -122,7 +126,7 @@ export function AdminPromotionsPage() {
       setProducts(plist)
       setPromotions(mlist)
     } catch (e) {
-      message.error(e instanceof Error ? e.message : 'Failed to load data')
+      message.error(e instanceof Error ? e.message : pr.loadError)
     } finally {
       setLoading(false)
     }
@@ -182,33 +186,33 @@ export function AdminPromotionsPage() {
     try {
       const values = await form.validateFields()
       if (values.kind === 'TIERED' && (!values.tiers || values.tiers.length === 0)) {
-        message.error('Add at least one tier')
+        message.error(pr.addTierError)
         return
       }
       let input: PromotionInput
       try {
         input = toInput(values)
       } catch (err) {
-        message.error(err instanceof Error ? err.message : 'Invalid tiers')
+        message.error(err instanceof Error ? err.message : pr.invalidTiers)
         return
       }
       if (input.productIds.length === 0) {
-        message.error('Select at least one product')
+        message.error(pr.selectProductError)
         return
       }
       setSaving(true)
       if (editingId) {
         await updatePromotion(editingId, input)
-        message.success('Promotion updated')
+        message.success(pr.updated)
       } else {
         await createPromotion(input)
-        message.success('Promotion created')
+        message.success(pr.created)
       }
       closeModal()
       await load()
     } catch (e) {
       if (e && typeof e === 'object' && 'errorFields' in e) return
-      message.error(e instanceof Error ? e.message : 'Save failed')
+      message.error(e instanceof Error ? e.message : pr.saveError)
     } finally {
       setSaving(false)
     }
@@ -216,13 +220,13 @@ export function AdminPromotionsPage() {
 
   const onDelete = (p: Promotion) => {
     modal.confirm({
-      title: 'Delete promotion?',
-      content: `“${p.name}” will be removed.`,
-      okText: 'Delete',
+      title: pr.deleteTitle,
+      content: pr.deleteBody(p.name),
+      okText: common.delete,
       okButtonProps: { danger: true },
       onOk: async () => {
         await deletePromotion(p.id)
-        message.success('Deleted')
+        message.success(pr.deleted)
         await load()
       },
     })
@@ -231,10 +235,10 @@ export function AdminPromotionsPage() {
   const onToggleActive = async (p: Promotion, active: boolean) => {
     try {
       await setPromotionActive(p.id, active)
-      message.success(active ? 'Activated' : 'Deactivated')
+      message.success(active ? pr.activated : pr.deactivated)
       await load()
     } catch (e) {
-      message.error(e instanceof Error ? e.message : 'Update failed')
+      message.error(e instanceof Error ? e.message : pr.updateError)
     }
   }
 
@@ -245,7 +249,7 @@ export function AdminPromotionsPage() {
 
   const columns: ColumnsType<Promotion> = [
     {
-      title: 'Name',
+      title: pr.colName,
       dataIndex: 'name',
       key: 'name',
       render: (name: string, row) => (
@@ -260,26 +264,26 @@ export function AdminPromotionsPage() {
       ),
     },
     {
-      title: 'Type',
+      title: pr.colType,
       dataIndex: 'kind',
       key: 'kind',
       width: 160,
       render: (k: PromotionKind) => <Tag>{KIND_OPTIONS.find((o) => o.value === k)?.label ?? k}</Tag>,
     },
     {
-      title: 'Rule',
+      title: pr.colRule,
       key: 'rule',
       render: (_, row) => promotionSummary(row),
     },
     {
-      title: 'Products',
+      title: pr.colProducts,
       key: 'pc',
       width: 72,
       align: 'center',
       render: (_, row) => row.productIds.length,
     },
     {
-      title: 'Active',
+      title: pr.colActive,
       dataIndex: 'active',
       key: 'active',
       width: 100,
@@ -294,10 +298,10 @@ export function AdminPromotionsPage() {
       render: (_, row) => (
         <Space>
           <Button type="link" size="small" onClick={() => openEdit(row)}>
-            Edit
+            {common.edit}
           </Button>
           <Button type="link" size="small" danger onClick={() => onDelete(row)}>
-            Delete
+            {common.delete}
           </Button>
         </Space>
       ),
@@ -309,10 +313,10 @@ export function AdminPromotionsPage() {
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
           <Title level={4} style={{ margin: 0 }}>
-            Promotion Management
+            {pr.pageTitle}
           </Title>
           <Button type="primary" onClick={openCreate}>
-            New promotion
+            {pr.newPromotion}
           </Button>
         </Space>
 
@@ -328,14 +332,14 @@ export function AdminPromotionsPage() {
       </Space>
 
       <Modal
-        title={editingId ? 'Edit promotion' : 'Create promotion'}
+        title={editingId ? pr.modalEdit : pr.modalCreate}
         open={modalOpen}
         onCancel={closeModal}
         onOk={() => void submit()}
         confirmLoading={saving}
         destroyOnClose
         width={640}
-        okText="Save"
+        okText={common.save}
       >
         <Form<FormValues>
           form={form}
@@ -388,17 +392,17 @@ export function AdminPromotionsPage() {
             }
           }}
         >
-          <Form.Item name="name" label="Name" rules={[{ required: true, message: 'Required' }]}>
-            <Input placeholder="e.g. Summer latte deal" />
+          <Form.Item name="name" label={pr.labelName} rules={[{ required: true, message: common.required }]}>
+            <Input placeholder={pr.namePh} />
           </Form.Item>
-          <Form.Item name="code" label="Code (optional)">
-            <Input placeholder="Internal reference" />
+          <Form.Item name="code" label={pr.labelCode}>
+            <Input placeholder={pr.codePh} />
           </Form.Item>
-          <Form.Item name="kind" label="Promotion type" rules={[{ required: true }]}>
+          <Form.Item name="kind" label={pr.labelKind} rules={[{ required: true }]}>
             <Select
               options={KIND_OPTIONS}
               optionFilterProp="label"
-              placeholder="Select type"
+              placeholder={pr.kindPh}
             />
           </Form.Item>
 
@@ -406,19 +410,19 @@ export function AdminPromotionsPage() {
             <Space size="middle" style={{ display: 'flex' }}>
               <Form.Item
                 name="buyQty"
-                label="Buy quantity (X)"
+                label={pr.buyX}
                 rules={[{ required: true, type: 'number', min: 1 }]}
                 style={{ flex: 1 }}
               >
-                <InputNumber min={1} style={{ width: '100%' }} placeholder="X" />
+                <InputNumber min={1} style={{ width: '100%' }} placeholder={pr.phX} />
               </Form.Item>
               <Form.Item
                 name="freeQty"
-                label="Free quantity (Y)"
+                label={pr.freeY}
                 rules={[{ required: true, type: 'number', min: 1 }]}
                 style={{ flex: 1 }}
               >
-                <InputNumber min={1} style={{ width: '100%' }} placeholder="Y" />
+                <InputNumber min={1} style={{ width: '100%' }} placeholder={pr.phY} />
               </Form.Item>
             </Space>
           )}
@@ -427,7 +431,7 @@ export function AdminPromotionsPage() {
             <Space size="middle" style={{ display: 'flex' }}>
               <Form.Item
                 name="buyQty"
-                label="Min units in cart"
+                label={pr.minUnits}
                 rules={[{ required: true, type: 'number', min: 1 }]}
                 style={{ flex: 1 }}
               >
@@ -435,7 +439,7 @@ export function AdminPromotionsPage() {
               </Form.Item>
               <Form.Item
                 name="discountPercent"
-                label="Discount %"
+                label={pr.discountPct}
                 rules={[{ required: true, type: 'number', min: 1, max: 100 }]}
                 style={{ flex: 1 }}
               >
@@ -447,7 +451,7 @@ export function AdminPromotionsPage() {
           {kindWatch === 'SINGLE_DISCOUNT' && (
             <Form.Item
               name="discountPercent"
-              label="Discount %"
+              label={pr.discountPct}
               rules={[{ required: true, type: 'number', min: 1, max: 100 }]}
             >
               <InputNumber min={1} max={100} style={{ width: '100%' }} />
@@ -455,7 +459,7 @@ export function AdminPromotionsPage() {
           )}
 
           {kindWatch === 'TIERED' && (
-            <Form.Item label="Tiers (best matching rule wins)">
+            <Form.Item label={pr.tiersLabel}>
               <Form.List name="tiers">
                 {(fields, { add, remove }) => (
                   <Space direction="vertical" style={{ width: '100%' }} size="small">
@@ -466,15 +470,15 @@ export function AdminPromotionsPage() {
                           rules={[{ required: true, type: 'number', min: 1 }]}
                           style={{ marginBottom: 0, width: 120 }}
                         >
-                          <InputNumber min={1} placeholder="Min qty" style={{ width: '100%' }} />
+                          <InputNumber min={1} placeholder={pr.minQty} style={{ width: '100%' }} />
                         </Form.Item>
                         <Form.Item
                           name={[field.name, 'free_qty']}
                           style={{ marginBottom: 0, width: 120 }}
                         >
-                          <InputNumber min={1} placeholder="Free qty" style={{ width: '100%' }} />
+                          <InputNumber min={1} placeholder={pr.freeQty} style={{ width: '100%' }} />
                         </Form.Item>
-                        <Text type="secondary">or</Text>
+                        <Text type="secondary">{pr.or}</Text>
                         <Form.Item
                           name={[field.name, 'discount_percent']}
                           style={{ marginBottom: 0, width: 120 }}
@@ -482,17 +486,17 @@ export function AdminPromotionsPage() {
                           <InputNumber
                             min={1}
                             max={100}
-                            placeholder="% off"
+                            placeholder={pr.pctOff}
                             style={{ width: '100%' }}
                           />
                         </Form.Item>
                         <Button type="text" danger onClick={() => remove(field.name)}>
-                          Remove
+                          {pr.removeTier}
                         </Button>
                       </Space>
                     ))}
                     <Button type="dashed" onClick={() => add({ min_qty: 1 })} block>
-                      Add tier
+                      {pr.addTier}
                     </Button>
                   </Space>
                 )}
@@ -502,11 +506,11 @@ export function AdminPromotionsPage() {
 
           <Form.Item
             name="productIds"
-            label="Applicable products"
+            label={pr.labelProducts}
             rules={[
               {
                 validator: async (_, v: string[]) => {
-                  if (!v?.length) throw new Error('Select at least one product')
+                  if (!v?.length) throw new Error(pr.validatorProducts)
                 },
               },
             ]}
@@ -516,12 +520,12 @@ export function AdminPromotionsPage() {
               allowClear
               showSearch
               optionFilterProp="label"
-              placeholder="Select products"
+              placeholder={pr.productsPh}
               options={productOptions}
             />
           </Form.Item>
 
-          <Form.Item name="active" label="Active" valuePropName="checked">
+          <Form.Item name="active" label={pr.colActive} valuePropName="checked">
             <Switch />
           </Form.Item>
         </Form>

@@ -2,12 +2,18 @@ import type { Promotion, PromotionKind, PromotionTierRule } from '../types/pos'
 import { isPromotionKindString } from '../types/pos'
 import type { PromotionRow, PromotionRuleRow } from '../types/supabase'
 
+/** Nested `promotion_rules` from PostgREST omit parent `promotion_id`. */
+export type PromotionRuleNestedRow = Pick<
+  PromotionRuleRow,
+  'id' | 'min_qty' | 'free_qty' | 'discount_percent' | 'sort_order'
+>
+
 export type PromotionRowWithProducts = PromotionRow & {
   promotion_products?: { product_id: string }[] | null
-  promotion_rules?: PromotionRuleRow[] | null
+  promotion_rules?: PromotionRuleNestedRow[] | null
 }
 
-function mapTierRows(rows: PromotionRuleRow[] | null | undefined): PromotionTierRule[] {
+function mapTierRows(rows: PromotionRuleNestedRow[] | null | undefined): PromotionTierRule[] {
   if (!rows?.length) return []
   return [...rows]
     .sort((a, b) => a.sort_order - b.sort_order || a.min_qty - b.min_qty)

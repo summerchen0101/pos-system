@@ -18,6 +18,11 @@ export type OrderInsert = {
   finalAmountCents: number
 }
 
+export type CheckoutLine = {
+  productId: string
+  quantity: number
+}
+
 /** List orders whose `created_at` falls in `[dayStart, dayEnd]` (inclusive), local day boundaries as ISO strings. */
 export async function fetchOrdersForDateRange(
   rangeStart: Date,
@@ -37,11 +42,21 @@ export async function fetchOrdersForDateRange(
   return (data ?? []).map(mapOrderRow)
 }
 
-export async function insertOrder(input: OrderInsert): Promise<void> {
-  const { error } = await supabase.from('orders').insert({
-    total_amount: input.totalAmountCents,
-    discount_amount: input.discountAmountCents,
-    final_amount: input.finalAmountCents,
+/**
+ * Insert order and deduct product stock atomically (DB function).
+ * Throws if any line exceeds available stock.
+ */
+export async function checkoutOrder(input: OrderInsert, lines: CheckoutLine[]): Promise<void> {
+  if (lines.length === 0) throw new Error('empty_cart')
+  const p_lines = lines.map((l) => ({
+    product_id: l.productId,
+    quantity: l.quantity,
+  }))
+  const { error } = await supabase.rpc('checkout_order_deduct_stock', {
+    p_total_amount: input.totalAmountCents,
+    p_discount_amount: input.discountAmountCents,
+    p_final_amount: input.finalAmountCents,
+    p_lines,
   })
   if (error) throw error
 }

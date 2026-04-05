@@ -21,23 +21,28 @@ export const useCartStore = create<CartState>((set) => ({
 
   addProduct: (product) =>
     set((state) => {
+      if (product.stock <= 0) return state
       const idx = state.lines.findIndex((l) => l.product.id === product.id)
-      let lines: CartLine[]
       if (idx >= 0) {
-        lines = state.lines.map((l, i) =>
-          i === idx ? { ...l, quantity: l.quantity + 1 } : l,
-        )
-      } else {
-        lines = [...state.lines, { product, quantity: 1 }]
+        const line = state.lines[idx]
+        const next = Math.min(line.quantity + 1, product.stock)
+        if (next <= line.quantity) return state
+        return {
+          lines: state.lines.map((l, i) =>
+            i === idx ? { ...l, quantity: next, product } : l,
+          ),
+        }
       }
-      return { lines }
+      return { lines: [...state.lines, { product, quantity: 1 }] }
     }),
 
   increment: (productId) =>
     set((state) => ({
-      lines: state.lines.map((l) =>
-        l.product.id === productId ? { ...l, quantity: l.quantity + 1 } : l,
-      ),
+      lines: state.lines.map((l) => {
+        if (l.product.id !== productId) return l
+        if (l.quantity >= l.product.stock) return l
+        return { ...l, quantity: l.quantity + 1 }
+      }),
     })),
 
   decrement: (productId) =>

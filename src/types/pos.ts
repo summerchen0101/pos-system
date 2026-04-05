@@ -5,7 +5,7 @@ export type Category = {
   isActive: boolean
 }
 
-/** `price` is in minor units (e.g. cents). */
+/** `price` is in TWD minor units (1 = NT$0.01). */
 export type Product = {
   id: string
   name: string
@@ -14,6 +14,8 @@ export type Product = {
   size: string | null
   sku: string
   price: number
+  /** On-hand quantity (non-negative). */
+  stock: number
   isActive: boolean
   categoryId: string | null
   categoryName: string | null

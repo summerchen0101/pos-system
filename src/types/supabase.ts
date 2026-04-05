@@ -14,8 +14,9 @@ export type ProductRow = {
   description: string | null
   size: string | null
   sku: string
-  /** Minor units (e.g. cents). */
+  /** TWD minor units (1 = NT$0.01). */
   price: number
+  stock: number
   is_active: boolean
 }
 
@@ -65,7 +66,15 @@ export type Database = {
         Row: ProductRow
         Insert: Omit<ProductRow, 'id'> & { id?: string }
         Update: Partial<ProductRow>
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'products_category_id_fkey'
+            columns: ['category_id']
+            isOneToOne: false
+            referencedRelation: 'categories'
+            referencedColumns: ['id']
+          },
+        ]
       }
       promotions: {
         Row: PromotionRow
@@ -77,13 +86,36 @@ export type Database = {
         Row: PromotionProductRow
         Insert: PromotionProductRow
         Update: Partial<PromotionProductRow>
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'promotion_products_promotion_id_fkey'
+            columns: ['promotion_id']
+            isOneToOne: false
+            referencedRelation: 'promotions'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'promotion_products_product_id_fkey'
+            columns: ['product_id']
+            isOneToOne: false
+            referencedRelation: 'products'
+            referencedColumns: ['id']
+          },
+        ]
       }
       promotion_rules: {
         Row: PromotionRuleRow
         Insert: Omit<PromotionRuleRow, 'id'> & { id?: string }
         Update: Partial<PromotionRuleRow>
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'promotion_rules_promotion_id_fkey'
+            columns: ['promotion_id']
+            isOneToOne: false
+            referencedRelation: 'promotions'
+            referencedColumns: ['id']
+          },
+        ]
       }
       orders: {
         Row: OrderRow
@@ -93,7 +125,17 @@ export type Database = {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      checkout_order_deduct_stock: {
+        Args: {
+          p_total_amount: number
+          p_discount_amount: number
+          p_final_amount: number
+          p_lines: { product_id: string; quantity: number }[]
+        }
+        Returns: string
+      }
+    }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }

@@ -1,15 +1,17 @@
+/* Global dark palette — aligned with Ant Design dark tokens for POS + admin chrome. */
 :root {
-  --pos-text-strong: #0f172a;
-  --pos-text-muted: #64748b;
-  --pos-border: #e2e8f0;
-  --pos-surface: #ffffff;
-  --pos-cart-bg: #f8fafc;
-  --pos-accent: #2563eb;
-  --pos-accent-soft: rgba(37, 99, 235, 0.08);
-  --pos-success: #059669;
-  --pos-danger: #dc2626;
-  --pos-danger-soft: rgba(220, 38, 38, 0.08);
-  --pos-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --pos-page-bg: #0a0a0a;
+  --pos-text-strong: rgba(255, 255, 255, 0.92);
+  --pos-text-muted: rgba(255, 255, 255, 0.55);
+  --pos-border: #424242;
+  --pos-surface: #1f1f1f;
+  --pos-cart-bg: #141414;
+  --pos-accent: #4f8fff;
+  --pos-accent-soft: rgba(79, 143, 255, 0.16);
+  --pos-success: #73d13d;
+  --pos-danger: #ff7875;
+  --pos-danger-soft: rgba(255, 120, 117, 0.14);
+  --pos-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.45);
 
   font-family:
     system-ui,
@@ -20,27 +22,11 @@
   line-height: 1.5;
   font-weight: 400;
   color: var(--pos-text-strong);
-  background-color: var(--pos-surface);
+  background-color: var(--pos-page-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --pos-text-strong: #f1f5f9;
-    --pos-text-muted: #94a3b8;
-    --pos-border: #334155;
-    --pos-surface: #1e293b;
-    --pos-cart-bg: #0f172a;
-    --pos-accent: #60a5fa;
-    --pos-accent-soft: rgba(96, 165, 250, 0.12);
-    --pos-success: #34d399;
-    --pos-danger: #f87171;
-    --pos-danger-soft: rgba(248, 113, 113, 0.12);
-    --pos-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  }
 }
 
 *,
@@ -52,10 +38,13 @@
 body {
   margin: 0;
   min-height: 100svh;
+  background-color: var(--pos-page-bg);
+  color: var(--pos-text-strong);
 }
 
 #root {
   min-height: 100svh;
+  background-color: var(--pos-page-bg);
 }
 
 .admin-page {

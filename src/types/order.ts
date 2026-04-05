@@ -1,4 +1,4 @@
-/** Order row from `public.orders` (amounts in cents). */
+/** Order row from `public.orders` (amounts in TWD minor units). */
 export type Order = {
   id: string
   createdAt: string

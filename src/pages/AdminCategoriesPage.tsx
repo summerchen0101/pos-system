@@ -8,9 +8,12 @@ import {
   updateCategory,
   type CategoryInput,
 } from '../api/categoriesAdmin'
+import { zhtw } from '../locales/zhTW'
 import type { Category } from '../types/pos'
 
 const { Title, Text } = Typography
+const c = zhtw.admin.categories
+const common = zhtw.common
 
 type FormValues = {
   name: string
@@ -41,7 +44,7 @@ export function AdminCategoriesPage() {
       const list = await listCategoriesAdmin()
       setCategories(list)
     } catch (e) {
-      message.error(e instanceof Error ? e.message : 'Failed to load categories')
+      message.error(e instanceof Error ? e.message : c.loadError)
     } finally {
       setLoading(false)
     }
@@ -86,38 +89,34 @@ export function AdminCategoriesPage() {
       setSaving(true)
       if (editingId) {
         await updateCategory(editingId, input)
-        message.success('Category updated')
+        message.success(c.updated)
       } else {
         await createCategory(input)
-        message.success('Category created')
+        message.success(c.created)
       }
       closeModal()
       await load()
     } catch (e) {
       if (e && typeof e === 'object' && 'errorFields' in e) return
-      message.error(e instanceof Error ? e.message : 'Save failed')
+      message.error(e instanceof Error ? e.message : c.saveError)
     } finally {
       setSaving(false)
     }
   }
 
-  const onDelete = (c: Category) => {
+  const onDelete = (row: Category) => {
     modal.confirm({
-      title: 'Delete category?',
-      content: (
-        <span>
-          “{c.name}” will be removed. Products using this category will have their category cleared.
-        </span>
-      ),
-      okText: 'Delete',
+      title: c.deleteTitle,
+      content: <span>{c.deleteBody(row.name)}</span>,
+      okText: common.delete,
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
-          await deleteCategory(c.id)
-          message.success('Deleted')
+          await deleteCategory(row.id)
+          message.success(c.deleted)
           await load()
         } catch (e) {
-          message.error(e instanceof Error ? e.message : 'Delete failed')
+          message.error(e instanceof Error ? e.message : c.deleteError)
         }
       },
     })
@@ -125,25 +124,25 @@ export function AdminCategoriesPage() {
 
   const columns: ColumnsType<Category> = [
     {
-      title: 'Name',
+      title: c.colName,
       dataIndex: 'name',
       key: 'name',
       render: (name: string) => <Text strong>{name}</Text>,
     },
     {
-      title: 'Sort order',
+      title: c.colSort,
       dataIndex: 'sortOrder',
       key: 'sortOrder',
       width: 120,
       align: 'right',
     },
     {
-      title: 'Active',
+      title: c.colActive,
       dataIndex: 'isActive',
       key: 'active',
       width: 100,
       render: (active: boolean) => (
-        <Tag color={active ? 'green' : 'default'}>{active ? 'Yes' : 'No'}</Tag>
+        <Tag color={active ? 'green' : 'default'}>{active ? common.yes : common.no}</Tag>
       ),
     },
     {
@@ -153,10 +152,10 @@ export function AdminCategoriesPage() {
       render: (_, row) => (
         <Space>
           <Button type="link" size="small" onClick={() => openEdit(row)}>
-            Edit
+            {common.edit}
           </Button>
           <Button type="link" size="small" danger onClick={() => onDelete(row)}>
-            Delete
+            {common.delete}
           </Button>
         </Space>
       ),
@@ -167,10 +166,10 @@ export function AdminCategoriesPage() {
     <div className="admin-page">
       <Space align="center" style={{ justifyContent: 'space-between', width: '100%', marginBottom: 16 }}>
         <Title level={4} style={{ margin: 0 }}>
-          Category Management
+          {c.pageTitle}
         </Title>
         <Button type="primary" onClick={openCreate}>
-          New category
+          {c.newCategory}
         </Button>
       </Space>
 
@@ -186,27 +185,27 @@ export function AdminCategoriesPage() {
       </Card>
 
       <Modal
-        title={editingId ? 'Edit category' : 'Create category'}
+        title={editingId ? c.modalEdit : c.modalCreate}
         open={modalOpen}
         onCancel={closeModal}
         onOk={() => void submit()}
         confirmLoading={saving}
         destroyOnClose
         width={480}
-        okText="Save"
+        okText={common.save}
       >
         <Form<FormValues> form={form} layout="vertical" style={{ marginTop: 8 }}>
-          <Form.Item name="name" label="Name" rules={[{ required: true, message: 'Required' }]}>
+          <Form.Item name="name" label={c.colName} rules={[{ required: true, message: common.required }]}>
             <Input />
           </Form.Item>
           <Form.Item
             name="sortOrder"
-            label="Sort order"
-            rules={[{ required: true, type: 'number', message: 'Required' }]}
+            label={c.colSort}
+            rules={[{ required: true, type: 'number', message: common.required }]}
           >
             <InputNumber min={0} step={1} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="isActive" label="Active" valuePropName="checked">
+          <Form.Item name="isActive" label={c.colActive} valuePropName="checked">
             <Switch />
           </Form.Item>
         </Form>

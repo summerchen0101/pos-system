@@ -15,21 +15,26 @@ import {
   Typography,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { useCallback, useEffect, useState, type Key } from 'react'
+import { useCallback, useEffect, useMemo, useState, type Key } from 'react'
 import { listCategoriesAdmin } from '../api/categoriesAdmin'
 import {
   bulkPatchProducts,
   createProduct,
   deleteProduct,
+  listDistinctProductSizes,
   listProductsAdmin,
   updateProduct,
   type ProductBulkPatch,
   type ProductInput,
+  type ProductListFilters,
 } from '../api/productsAdmin'
+import { zhtw } from '../locales/zhTW'
 import { formatMoney } from '../lib/money'
 import type { Category, Product } from '../types/pos'
 
 const { Title, Text } = Typography
+const p = zhtw.admin.products
+const common = zhtw.common
 
 type FormValues = {
   categoryId?: string | null
@@ -39,6 +44,7 @@ type FormValues = {
   size?: string
   sku: string
   priceDollars: number
+  stock: number
   isActive: boolean
 }
 
@@ -46,6 +52,13 @@ type BulkFormValues = {
   bulkCategoryId?: string | null
   bulkSize?: string
   bulkPriceDollars?: number | null
+}
+
+type FilterFormValues = {
+  filterName?: string
+  filterSku?: string
+  filterSize?: string
+  filterCategoryId?: string
 }
 
 function dollarsToCents(d: number): number {
@@ -65,6 +78,7 @@ function toInput(values: FormValues): ProductInput {
     size: values.size?.trim() ? values.size.trim() : null,
     sku: values.sku,
     priceCents: dollarsToCents(values.priceDollars),
+    stock: Math.max(0, Math.floor(Number(values.stock) || 0)),
     isActive: values.isActive,
   }
 }
@@ -73,8 +87,12 @@ export function AdminProductsPage() {
   const { message, modal } = App.useApp()
   const [form] = Form.useForm<FormValues>()
   const [bulkForm] = Form.useForm<BulkFormValues>()
+  const [filterForm] = Form.useForm<FilterFormValues>()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [sizeOptions, setSizeOptions] = useState<string[]>([])
+  const [debouncedName, setDebouncedName] = useState('')
+  const [debouncedSku, setDebouncedSku] = useState('')
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [bulkModalOpen, setBulkModalOpen] = useState(false)
@@ -84,31 +102,82 @@ export function AdminProductsPage() {
   const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([])
 
   const categoryOptions = categories.map((c) => ({ label: c.name, value: c.id }))
-
-  const sizeSuggestions = Array.from(
-    new Set(
-      products.map((p) => p.size?.trim()).filter((s): s is string => Boolean(s)),
-    ),
+  const sizeFilterOptions = useMemo(
+    () => sizeOptions.map((s) => ({ label: s, value: s })),
+    [sizeOptions],
   )
-    .sort((a, b) => a.localeCompare(b))
-    .map((value) => ({ value }))
+  const sizeSuggestions = useMemo(() => sizeOptions.map((value) => ({ value })), [sizeOptions])
 
-  const load = useCallback(async () => {
+  const watchFilterName = Form.useWatch('filterName', filterForm)
+  const watchFilterSku = Form.useWatch('filterSku', filterForm)
+  const watchFilterSize = Form.useWatch('filterSize', filterForm)
+  const watchFilterCategoryId = Form.useWatch('filterCategoryId', filterForm)
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setDebouncedName(typeof watchFilterName === 'string' ? watchFilterName.trim() : '')
+      setDebouncedSku(typeof watchFilterSku === 'string' ? watchFilterSku.trim() : '')
+    }, 300)
+    return () => window.clearTimeout(id)
+  }, [watchFilterName, watchFilterSku])
+
+  const listFilters = useMemo((): ProductListFilters => {
+    const size =
+      typeof watchFilterSize === 'string' && watchFilterSize.trim()
+        ? watchFilterSize.trim()
+        : undefined
+    const categoryId =
+      typeof watchFilterCategoryId === 'string' && watchFilterCategoryId
+        ? watchFilterCategoryId
+        : undefined
+    return {
+      name: debouncedName || undefined,
+      sku: debouncedSku || undefined,
+      size,
+      categoryId,
+    }
+  }, [debouncedName, debouncedSku, watchFilterSize, watchFilterCategoryId])
+
+  const refetchProducts = useCallback(async () => {
     setLoading(true)
     try {
-      const [plist, cats] = await Promise.all([listProductsAdmin(), listCategoriesAdmin()])
+      const plist = await listProductsAdmin(listFilters)
       setProducts(plist)
-      setCategories(cats)
     } catch (e) {
-      message.error(e instanceof Error ? e.message : 'Failed to load data')
+      message.error(e instanceof Error ? e.message : p.loadProductsError)
     } finally {
       setLoading(false)
     }
-  }, [message])
+  }, [listFilters, message])
 
   useEffect(() => {
-    void load()
-  }, [load])
+    void refetchProducts()
+  }, [refetchProducts])
+
+  useEffect(() => {
+    let cancelled = false
+    void Promise.all([listCategoriesAdmin(), listDistinctProductSizes()])
+      .then(([cats, sizes]) => {
+        if (!cancelled) {
+          setCategories(cats)
+          setSizeOptions(sizes)
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          message.error(e instanceof Error ? e.message : p.loadCategoriesError)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [message])
+
+  const resetFilters = () => {
+    filterForm.resetFields()
+    setDebouncedName('')
+    setDebouncedSku('')
+  }
 
   const openCreate = () => {
     setEditingId(null)
@@ -120,6 +189,7 @@ export function AdminProductsPage() {
       size: '',
       sku: '',
       priceDollars: 0,
+      stock: 0,
       isActive: true,
       categoryId: categoryOptions[0]?.value,
     })
@@ -136,6 +206,7 @@ export function AdminProductsPage() {
       size: p.size ?? '',
       sku: p.sku,
       priceDollars: centsToDollars(p.price),
+      stock: p.stock,
       isActive: p.isActive,
     })
     setModalOpen(true)
@@ -154,16 +225,21 @@ export function AdminProductsPage() {
       setSaving(true)
       if (editingId) {
         await updateProduct(editingId, input)
-        message.success('Product updated')
+        message.success(p.updated)
       } else {
         await createProduct(input)
-        message.success('Product created')
+        message.success(p.created)
       }
       closeModal()
-      await load()
+      await refetchProducts()
+      void listDistinctProductSizes()
+        .then(setSizeOptions)
+        .catch(() => {
+          /* ignore */
+        })
     } catch (e) {
       if (e && typeof e === 'object' && 'errorFields' in e) return
-      message.error(e instanceof Error ? e.message : 'Save failed')
+      message.error(e instanceof Error ? e.message : p.saveError)
     } finally {
       setSaving(false)
     }
@@ -182,7 +258,7 @@ export function AdminProductsPage() {
   const submitBulk = async () => {
     const ids = selectedRowKeys.map(String)
     if (ids.length === 0) {
-      message.warning('Select at least one product')
+      message.warning(p.bulkSelectWarn)
       return
     }
 
@@ -191,7 +267,7 @@ export function AdminProductsPage() {
     const priceTouched = bulkForm.isFieldTouched('bulkPriceDollars')
 
     if (!categoryTouched && !sizeTouched && !priceTouched) {
-      message.warning('Change at least one field to apply')
+      message.warning(p.bulkFieldWarn)
       return
     }
 
@@ -206,7 +282,7 @@ export function AdminProductsPage() {
       }
       if (priceTouched) {
         if (values.bulkPriceDollars == null || Number.isNaN(values.bulkPriceDollars)) {
-          message.warning('Enter a price or leave that field unchanged')
+          message.warning(p.bulkPriceWarn)
           return
         }
         patch.priceCents = dollarsToCents(values.bulkPriceDollars)
@@ -214,31 +290,41 @@ export function AdminProductsPage() {
 
       setBulkSaving(true)
       await bulkPatchProducts(ids, products, patch)
-      message.success(`Updated ${ids.length} product(s)`)
+      message.success(p.bulkDone(ids.length))
       closeBulkModal()
       setSelectedRowKeys([])
-      await load()
+      await refetchProducts()
+      void listDistinctProductSizes()
+        .then(setSizeOptions)
+        .catch(() => {
+          /* ignore refresh errors */
+        })
     } catch (e) {
       if (e && typeof e === 'object' && 'errorFields' in e) return
-      message.error(e instanceof Error ? e.message : 'Bulk update failed')
+      message.error(e instanceof Error ? e.message : p.bulkError)
     } finally {
       setBulkSaving(false)
     }
   }
 
-  const onDelete = (p: Product) => {
+  const onDelete = (row: Product) => {
     modal.confirm({
-      title: 'Delete product?',
-      content: `“${p.name}” will be removed.`,
-      okText: 'Delete',
+      title: p.deleteTitle,
+      content: p.deleteBody(row.name),
+      okText: common.delete,
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
-          await deleteProduct(p.id)
-          message.success('Deleted')
-          await load()
+          await deleteProduct(row.id)
+          message.success(p.deleted)
+          await refetchProducts()
+          void listDistinctProductSizes()
+            .then(setSizeOptions)
+            .catch(() => {
+              /* ignore */
+            })
         } catch (e) {
-          message.error(e instanceof Error ? e.message : 'Delete failed')
+          message.error(e instanceof Error ? e.message : p.deleteError)
         }
       },
     })
@@ -246,7 +332,7 @@ export function AdminProductsPage() {
 
   const columns: ColumnsType<Product> = [
     {
-      title: 'Name',
+      title: p.colName,
       key: 'name',
       render: (_, row) => (
         <Space direction="vertical" size={0}>
@@ -259,15 +345,22 @@ export function AdminProductsPage() {
         </Space>
       ),
     },
-    { title: 'SKU', dataIndex: 'sku', key: 'sku', width: 120 },
     {
-      title: 'Category',
+      title: p.colSize,
+      dataIndex: 'size',
+      key: 'size',
+      width: 100,
+      render: (size: string | null) => (size?.trim() ? size : common.dash),
+    },
+    { title: p.colSku, dataIndex: 'sku', key: 'sku', width: 120 },
+    {
+      title: p.colCategory,
       key: 'cat',
       width: 120,
-      render: (_, row) => row.categoryName ?? '—',
+      render: (_, row) => row.categoryName ?? common.dash,
     },
     {
-      title: 'Price',
+      title: p.colPrice,
       dataIndex: 'price',
       key: 'price',
       width: 100,
@@ -275,12 +368,19 @@ export function AdminProductsPage() {
       render: (cents: number) => formatMoney(cents),
     },
     {
-      title: 'Active',
+      title: p.colStock,
+      dataIndex: 'stock',
+      key: 'stock',
+      width: 80,
+      align: 'right',
+    },
+    {
+      title: p.colActive,
       dataIndex: 'isActive',
       key: 'active',
       width: 88,
       render: (active: boolean) => (
-        <Tag color={active ? 'green' : 'default'}>{active ? 'Yes' : 'No'}</Tag>
+        <Tag color={active ? 'green' : 'default'}>{active ? common.yes : common.no}</Tag>
       ),
     },
     {
@@ -290,10 +390,10 @@ export function AdminProductsPage() {
       render: (_, row) => (
         <Space>
           <Button type="link" size="small" onClick={() => openEdit(row)}>
-            Edit
+            {common.edit}
           </Button>
           <Button type="link" size="small" danger onClick={() => onDelete(row)}>
-            Delete
+            {common.delete}
           </Button>
         </Space>
       ),
@@ -304,19 +404,56 @@ export function AdminProductsPage() {
     <div className="admin-page">
       <Space align="center" style={{ justifyContent: 'space-between', width: '100%', marginBottom: 16 }}>
         <Title level={4} style={{ margin: 0 }}>
-          Product Management
+          {p.pageTitle}
         </Title>
         <Space>
           <Button disabled={selectedRowKeys.length === 0} onClick={openBulkEdit}>
-            Bulk edit
+            {p.bulkEdit}
           </Button>
           <Button type="primary" onClick={openCreate}>
-            New product
+            {p.newProduct}
           </Button>
         </Space>
       </Space>
 
       <Card>
+        <Form<FilterFormValues>
+          form={filterForm}
+          layout="inline"
+          style={{ marginBottom: 16, rowGap: 8 }}
+        >
+          <Form.Item name="filterName" label={p.filterName}>
+            <Input allowClear placeholder={p.filterNamePh} style={{ width: 168 }} />
+          </Form.Item>
+          <Form.Item name="filterSku" label={p.filterSku}>
+            <Input allowClear placeholder={p.filterSkuPh} style={{ width: 140 }} />
+          </Form.Item>
+          <Form.Item name="filterSize" label={p.filterSize}>
+            <Select
+              allowClear
+              placeholder={p.filterSizeAll}
+              style={{ width: 140 }}
+              options={sizeFilterOptions}
+              showSearch
+              optionFilterProp="label"
+            />
+          </Form.Item>
+          <Form.Item name="filterCategoryId" label={p.filterCategory}>
+            <Select
+              allowClear
+              placeholder={p.filterCategoryAll}
+              style={{ width: 180 }}
+              options={categoryOptions}
+              showSearch
+              optionFilterProp="label"
+            />
+          </Form.Item>
+          <Form.Item>
+            <Button htmlType="button" onClick={resetFilters}>
+              {common.reset}
+            </Button>
+          </Form.Item>
+        </Form>
         <Table<Product>
           rowKey="id"
           loading={loading}
@@ -333,87 +470,100 @@ export function AdminProductsPage() {
       </Card>
 
       <Modal
-        title={editingId ? 'Edit product' : 'Create product'}
+        title={editingId ? p.modalEdit : p.modalCreate}
         open={modalOpen}
         onCancel={closeModal}
         onOk={() => void submit()}
         confirmLoading={saving}
         destroyOnClose
         width={560}
-        okText="Save"
+        okText={common.save}
       >
         <Form<FormValues> form={form} layout="vertical" style={{ marginTop: 8 }}>
-          <Form.Item name="name" label="Name" rules={[{ required: true, message: 'Required' }]}>
+          <Form.Item name="name" label={p.labelName} rules={[{ required: true, message: common.required }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="nameEn" label="Name (English)">
+          <Form.Item name="nameEn" label={p.labelNameEn}>
             <Input />
           </Form.Item>
-          <Form.Item name="description" label="Description">
+          <Form.Item name="description" label={p.labelDescription}>
             <Input.TextArea rows={3} />
           </Form.Item>
-          <Form.Item name="size" label="Size">
-            <Input placeholder="e.g. Large" />
+          <Form.Item name="size" label={p.labelSize}>
+            <Input placeholder={p.sizePh} />
           </Form.Item>
-          <Form.Item name="sku" label="SKU" rules={[{ required: true, message: 'Required' }]}>
+          <Form.Item name="sku" label={p.labelSku} rules={[{ required: true, message: common.required }]}>
             <Input />
           </Form.Item>
           <Form.Item
             name="priceDollars"
-            label="Price (USD)"
+            label={p.labelPrice}
             rules={[{ required: true, type: 'number', min: 0 }]}
-            extra="Stored in cents in the database."
+            extra={p.priceExtra}
           >
             <InputNumber min={0} step={0.01} precision={2} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="categoryId" label="Category">
+          <Form.Item
+            name="stock"
+            label={p.labelStock}
+            rules={[{ required: true, type: 'number', min: 0 }]}
+          >
+            <InputNumber min={0} step={1} precision={0} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="categoryId" label={p.labelCategory}>
             <Select
               allowClear
-              placeholder="Select category"
+              placeholder={p.categoryPh}
               options={categoryOptions}
               showSearch
               optionFilterProp="label"
             />
           </Form.Item>
-          <Form.Item name="isActive" label="Active" valuePropName="checked">
+          <Form.Item name="isActive" label={p.labelActive} valuePropName="checked">
             <Switch />
           </Form.Item>
         </Form>
       </Modal>
 
       <Modal
-        title={`Bulk edit (${selectedRowKeys.length} selected)`}
+        title={p.bulkTitle(selectedRowKeys.length)}
         open={bulkModalOpen}
         onCancel={closeBulkModal}
         onOk={() => void submitBulk()}
         confirmLoading={bulkSaving}
         destroyOnClose
         width={480}
-        okText="Apply to selected"
+        okText={p.bulkApply}
       >
         <Typography.Paragraph type="secondary" style={{ marginBottom: 16 }}>
-          Only fields you change are applied. Leave a field untouched to keep each product’s current value.
+          {p.bulkHint}
         </Typography.Paragraph>
         <Form<BulkFormValues> form={bulkForm} layout="vertical">
-          <Form.Item name="bulkCategoryId" label="Category">
+          <Form.Item name="bulkCategoryId" label={p.bulkCategory}>
             <Select
               allowClear
-              placeholder="Leave unchanged"
+              placeholder={p.bulkCategoryPh}
               options={categoryOptions}
               showSearch
               optionFilterProp="label"
             />
           </Form.Item>
-          <Form.Item name="bulkSize" label="Size">
+          <Form.Item name="bulkSize" label={p.bulkSize}>
             <AutoComplete
               allowClear
-              placeholder="Leave unchanged"
+              placeholder={p.bulkSizePh}
               options={sizeSuggestions}
               style={{ width: '100%' }}
             />
           </Form.Item>
-          <Form.Item name="bulkPriceDollars" label="Price (USD)" extra="Only applied if you edit this field.">
-            <InputNumber min={0} step={0.01} precision={2} style={{ width: '100%' }} placeholder="Leave unchanged" />
+          <Form.Item name="bulkPriceDollars" label={p.bulkPrice} extra={p.bulkPriceExtra}>
+            <InputNumber
+              min={0}
+              step={0.01}
+              precision={2}
+              style={{ width: '100%' }}
+              placeholder={p.bulkPricePh}
+            />
           </Form.Item>
         </Form>
       </Modal>

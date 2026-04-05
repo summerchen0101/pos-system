@@ -1,3 +1,4 @@
+import { zhtw } from '../../locales/zhTW'
 import type { CartTotals } from '../../store/cartStore'
 import { formatMoney } from '../../lib/money'
 
@@ -15,7 +16,7 @@ export function CheckoutButton({ totals, disabled, onCheckout }: Props) {
       disabled={disabled}
       onClick={onCheckout}
     >
-      <span className="pos-checkout__label">Checkout</span>
+      <span className="pos-checkout__label">{zhtw.pos.checkout}</span>
       <span className="pos-checkout__amount">{formatMoney(totals.finalCents)}</span>
     </button>
   )

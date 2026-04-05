@@ -10,6 +10,7 @@ export type ProductInput = {
   size: string | null
   sku: string
   priceCents: number
+  stock: number
   isActive: boolean
 }
 
@@ -22,18 +23,62 @@ function rowPayload(input: ProductInput) {
     size: input.size?.trim() ? input.size.trim() : null,
     sku: input.sku.trim(),
     price: input.priceCents,
+    stock: input.stock,
     is_active: input.isActive,
   }
 }
 
-export async function listProductsAdmin(): Promise<Product[]> {
-  const { data, error } = await supabase
-    .from('products')
-    .select(productSelectWithCategory)
-    .order('name', { ascending: true })
+/** Strip LIKE wildcards and commas (PostgREST `or()` is comma-separated). */
+function sanitizeLikeInput(raw: string): string {
+  return raw.replace(/[%_\\,]/g, '').trim()
+}
+
+export type ProductListFilters = {
+  name?: string
+  sku?: string
+  size?: string
+  categoryId?: string
+}
+
+export async function listProductsAdmin(filters?: ProductListFilters): Promise<Product[]> {
+  let q = supabase.from('products').select(productSelectWithCategory)
+
+  const f = filters ?? {}
+  const nameQ = f.name ? sanitizeLikeInput(f.name) : ''
+  if (nameQ) {
+    const pat = `%${nameQ}%`
+    q = q.or(`name.ilike.${pat},name_en.ilike.${pat}`)
+  }
+
+  const skuQ = f.sku ? sanitizeLikeInput(f.sku) : ''
+  if (skuQ) {
+    q = q.ilike('sku', `%${skuQ}%`)
+  }
+
+  if (f.size?.trim()) {
+    q = q.eq('size', f.size.trim())
+  }
+
+  if (f.categoryId) {
+    q = q.eq('category_id', f.categoryId)
+  }
+
+  const { data, error } = await q.order('name', { ascending: true })
 
   if (error) throw error
   return (data ?? []).map((row) => mapProductRow(row as ProductRowWithCategory))
+}
+
+/** Distinct non-empty sizes for admin filter / bulk autocomplete options. */
+export async function listDistinctProductSizes(): Promise<string[]> {
+  const { data, error } = await supabase.from('products').select('size')
+  if (error) throw error
+  const set = new Set<string>()
+  for (const row of data ?? []) {
+    const s = (row as { size: string | null }).size?.trim()
+    if (s) set.add(s)
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b))
 }
 
 export async function createProduct(input: ProductInput): Promise<Product> {
@@ -91,6 +136,7 @@ function mergedProductInput(p: Product, patch: ProductBulkPatch): ProductInput {
     size: patch.size !== undefined ? patch.size : p.size,
     sku: p.sku,
     priceCents: patch.priceCents !== undefined ? patch.priceCents : p.price,
+    stock: p.stock,
     isActive: p.isActive,
   }
 }

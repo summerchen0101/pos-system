@@ -30,6 +30,7 @@ create table if not exists public.products (
   size text,
   sku text not null unique,
   price integer not null check (price >= 0),
+  stock integer not null default 0 check (stock >= 0),
   is_active boolean not null default true
 );
 

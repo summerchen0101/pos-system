@@ -14,6 +14,7 @@ export function mapProductRow(row: ProductRowWithCategory): Product {
     size: row.size,
     sku: row.sku,
     price: row.price,
+    stock: row.stock,
     isActive: row.is_active,
     categoryId: row.category_id,
     categoryName: row.categories?.name ?? null,
@@ -29,6 +30,7 @@ export const productSelectWithCategory = `
   size,
   sku,
   price,
+  stock,
   is_active,
   categories ( name )
 `
