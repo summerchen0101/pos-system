@@ -40,6 +40,12 @@ create policy "promotion_products_select_anon" on public.promotion_products for 
 drop policy if exists "promotion_products_write_anon" on public.promotion_products;
 create policy "promotion_products_write_anon" on public.promotion_products for all using (true) with check (true);
 
+-- Inserts/updates/deletes from the admin UI (anon key) require write access on promotions too.
+alter table public.promotions enable row level security;
+
+drop policy if exists "promotions_write_anon" on public.promotions;
+create policy "promotions_write_anon" on public.promotions for all using (true) with check (true);
+
 -- Optional: attach every legacy promotion to all products (or edit in admin instead).
 -- insert into public.promotion_products (promotion_id, product_id)
 -- select p.id, pr.id from public.promotions p cross join public.products pr

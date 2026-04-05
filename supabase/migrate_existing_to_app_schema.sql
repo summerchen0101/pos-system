@@ -130,3 +130,7 @@ create policy "products_select_anon" on public.products for select using (true);
 
 drop policy if exists "promotions_select_anon" on public.promotions;
 create policy "promotions_select_anon" on public.promotions for select using (true);
+
+-- Admin SPA (anon key): allow creating/updating/deleting promotions. Replace with auth in production.
+drop policy if exists "promotions_write_anon" on public.promotions;
+create policy "promotions_write_anon" on public.promotions for all using (true) with check (true);
