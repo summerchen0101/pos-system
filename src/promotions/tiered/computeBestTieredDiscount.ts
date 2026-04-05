@@ -1,3 +1,4 @@
+import { discountBuyXGetYCheapestFromLines } from '../cheapestFree'
 import type { TieredDiscountResult, TieredEligibleLine, TieredRuleLine } from './types'
 
 type Scored = {
@@ -5,16 +6,12 @@ type Scored = {
   discountCents: number
 }
 
-function discountForFreeTier(
-  totalQty: number,
-  subtotalCents: number,
-  minQty: number,
-  freeQty: number,
-): number {
-  if (totalQty <= 0 || subtotalCents <= 0 || minQty < 1 || freeQty < 1) return 0
-  const bundle = minQty + freeQty
-  const paidQty = Math.ceil((totalQty * minQty) / bundle)
-  return Math.max(0, Math.round(subtotalCents - (paidQty * subtotalCents) / totalQty))
+function discountForFreeTier(lines: readonly TieredEligibleLine[], minQty: number, freeQty: number): number {
+  return discountBuyXGetYCheapestFromLines(
+    lines.map((l) => ({ quantity: l.quantity, unitPriceCents: l.unitPriceCents })),
+    minQty,
+    freeQty,
+  )
 }
 
 function discountForPercentTier(subtotalCents: number, percent: number): number {
@@ -27,7 +24,7 @@ function discountForPercentTier(subtotalCents: number, percent: number): number 
  * the largest discount among rules with `totalQty >= min_qty`.
  *
  * - **free_qty**: repeating buy-`min_qty` get-`free_qty` on the combined
- *   eligible quantity, valued at average unit price (subtotal / qty).
+ *   eligible quantity; free units are the **cheapest** units (price ascending).
  * - **discount_percent**: percent off eligible subtotal.
  *
  * Tie-break when discounts tie: higher `min_qty`, then higher `sort_order`, then `id`.
@@ -50,7 +47,7 @@ export function computeBestTieredDiscount(
 
     let discountCents = 0
     if (tier.freeQty != null && tier.freeQty >= 1) {
-      discountCents = discountForFreeTier(totalQty, subtotalCents, tier.minQty, tier.freeQty)
+      discountCents = discountForFreeTier(eligibleLines, tier.minQty, tier.freeQty)
     } else if (tier.discountPercent != null && tier.discountPercent >= 1) {
       discountCents = discountForPercentTier(subtotalCents, tier.discountPercent)
     }

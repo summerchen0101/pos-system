@@ -20,15 +20,14 @@ export function mapDbPromotionsToEngineRules(promotions: Promotion[]): Promotion
         const x = p.buyQty ?? 0
         const y = p.freeQty ?? 0
         if (x <= 0 || y <= 0) break
-        for (const pid of ids) {
-          rules.push({
-            id: `${p.id}~p~${pid}`,
-            kind: 'buy_x_get_y_free',
-            triggerProductId: pid,
-            buyQuantity: x,
-            freeQuantity: y,
-          })
-        }
+        rules.push({
+          id: `${p.id}~bogo`,
+          kind: 'buy_x_get_y_free',
+          triggerProductId: ids[0]!,
+          buyQuantity: x,
+          freeQuantity: y,
+          poolProductIds: [...ids],
+        })
         break
       }
       case 'BULK_DISCOUNT': {

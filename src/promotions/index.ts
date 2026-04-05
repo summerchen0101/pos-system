@@ -6,6 +6,11 @@ export {
 export { evaluatePromotionEngine, scorePromotions } from './engine'
 export { evaluatePromotionRule } from './registry'
 export { cartLineInputsFromPos } from './posAdapter'
+export {
+  bundleFreeUnitCount,
+  discountBuyXGetYCheapestFromLines,
+  expandLinesToSortedUnitPrices,
+} from './cheapestFree'
 export { mapDbPromotionsToEngineRules } from './mapDbPromotionsToRules'
 export { resolveAppliedPromotionName } from './resolveAppliedPromotion'
 export { computeBestTieredDiscount } from './tiered/computeBestTieredDiscount'

@@ -25,6 +25,11 @@ export type BuyXGetYFreeRule = {
    * When different, free units apply to `rewardProductId` up to its cart quantity.
    */
   rewardProductId?: string
+  /**
+   * When set, X/Y applies to the **combined** quantity across these SKUs; free units are
+   * valued at the cheapest unit prices in the pool (sorted ascending).
+   */
+  poolProductIds?: string[]
 }
 
 /**
