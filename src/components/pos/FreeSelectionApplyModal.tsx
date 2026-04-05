@@ -55,7 +55,7 @@ function FreeSelectionModalContent({ promotion, products, onConfirm, onClose }: 
   const [qtyByPid, setQtyByPid] = useState(() => initialQtyMap(promotion))
 
   const productsById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
-  const maxTotal = promotion.maxSelectionQty ?? 0
+  const requiredTotal = promotion.maxSelectionQty ?? 0
 
   const total = useMemo(() => {
     let s = 0
@@ -65,18 +65,17 @@ function FreeSelectionModalContent({ promotion, products, onConfirm, onClose }: 
     return s
   }, [qtyByPid])
 
+  const isExact = requiredTotal >= 1 && total === requiredTotal
+
   const setQty = (pid: string, q: number | null) => {
     const v = Math.max(0, Math.trunc(q ?? 0))
     setQtyByPid((prev) => ({ ...prev, [pid]: v }))
   }
 
   const submit = () => {
-    if (total < 1) {
-      message.error(zhtw.pos.freeSelectionNeedQty)
-      return
-    }
-    if (total > maxTotal) {
-      message.error(zhtw.pos.freeSelectionOverMax(maxTotal))
+    if (requiredTotal < 1) return
+    if (total !== requiredTotal) {
+      message.error(zhtw.pos.freeSelectionNotExact(requiredTotal))
       return
     }
     const lines: CartLine[] = []
@@ -97,8 +96,8 @@ function FreeSelectionModalContent({ promotion, products, onConfirm, onClose }: 
         manualPromotionId: promotion.id,
       })
     }
-    if (lines.length === 0) {
-      message.error(zhtw.pos.freeSelectionNeedQty)
+    if (lines.reduce((a, l) => a + l.quantity, 0) !== requiredTotal) {
+      message.error(zhtw.pos.freeSelectionNotExact(requiredTotal))
       return
     }
     onConfirm(lines)
@@ -107,18 +106,23 @@ function FreeSelectionModalContent({ promotion, products, onConfirm, onClose }: 
   return (
     <>
       <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
-        {zhtw.pos.freeSelectionHint(maxTotal)}
+        {zhtw.pos.freeSelectionHint(requiredTotal)}
       </Text>
-      <Text strong style={{ display: 'block', marginBottom: 12 }}>
-        {zhtw.pos.freeSelectionTotal(total, maxTotal)}
+      <Text strong style={{ display: 'block', marginBottom: 4 }}>
+        {zhtw.pos.freeSelectionTotal(total, requiredTotal)}
       </Text>
-      <Space direction="vertical" style={{ width: '100%' }} size="middle">
+      {!isExact && requiredTotal >= 1 ? (
+        <Text type="danger" style={{ display: 'block', marginBottom: 12 }}>
+          {zhtw.pos.freeSelectionNotExact(requiredTotal)}
+        </Text>
+      ) : null}
+      <Space direction="vertical" style={{ width: '100%', marginTop: 8 }} size="middle">
         {promotion.selectableProductIds.map((pid) => {
           const prod = productsById.get(pid)
           if (!prod) return null
           const v = Math.max(0, Math.trunc(qtyByPid[pid] ?? 0))
           const sumOthers = total - v
-          const rowMax = Math.min(prod.stock, maxTotal - sumOthers)
+          const rowMax = Math.min(prod.stock, requiredTotal - sumOthers)
           return (
             <Space
               key={pid}
@@ -137,7 +141,7 @@ function FreeSelectionModalContent({ promotion, products, onConfirm, onClose }: 
       </Space>
       <Space style={{ marginTop: 16, justifyContent: 'flex-end', width: '100%' }}>
         <Button onClick={onClose}>{zhtw.common.cancel}</Button>
-        <Button type="primary" onClick={submit}>
+        <Button type="primary" disabled={!isExact} onClick={submit}>
           {zhtw.pos.manualPromoApply}
         </Button>
       </Space>
