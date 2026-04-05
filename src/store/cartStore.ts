@@ -20,7 +20,7 @@ type CartState = {
 
 function computeTotals(lines: CartLine[], discountPercent: number): CartTotals {
   const subtotalCents = lines.reduce(
-    (sum, line) => sum + line.product.priceCents * line.quantity,
+    (sum, line) => sum + line.product.price * line.quantity,
     0,
   )
   const discountCents = Math.round((subtotalCents * discountPercent) / 100)

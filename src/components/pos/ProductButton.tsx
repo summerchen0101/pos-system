@@ -13,8 +13,11 @@ export function ProductButton({ product, onAdd }: Props) {
       className="pos-product-btn"
       onClick={() => onAdd(product)}
     >
-      <span className="pos-product-btn__name">{product.name}</span>
-      <span className="pos-product-btn__price">{formatMoney(product.priceCents)}</span>
+      <span className="pos-product-btn__name">
+        {product.name}
+        {product.size ? ` (${product.size})` : ''}
+      </span>
+      <span className="pos-product-btn__price">{formatMoney(product.price)}</span>
     </button>
   )
 }

@@ -1,9 +1,15 @@
 import { useCartStore, useCartTotals } from '../../store/cartStore'
+import type { Promotion } from '../../types/pos'
 import { CartLineRow } from './CartLineRow'
 import { OrderSummary } from './OrderSummary'
 import { CheckoutButton } from './CheckoutButton'
 
-export function CartPanel() {
+type Props = {
+  promotions: Promotion[]
+  promotionsError: string | null
+}
+
+export function CartPanel({ promotions, promotionsError }: Props) {
   const lines = useCartStore((s) => s.lines)
   const discountPercent = useCartStore((s) => s.discountPercent)
   const increment = useCartStore((s) => s.increment)
@@ -18,7 +24,6 @@ export function CartPanel() {
 
   const handleCheckout = () => {
     if (isEmpty) return
-    // Demo: replace with payment / receipt flow
     const msg = `Charged ${(totals.finalCents / 100).toFixed(2)} — thank you!`
     window.alert(msg)
     clearCart()
@@ -32,6 +37,12 @@ export function CartPanel() {
           {unitCount} {unitCount === 1 ? 'item' : 'items'}
         </span>
       </header>
+
+      {promotionsError && (
+        <p className="pos-cart-panel__warn" role="alert">
+          Promotions could not be loaded: {promotionsError}
+        </p>
+      )}
 
       {isEmpty ? (
         <p className="pos-cart-empty">Tap a product to add it.</p>
@@ -54,6 +65,7 @@ export function CartPanel() {
         discountPercent={discountPercent}
         onDiscountChange={setDiscountPercent}
         isEmpty={isEmpty}
+        promotions={promotions}
       />
 
       <CheckoutButton totals={totals} disabled={isEmpty} onCheckout={handleCheckout} />

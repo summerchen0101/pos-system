@@ -29,6 +29,31 @@
   color: var(--pos-text-muted);
 }
 
+.pos-product-grid__status {
+  margin: 0;
+  padding: 1rem;
+  border-radius: 10px;
+  background: var(--pos-cart-bg);
+  border: 1px solid var(--pos-border);
+  color: var(--pos-text-muted);
+  font-size: 0.95rem;
+}
+
+.pos-product-grid__status--error {
+  color: var(--pos-danger);
+  border-color: var(--pos-danger);
+  background: var(--pos-danger-soft);
+}
+
+.pos-cart-panel__warn {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  background: var(--pos-danger-soft);
+  color: var(--pos-danger);
+}
+
 .pos-product-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -321,6 +346,54 @@
   border-color: var(--pos-accent);
   background: var(--pos-accent-soft);
   color: var(--pos-accent);
+  font-weight: 600;
+}
+
+.pos-promotions {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.pos-promotions__label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--pos-text-muted);
+}
+
+.pos-promotions__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.pos-promo-chip {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.72rem;
+  border-radius: 8px;
+  border: 1px solid var(--pos-border);
+  background: var(--pos-surface);
+  color: var(--pos-text-strong);
+  cursor: pointer;
+  max-width: 100%;
+  text-align: left;
+}
+
+.pos-promo-chip:hover:not(:disabled) {
+  border-color: var(--pos-accent);
+}
+
+.pos-promo-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pos-promo-chip.is-active {
+  border-color: var(--pos-accent);
+  background: var(--pos-accent-soft);
   font-weight: 600;
 }
 
