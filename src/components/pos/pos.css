@@ -251,6 +251,21 @@
   margin-left: -0.1rem;
 }
 
+.pos-cart-line--bundle-comp {
+  border-left: 3px solid #722ed1;
+  padding-left: 0.55rem;
+  margin-left: -0.1rem;
+}
+
+.pos-cart-line__bundle-badge {
+  margin-left: 0.45rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #722ed1;
+  vertical-align: middle;
+}
+
 .pos-cart-line__manual-free-badge {
   margin-left: 0.45rem;
   font-size: 0.65rem;

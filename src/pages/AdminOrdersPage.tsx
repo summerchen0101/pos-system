@@ -18,6 +18,7 @@ function startEndOfDay(d: Dayjs): { start: Date; end: Date } {
 
 function lineTags(item: OrderItem) {
   if (item.source === 'FREE_SELECTION') return <Tag color="purple">{o.tagFreeSelection}</Tag>
+  if (item.source === 'BUNDLE_COMPONENT') return <Tag color="geekblue">{o.tagBundleComponent}</Tag>
   if (item.isGift) return <Tag color="blue">{o.tagGift}</Tag>
   if (item.isManualFree) return <Tag color="gold">{o.tagManualFree}</Tag>
   return null

@@ -5,6 +5,10 @@ import { useCartPromotionTotals } from '../../hooks/useCartPromotionTotals'
 import { zhtw } from '../../locales/zhTW'
 import { formatMoney } from '../../lib/money'
 import {
+  bundleGroupRequiredQty,
+  componentQtySumForBundleGroup,
+} from '../../pos/bundleCart'
+import {
   buildFreeSelectionPromotionsSnapshot,
   isFreeSelectionCartLine,
 } from '../../promotions/freeSelectionLines'
@@ -37,7 +41,10 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
 
   const totals = useCartPromotionTotals(promotions)
   const isEmpty = lines.length === 0
-  const unitCount = lines.reduce((sum, line) => sum + line.quantity, 0)
+  const unitCount = useMemo(
+    () => lines.filter((l) => !l.isBundleComponent).reduce((sum, line) => sum + line.quantity, 0),
+    [lines],
+  )
   const stockOk = lines.every((l) => {
     if (l.isGift) {
       const gs = l.giftStock ?? 0
@@ -50,6 +57,22 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
   const handleIncrement = (lineId: string) => {
     const line = lines.find((l) => l.lineId === lineId)
     if (!line) return
+    if (line.isBundleComponent && line.bundleRootProductId && line.bundleInstanceId && line.bundleGroupId) {
+      const bundle = products.find((x) => x.id === line.bundleRootProductId)
+      if (!bundle || bundle.kind !== 'CUSTOM_BUNDLE') return
+      const required = bundleGroupRequiredQty(bundle, line.bundleGroupId)
+      const sumOthers = componentQtySumForBundleGroup(
+        lines,
+        line.bundleInstanceId,
+        line.bundleGroupId,
+        line.lineId,
+      )
+      const next = line.quantity + 1
+      if (sumOthers + next > required) return
+      if (next > line.product.stock) return
+      updateLineQuantity(line.lineId, next)
+      return
+    }
     if (isFreeSelectionCartLine(line, promotions)) {
       const p = promotions.find((x) => x.id === line.manualPromotionId)
       if (!p || p.kind !== 'FREE_SELECTION') return
@@ -69,6 +92,15 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
   const handleDecrement = (lineId: string) => {
     const line = lines.find((l) => l.lineId === lineId)
     if (!line) return
+    if (line.isBundleComponent) {
+      const next = line.quantity - 1
+      if (next < 1) {
+        removeLine(lineId)
+        return
+      }
+      updateLineQuantity(lineId, next)
+      return
+    }
     if (isFreeSelectionCartLine(line, promotions)) {
       const next = line.quantity - 1
       if (next < 1) {
@@ -94,16 +126,20 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
       try {
         const checkoutLines: CheckoutLinePayload[] = lines.map((l) => {
           const isFs = isFreeSelectionCartLine(l, promotions)
+          const isBundleComp = !!l.isBundleComponent
+          let source: 'FREE_SELECTION' | 'BUNDLE_COMPONENT' | undefined
+          if (isFs) source = 'FREE_SELECTION'
+          else if (isBundleComp) source = 'BUNDLE_COMPONENT'
           return {
             productId: l.giftId ? null : l.product.id,
             quantity: l.quantity,
-            unitPriceCents: l.isGift || l.isManualFree ? 0 : l.product.price,
+            unitPriceCents: l.isGift || l.isManualFree || isBundleComp ? 0 : l.product.price,
             productName: l.product.name,
             size: l.product.size,
             isGift: !!l.isGift || isFs,
             isManualFree: !!l.isManualFree,
             ...(l.isGift && l.giftId ? { giftId: l.giftId } : {}),
-            ...(isFs ? { source: 'FREE_SELECTION' as const } : {}),
+            ...(source ? { source } : {}),
           }
         })
         await checkoutOrder(
@@ -191,7 +227,9 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
               onIncrement={handleIncrement}
               onDecrement={handleDecrement}
               onRemove={removeLine}
-              allowQtyAdjust={isFreeSelectionCartLine(line, promotions)}
+              allowQtyAdjust={
+                isFreeSelectionCartLine(line, promotions) || !!line.isBundleComponent
+              }
             />
           ))}
         </ul>

@@ -19,13 +19,19 @@ export type ProductRow = {
   stock: number
   is_active: boolean
   kind: string
-  bundle_total_qty: number | null
 }
 
-export type ProductBundleOptionRow = {
+export type BundleGroupRow = {
+  id: string
   bundle_product_id: string
-  component_product_id: string
-  quantity: number
+  name: string
+  required_qty: number
+  sort_order: number
+}
+
+export type BundleGroupItemRow = {
+  group_id: string
+  product_id: string
 }
 
 export type PromotionRow = {
@@ -125,21 +131,35 @@ export type Database = {
           },
         ]
       }
-      product_bundle_options: {
-        Row: ProductBundleOptionRow
-        Insert: Omit<ProductBundleOptionRow, never>
-        Update: Partial<ProductBundleOptionRow>
+      bundle_groups: {
+        Row: BundleGroupRow
+        Insert: Omit<BundleGroupRow, 'id'> & { id?: string }
+        Update: Partial<BundleGroupRow>
         Relationships: [
           {
-            foreignKeyName: 'product_bundle_options_bundle_product_id_fkey'
+            foreignKeyName: 'bundle_groups_bundle_product_id_fkey'
             columns: ['bundle_product_id']
             isOneToOne: false
             referencedRelation: 'products'
             referencedColumns: ['id']
           },
+        ]
+      }
+      bundle_group_items: {
+        Row: BundleGroupItemRow
+        Insert: BundleGroupItemRow
+        Update: Partial<BundleGroupItemRow>
+        Relationships: [
           {
-            foreignKeyName: 'product_bundle_options_component_product_id_fkey'
-            columns: ['component_product_id']
+            foreignKeyName: 'bundle_group_items_group_id_fkey'
+            columns: ['group_id']
+            isOneToOne: false
+            referencedRelation: 'bundle_groups'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'bundle_group_items_product_id_fkey'
+            columns: ['product_id']
             isOneToOne: false
             referencedRelation: 'products'
             referencedColumns: ['id']

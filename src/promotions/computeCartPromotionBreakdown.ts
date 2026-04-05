@@ -30,7 +30,7 @@ export type CartPromotionBreakdown = {
 
 function promotionContextFromPaidMerch(lines: readonly CartLine[]): PromotionContext {
   const inputs: CartLineInput[] = lines
-    .filter((l) => !l.isGift && !l.isManualFree)
+    .filter((l) => !l.isGift && !l.isManualFree && !l.isBundleComponent)
     .map((l) => ({
       productId: l.product.id,
       quantity: l.quantity,

@@ -7,7 +7,7 @@ export async function fetchProducts(): Promise<Product[]> {
     .from('products')
     .select(productSelectWithCategory)
     .eq('is_active', true)
-    .eq('kind', 'STANDARD')
+    .in('kind', ['STANDARD', 'CUSTOM_BUNDLE'])
     .order('name', { ascending: true })
 
   if (error) throw error

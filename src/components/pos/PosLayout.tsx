@@ -8,6 +8,7 @@ import { useThresholdGiftSync } from "../../hooks/useThresholdGiftSync";
 import { zhtw } from "../../locales/zhTW";
 import { useCartStore } from "../../store/cartStore";
 import type { Product, Promotion } from "../../types/pos";
+import { BundleApplyModal } from "./BundleApplyModal";
 import { ProductGrid } from "./ProductGrid";
 import { CartPanel } from "./CartPanel";
 import "./pos.css";
@@ -47,8 +48,10 @@ function categoryTabsFromProducts(
 
 export function PosLayout() {
   const addProduct = useCartStore((s) => s.addProduct);
+  const addBundleLines = useCartStore((s) => s.addBundleLines);
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [bundleModalProduct, setBundleModalProduct] = useState<Product | null>(null);
   const [activeTab, setActiveTab] = useState<string>("");
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
@@ -74,6 +77,27 @@ export function PosLayout() {
     if (!displayTab) return [];
     return products.filter((p) => categoryTabKey(p) === displayTab);
   }, [products, displayTab]);
+
+  const standardProductsForBundle = useMemo(
+    () => products.filter((p) => p.kind === "STANDARD"),
+    [products],
+  );
+
+  const handleAddProduct = (p: Product) => {
+    if (p.kind === "CUSTOM_BUNDLE") {
+      if (p.stock <= 0) return;
+      const groups = p.bundleGroups ?? [];
+      if (
+        groups.length < 1 ||
+        !groups.every((g) => g.requiredQty >= 1 && g.productIds.length > 0)
+      ) {
+        return;
+      }
+      setBundleModalProduct(p);
+      return;
+    }
+    addProduct(p);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -143,13 +167,23 @@ export function PosLayout() {
           products={gridProducts}
           loading={productsLoading}
           error={productsError}
-          onAddProduct={addProduct}
+          onAddProduct={handleAddProduct}
           emptyMessage={
             products.length === 0 ? zhtw.pos.emptyCatalog : zhtw.pos.emptyCategory
           }
         />
       </main>
       <CartPanel promotions={promotions} products={products} promotionsError={promotionsError} />
+      <BundleApplyModal
+        open={bundleModalProduct != null}
+        bundleProduct={bundleModalProduct}
+        catalogProducts={standardProductsForBundle}
+        onClose={() => setBundleModalProduct(null)}
+        onConfirm={(newLines) => {
+          addBundleLines(newLines);
+          setBundleModalProduct(null);
+        }}
+      />
     </div>
   );
 }

@@ -7,11 +7,30 @@ export type CartTotals = {
   finalCents: number
 }
 
+function paidStandardLines(lines: readonly CartLine[]): CartLine[] {
+  return lines.filter(
+    (l) => !l.isGift && !l.isManualFree && !l.isBundleRoot && !l.isBundleComponent,
+  )
+}
+
+function bundleLines(lines: readonly CartLine[]): CartLine[] {
+  return lines.filter((l) => l.isBundleRoot || l.isBundleComponent)
+}
+
+function manualLines(lines: readonly CartLine[]): CartLine[] {
+  return lines.filter((l) => l.isManualFree)
+}
+
+function giftLinesOnly(lines: readonly CartLine[]): CartLine[] {
+  return lines.filter((l) => l.isGift)
+}
+
 type CartState = {
   lines: CartLine[]
   /** Staff-selected manual promotion ids (order preserved). */
   manualPromotionIds: string[]
   addProduct: (product: Product) => void
+  addBundleLines: (lines: CartLine[]) => void
   increment: (lineId: string) => void
   decrement: (lineId: string) => void
   removeLine: (lineId: string) => void
@@ -33,7 +52,14 @@ export const useCartStore = create<CartState>((set) => ({
   addProduct: (product) =>
     set((state) => {
       if (product.stock <= 0) return state
-      const idx = state.lines.findIndex((l) => !l.isGift && !l.isManualFree && l.product.id === product.id)
+      const idx = state.lines.findIndex(
+        (l) =>
+          !l.isGift &&
+          !l.isManualFree &&
+          !l.isBundleRoot &&
+          !l.isBundleComponent &&
+          l.product.id === product.id,
+      )
       if (idx >= 0) {
         const line = state.lines[idx]
         const next = Math.min(line.quantity + 1, product.stock)
@@ -49,11 +75,22 @@ export const useCartStore = create<CartState>((set) => ({
       }
     }),
 
+  addBundleLines: (newLines) =>
+    set((state) => ({
+      lines: [
+        ...paidStandardLines(state.lines),
+        ...manualLines(state.lines),
+        ...bundleLines(state.lines),
+        ...newLines,
+        ...giftLinesOnly(state.lines),
+      ],
+    })),
+
   increment: (lineId) =>
     set((state) => ({
       lines: state.lines.map((l) => {
         if (l.lineId !== lineId) return l
-        if (l.isGift || l.isManualFree) return l
+        if (l.isGift || l.isManualFree || l.isBundleRoot || l.isBundleComponent) return l
         if (l.quantity >= l.product.stock) return l
         return { ...l, quantity: l.quantity + 1 }
       }),
@@ -63,7 +100,19 @@ export const useCartStore = create<CartState>((set) => ({
     set((state) => {
       const line = state.lines.find((l) => l.lineId === lineId)
       if (!line) return state
-      if (line.isGift || line.isManualFree) {
+      if (line.isBundleComponent) {
+        const bid = line.bundleInstanceId
+        if (line.quantity <= 1) {
+          if (bid) return { lines: state.lines.filter((l) => l.bundleInstanceId !== bid) }
+          return { lines: state.lines.filter((l) => l.lineId !== lineId) }
+        }
+        return {
+          lines: state.lines.map((l) =>
+            l.lineId === lineId ? { ...l, quantity: l.quantity - 1 } : l,
+          ),
+        }
+      }
+      if (line.isGift || line.isManualFree || line.isBundleRoot) {
         return { lines: state.lines.filter((l) => l.lineId !== lineId) }
       }
       if (line.quantity <= 1) {
@@ -77,25 +126,32 @@ export const useCartStore = create<CartState>((set) => ({
     }),
 
   removeLine: (lineId) =>
-    set((state) => ({
-      lines: state.lines.filter((l) => l.lineId !== lineId),
-    })),
+    set((state) => {
+      const line = state.lines.find((l) => l.lineId === lineId)
+      const bid = line?.bundleInstanceId
+      if (bid && (line?.isBundleRoot || line?.isBundleComponent)) {
+        return { lines: state.lines.filter((l) => l.bundleInstanceId !== bid) }
+      }
+      return { lines: state.lines.filter((l) => l.lineId !== lineId) }
+    }),
 
   mergeGiftLines: (giftLines) =>
     set((state) => ({
       lines: [
-        ...state.lines.filter((l) => !l.isGift && !l.isManualFree),
-        ...state.lines.filter((l) => l.isManualFree),
+        ...paidStandardLines(state.lines),
+        ...manualLines(state.lines),
+        ...bundleLines(state.lines),
         ...giftLines,
       ],
     })),
 
-  replaceManualFreeLines: (manualLines) =>
+  replaceManualFreeLines: (manualFreeLines) =>
     set((state) => ({
       lines: [
-        ...state.lines.filter((l) => !l.isGift && !l.isManualFree),
-        ...manualLines,
-        ...state.lines.filter((l) => l.isGift),
+        ...paidStandardLines(state.lines),
+        ...manualFreeLines,
+        ...bundleLines(state.lines),
+        ...giftLinesOnly(state.lines),
       ],
     })),
 
@@ -105,7 +161,7 @@ export const useCartStore = create<CartState>((set) => ({
         ? state.manualPromotionIds
         : [...state.manualPromotionIds, promotionId],
       lines: [
-        ...state.lines.filter((l) => !l.isGift && !l.isManualFree),
+        ...paidStandardLines(state.lines),
         ...state.lines.filter(
           (l) =>
             !l.isManualFree ||
@@ -113,13 +169,19 @@ export const useCartStore = create<CartState>((set) => ({
             !l.lineId.startsWith(`freeselection:${promotionId}:`),
         ),
         ...newLines,
-        ...state.lines.filter((l) => l.isGift),
+        ...bundleLines(state.lines),
+        ...giftLinesOnly(state.lines),
       ],
     })),
 
   updateLineQuantity: (lineId, quantity) =>
     set((state) => {
       if (quantity < 1) {
+        const line = state.lines.find((l) => l.lineId === lineId)
+        const bid = line?.bundleInstanceId
+        if (bid && (line?.isBundleRoot || line?.isBundleComponent)) {
+          return { lines: state.lines.filter((l) => l.bundleInstanceId !== bid) }
+        }
         return { lines: state.lines.filter((l) => l.lineId !== lineId) }
       }
       return {

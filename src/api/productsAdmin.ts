@@ -1,6 +1,13 @@
 import { supabase } from '../supabase'
 import { mapProductRow, productSelectWithCategory, type ProductRowWithCategory } from './productMapper'
-import type { Product, ProductBundleOption, ProductKind } from '../types/pos'
+import type { Product, ProductBundleGroup, ProductKind } from '../types/pos'
+
+export type BundleGroupInput = {
+  name: string
+  requiredQty: number
+  sortOrder: number
+  productIds: string[]
+}
 
 export type ProductInput = {
   categoryId: string | null
@@ -13,12 +20,10 @@ export type ProductInput = {
   stock: number
   isActive: boolean
   kind: ProductKind
-  bundleTotalQty: number | null
-  bundleOptions: ProductBundleOption[]
+  bundleGroups: BundleGroupInput[]
 }
 
 function rowPayload(input: ProductInput) {
-  const isBundle = input.kind === 'CUSTOM_BUNDLE'
   return {
     category_id: input.categoryId,
     name: input.name.trim(),
@@ -30,28 +35,42 @@ function rowPayload(input: ProductInput) {
     stock: input.stock,
     is_active: input.isActive,
     kind: input.kind,
-    bundle_total_qty: isBundle ? input.bundleTotalQty : null,
   }
 }
 
-async function replaceProductBundleOptions(
-  bundleProductId: string,
-  rows: ProductBundleOption[],
-): Promise<void> {
-  const { error: delErr } = await supabase
-    .from('product_bundle_options')
-    .delete()
-    .eq('bundle_product_id', bundleProductId)
-  if (delErr) throw delErr
-  if (rows.length === 0) return
-  const { error } = await supabase.from('product_bundle_options').insert(
-    rows.map((r) => ({
-      bundle_product_id: bundleProductId,
-      component_product_id: r.productId,
-      quantity: Math.max(1, Math.trunc(r.quantity)),
-    })),
-  )
+async function clearBundleGroups(bundleProductId: string): Promise<void> {
+  const { error } = await supabase.from('bundle_groups').delete().eq('bundle_product_id', bundleProductId)
   if (error) throw error
+}
+
+async function replaceBundleGroups(bundleProductId: string, groups: BundleGroupInput[]): Promise<void> {
+  await clearBundleGroups(bundleProductId)
+  const ordered = [...groups].sort((a, b) => a.sortOrder - b.sortOrder)
+  for (const g of ordered) {
+    const name = g.name.trim() || '選配'
+    const requiredQty = Math.max(1, Math.trunc(g.requiredQty))
+    const sortOrder = Math.trunc(g.sortOrder)
+    const { data, error } = await supabase
+      .from('bundle_groups')
+      .insert({
+        bundle_product_id: bundleProductId,
+        name,
+        required_qty: requiredQty,
+        sort_order: sortOrder,
+      })
+      .select('id')
+      .single()
+    if (error) throw error
+    const gid = data?.id
+    if (!gid) throw new Error('bundle_groups insert returned no id')
+    const ids = [...new Set(g.productIds.filter((id) => id && id !== bundleProductId))]
+    if (ids.length > 0) {
+      const { error: insErr } = await supabase.from('bundle_group_items').insert(
+        ids.map((product_id) => ({ group_id: gid, product_id })),
+      )
+      if (insErr) throw insErr
+    }
+  }
 }
 
 /** Strip LIKE wildcards and commas (PostgREST `or()` is comma-separated). */
@@ -108,17 +127,13 @@ export async function listDistinctProductSizes(): Promise<string[]> {
 }
 
 export async function createProduct(input: ProductInput): Promise<Product> {
-  const { data, error } = await supabase
-    .from('products')
-    .insert(rowPayload(input))
-    .select('id')
-    .single()
+  const { data, error } = await supabase.from('products').insert(rowPayload(input)).select('id').single()
 
   if (error) throw error
   if (!data?.id) throw new Error('No id returned')
 
   if (input.kind === 'CUSTOM_BUNDLE') {
-    await replaceProductBundleOptions(data.id, input.bundleOptions)
+    await replaceBundleGroups(data.id, input.bundleGroups)
   }
 
   const { data: full, error: fetchErr } = await supabase
@@ -136,9 +151,9 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Pr
   if (error) throw error
 
   if (input.kind === 'CUSTOM_BUNDLE') {
-    await replaceProductBundleOptions(id, input.bundleOptions)
+    await replaceBundleGroups(id, input.bundleGroups)
   } else {
-    await replaceProductBundleOptions(id, [])
+    await clearBundleGroups(id)
   }
 
   const { data: full, error: fetchErr } = await supabase
@@ -167,6 +182,17 @@ export type ProductBulkPatch = {
   stockAdjust?: number
 }
 
+function bundleGroupsToInput(groups: ProductBundleGroup[]): BundleGroupInput[] {
+  return [...groups]
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))
+    .map((g, i) => ({
+      name: g.name,
+      requiredQty: g.requiredQty,
+      sortOrder: i,
+      productIds: [...g.productIds],
+    }))
+}
+
 function mergedProductInput(p: Product, patch: ProductBulkPatch): ProductInput {
   let stock = p.stock
   if (patch.stockSet !== undefined) {
@@ -185,8 +211,7 @@ function mergedProductInput(p: Product, patch: ProductBulkPatch): ProductInput {
     stock,
     isActive: p.isActive,
     kind: p.kind,
-    bundleTotalQty: p.bundleTotalQty,
-    bundleOptions: [...p.bundleOptions],
+    bundleGroups: p.kind === 'CUSTOM_BUNDLE' ? bundleGroupsToInput(p.bundleGroups) : [],
   }
 }
 

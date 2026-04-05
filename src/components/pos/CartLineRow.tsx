@@ -17,18 +17,21 @@ type Props = {
 }
 
 export function CartLineRow({ line, onIncrement, onDecrement, onRemove, allowQtyAdjust }: Props) {
-  const { product, quantity, lineId, isGift, giftStock, isManualFree } = line
-  const unitPrice = isGift || isManualFree ? 0 : product.price
+  const { product, quantity, lineId, isGift, giftStock, isManualFree, isBundleRoot, isBundleComponent } =
+    line
+  const unitPrice =
+    isGift || isManualFree || isBundleComponent ? 0 : product.price
   const lineTotal = unitPrice * quantity
   const label = productCartLabel(product)
   const stockLabel = isGift
     ? zhtw.pos.giftStockCount(giftStock ?? 0)
     : zhtw.pos.stockCount(product.stock)
-  const lockQty = (isGift || isManualFree) && !allowQtyAdjust
+  const lockQty =
+    ((isGift || isManualFree) && !allowQtyAdjust) || !!isBundleRoot
 
   return (
     <li
-      className={`pos-cart-line${isGift ? ' pos-cart-line--gift' : ''}${isManualFree ? ' pos-cart-line--manual-free' : ''}`}
+      className={`pos-cart-line${isGift ? ' pos-cart-line--gift' : ''}${isManualFree ? ' pos-cart-line--manual-free' : ''}${isBundleComponent ? ' pos-cart-line--bundle-comp' : ''}`}
     >
       <div className="pos-cart-line__info">
         <span className="pos-cart-line__name">
@@ -38,6 +41,9 @@ export function CartLineRow({ line, onIncrement, onDecrement, onRemove, allowQty
           ) : null}
           {isManualFree ? (
             <span className="pos-cart-line__manual-free-badge">{zhtw.pos.manualFreeBadge}</span>
+          ) : null}
+          {isBundleRoot || isBundleComponent ? (
+            <span className="pos-cart-line__bundle-badge">{zhtw.pos.bundleBadge}</span>
           ) : null}
         </span>
         <span className="pos-cart-line__unit">

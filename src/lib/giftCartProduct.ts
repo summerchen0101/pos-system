@@ -19,7 +19,6 @@ export function syntheticProductForThresholdGift(g: {
     categoryId: null,
     categoryName: null,
     kind: 'STANDARD',
-    bundleTotalQty: null,
-    bundleOptions: [],
+    bundleGroups: [],
   }
 }

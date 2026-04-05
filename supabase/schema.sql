@@ -32,30 +32,30 @@ create table if not exists public.products (
   price integer not null check (price >= 0),
   stock integer not null default 0 check (stock >= 0),
   is_active boolean not null default true,
-  kind text not null default 'STANDARD' check (kind in ('STANDARD', 'CUSTOM_BUNDLE')),
-  bundle_total_qty integer,
-  constraint products_bundle_total_qty_by_kind check (
-    (
-      kind = 'CUSTOM_BUNDLE'
-      and bundle_total_qty is not null
-      and bundle_total_qty >= 1
-    )
-    or (kind = 'STANDARD' and bundle_total_qty is null)
-  )
+  kind text not null default 'STANDARD' check (kind in ('STANDARD', 'CUSTOM_BUNDLE'))
 );
 
 create index if not exists products_category_id_idx on public.products (category_id);
 
-create table if not exists public.product_bundle_options (
+create table if not exists public.bundle_groups (
+  id uuid primary key default gen_random_uuid(),
   bundle_product_id uuid not null references public.products (id) on delete cascade,
-  component_product_id uuid not null references public.products (id) on delete restrict,
-  quantity integer not null check (quantity >= 1),
-  primary key (bundle_product_id, component_product_id),
-  constraint product_bundle_options_not_self check (bundle_product_id <> component_product_id)
+  name text not null default '選配',
+  required_qty integer not null check (required_qty >= 1),
+  sort_order integer not null default 0
 );
 
-create index if not exists product_bundle_options_component_idx
-  on public.product_bundle_options (component_product_id);
+create index if not exists bundle_groups_bundle_product_id_idx
+  on public.bundle_groups (bundle_product_id);
+
+create table if not exists public.bundle_group_items (
+  group_id uuid not null references public.bundle_groups (id) on delete cascade,
+  product_id uuid not null references public.products (id) on delete restrict,
+  primary key (group_id, product_id)
+);
+
+create index if not exists bundle_group_items_product_id_idx
+  on public.bundle_group_items (product_id);
 
 create table if not exists public.gifts (
   id uuid primary key default gen_random_uuid(),
@@ -163,15 +163,21 @@ create table if not exists public.promotion_rules (
 create index if not exists promotion_rules_promotion_id_idx on public.promotion_rules (promotion_id);
 
 alter table public.categories enable row level security;
-alter table public.product_bundle_options enable row level security;
+alter table public.bundle_groups enable row level security;
 
-drop policy if exists "product_bundle_options_select_anon" on public.product_bundle_options;
-create policy "product_bundle_options_select_anon"
-  on public.product_bundle_options for select using (true);
+drop policy if exists "bundle_groups_select_anon" on public.bundle_groups;
+create policy "bundle_groups_select_anon" on public.bundle_groups for select using (true);
 
-drop policy if exists "product_bundle_options_write_anon" on public.product_bundle_options;
-create policy "product_bundle_options_write_anon"
-  on public.product_bundle_options for all using (true) with check (true);
+drop policy if exists "bundle_groups_write_anon" on public.bundle_groups;
+create policy "bundle_groups_write_anon" on public.bundle_groups for all using (true) with check (true);
+
+alter table public.bundle_group_items enable row level security;
+
+drop policy if exists "bundle_group_items_select_anon" on public.bundle_group_items;
+create policy "bundle_group_items_select_anon" on public.bundle_group_items for select using (true);
+
+drop policy if exists "bundle_group_items_write_anon" on public.bundle_group_items;
+create policy "bundle_group_items_write_anon" on public.bundle_group_items for all using (true) with check (true);
 
 alter table public.products enable row level security;
 alter table public.promotions enable row level security;

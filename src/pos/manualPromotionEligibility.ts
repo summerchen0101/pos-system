@@ -17,7 +17,7 @@ export function isManualPromotionEligible(
 ): boolean {
   if (!p.active || p.applyMode !== 'MANUAL' || !isManualPromotionSelectableKind(p)) return false
 
-  const paid = lines.filter((l) => !l.isGift && !l.isManualFree)
+  const paid = lines.filter((l) => !l.isGift && !l.isManualFree && !l.isBundleComponent)
 
   if (p.kind === 'FIXED_DISCOUNT') return (p.fixedDiscountCents ?? 0) >= 1
 

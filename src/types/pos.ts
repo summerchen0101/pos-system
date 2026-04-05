@@ -8,9 +8,13 @@ export type Category = {
 export const PRODUCT_KINDS = ['STANDARD', 'CUSTOM_BUNDLE'] as const
 export type ProductKind = (typeof PRODUCT_KINDS)[number]
 
-export type ProductBundleOption = {
-  productId: string
-  quantity: number
+/** One selectable pool inside a `CUSTOM_BUNDLE`; buyer must pick exactly `requiredQty` units from `productIds`. */
+export type ProductBundleGroup = {
+  id: string
+  name: string
+  requiredQty: number
+  sortOrder: number
+  productIds: string[]
 }
 
 /** `price` is in TWD minor units (1 = NT$0.01). */
@@ -28,12 +32,8 @@ export type Product = {
   categoryId: string | null
   categoryName: string | null
   kind: ProductKind
-  /**
-   * `CUSTOM_BUNDLE` only — total units the buyer must pick across pool lines (like max selection).
-   */
-  bundleTotalQty: number | null
-  /** `CUSTOM_BUNDLE` only — selectable component SKUs and max units per line in the bundle UI. */
-  bundleOptions: ProductBundleOption[]
+  /** `CUSTOM_BUNDLE` only — ordered groups; each group has its own pool and required total qty. */
+  bundleGroups: ProductBundleGroup[]
 }
 
 export type CartLine = {
@@ -50,6 +50,16 @@ export type CartLine = {
   /** Staff-applied FREE_ITEMS (normal product stock at checkout). */
   isManualFree?: boolean
   manualPromotionId?: string
+  /** Paid bundle header line (`CUSTOM_BUNDLE` product). */
+  isBundleRoot?: boolean
+  /** Component lines for a bundle (unit price 0 in UI; stock from component SKU). */
+  isBundleComponent?: boolean
+  /** Groups root + components from one “add bundle” action. */
+  bundleInstanceId?: string
+  /** `CUSTOM_BUNDLE` product id (set on component lines). */
+  bundleRootProductId?: string
+  /** `bundle_groups.id` for component lines (per-group qty cap). */
+  bundleGroupId?: string
 }
 
 export const PROMOTION_KINDS = [
