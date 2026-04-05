@@ -1,5 +1,6 @@
-import { useCartStore } from '../../store/cartStore'
+import { insertOrder } from '../../api/ordersApi'
 import { useCartPromotionTotals } from '../../hooks/useCartPromotionTotals'
+import { useCartStore } from '../../store/cartStore'
 import type { Promotion } from '../../types/pos'
 import { CartLineRow } from './CartLineRow'
 import { OrderSummary } from './OrderSummary'
@@ -23,9 +24,20 @@ export function CartPanel({ promotions, promotionsError }: Props) {
 
   const handleCheckout = () => {
     if (isEmpty) return
-    const msg = `Charged ${(totals.finalCents / 100).toFixed(2)} — thank you!`
-    window.alert(msg)
-    clearCart()
+    void (async () => {
+      try {
+        await insertOrder({
+          totalAmountCents: totals.subtotalCents,
+          discountAmountCents: totals.discountCents,
+          finalAmountCents: totals.finalCents,
+        })
+      } catch (e) {
+        console.error('Failed to record order', e)
+      }
+      const msg = `Charged ${(totals.finalCents / 100).toFixed(2)} — thank you!`
+      window.alert(msg)
+      clearCart()
+    })()
   }
 
   return (

@@ -36,6 +36,14 @@ export type PromotionRuleRow = {
   sort_order: number
 }
 
+export type OrderRow = {
+  id: string
+  created_at: string
+  total_amount: number
+  discount_amount: number
+  final_amount: number
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -61,6 +69,12 @@ export type Database = {
         Row: PromotionRuleRow
         Insert: Omit<PromotionRuleRow, 'id'> & { id?: string }
         Update: Partial<PromotionRuleRow>
+        Relationships: []
+      }
+      orders: {
+        Row: OrderRow
+        Insert: Omit<OrderRow, 'id' | 'created_at'> & { id?: string; created_at?: string }
+        Update: Partial<OrderRow>
         Relationships: []
       }
     }

@@ -15,7 +15,6 @@ import {
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { fetchAllProducts } from '../api/fetchAllProducts'
 import {
   createPromotion,
@@ -306,15 +305,12 @@ export function AdminPromotionsPage() {
   ]
 
   return (
-    <div className="admin-promotions">
+    <div className="admin-page admin-promotions">
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
-          <Space align="center">
-            <Title level={3} style={{ margin: 0 }}>
-              Promotions
-            </Title>
-            <Link to="/">← Register</Link>
-          </Space>
+          <Title level={4} style={{ margin: 0 }}>
+            Promotion Management
+          </Title>
           <Button type="primary" onClick={openCreate}>
             New promotion
           </Button>
