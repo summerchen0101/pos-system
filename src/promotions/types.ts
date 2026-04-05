@@ -67,11 +67,26 @@ export type TieredPromotionRule = {
   }[]
 }
 
+/** `TIERED_QUANTITY_DISCOUNT` — ladder on total eligible qty; one percent off eligible subtotal. */
+export type TieredQuantityDiscountRule = {
+  id: string
+  kind: 'tiered_quantity_discount'
+  promotionId: string
+  productIds: string[]
+  tiers: {
+    id: string
+    minQty: number
+    discountPercent: number
+    sortOrder: number
+  }[]
+}
+
 export type PromotionRule =
   | BuyXGetYFreeRule
   | BulkDiscountRule
   | SingleProductDiscountRule
   | TieredPromotionRule
+  | TieredQuantityDiscountRule
 
 export type PromotionRuleKind = PromotionRule['kind']
 

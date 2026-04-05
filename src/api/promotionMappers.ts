@@ -3,10 +3,11 @@ import type {
   PromotionApplyMode,
   PromotionGiftDetail,
   PromotionKind,
+  PromotionQuantityDiscountTier,
   PromotionTierRule,
 } from '../types/pos'
 import { isPromotionKindString } from '../types/pos'
-import type { PromotionRow, PromotionRuleRow } from '../types/supabase'
+import type { PromotionQuantityTierRow, PromotionRow, PromotionRuleRow } from '../types/supabase'
 
 /** Nested `promotion_rules` from PostgREST omit parent `promotion_id`. */
 export type PromotionRuleNestedRow = Pick<
@@ -24,10 +25,16 @@ type GiftNestedRow = {
   gift_inventory?: GiftInventoryNestedRow | GiftInventoryNestedRow[] | null
 }
 
+export type PromotionQuantityTierNestedRow = Pick<
+  PromotionQuantityTierRow,
+  'id' | 'min_qty' | 'discount_percent' | 'sort_order'
+>
+
 export type PromotionRowWithProducts = PromotionRow & {
   promotion_products?: { product_id: string; quantity?: number }[] | null
   promotion_selectable_items?: { product_id: string }[] | null
   promotion_rules?: PromotionRuleNestedRow[] | null
+  promotion_tiers?: PromotionQuantityTierNestedRow[] | null
   gifts?: GiftNestedRow | GiftNestedRow[] | null
 }
 
@@ -68,6 +75,20 @@ function mapTierRows(rows: PromotionRuleNestedRow[] | null | undefined): Promoti
     }))
 }
 
+function mapQuantityDiscountTierRows(
+  rows: PromotionQuantityTierNestedRow[] | null | undefined,
+): PromotionQuantityDiscountTier[] {
+  if (!rows?.length) return []
+  return [...rows]
+    .sort((a, b) => a.min_qty - b.min_qty || a.sort_order - b.sort_order || a.id.localeCompare(b.id))
+    .map((r) => ({
+      id: r.id,
+      minQty: r.min_qty,
+      discountPercent: r.discount_percent,
+      sortOrder: r.sort_order,
+    }))
+}
+
 export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
   const ppRows = row.promotion_products ?? []
   const productIds = ppRows.map((x) => x.product_id)
@@ -103,6 +124,7 @@ export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
     fixedDiscountCents: row.fixed_discount_cents ?? null,
     productIds,
     rules: mapTierRows(row.promotion_rules ?? undefined),
+    quantityDiscountTiers: mapQuantityDiscountTierRows(row.promotion_tiers ?? undefined),
     giftId: row.gift_id ?? null,
     thresholdAmountCents: row.threshold_amount ?? null,
     gift,

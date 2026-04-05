@@ -83,6 +83,14 @@ export type PromotionRuleRow = {
   sort_order: number
 }
 
+export type PromotionQuantityTierRow = {
+  id: string
+  promotion_id: string
+  min_qty: number
+  discount_percent: number
+  sort_order: number
+}
+
 export type OrderRow = {
   id: string
   created_at: string
@@ -249,6 +257,20 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: 'promotion_rules_promotion_id_fkey'
+            columns: ['promotion_id']
+            isOneToOne: false
+            referencedRelation: 'promotions'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      promotion_tiers: {
+        Row: PromotionQuantityTierRow
+        Insert: Omit<PromotionQuantityTierRow, 'id'> & { id?: string }
+        Update: Partial<PromotionQuantityTierRow>
+        Relationships: [
+          {
+            foreignKeyName: 'promotion_tiers_promotion_id_fkey'
             columns: ['promotion_id']
             isOneToOne: false
             referencedRelation: 'promotions'

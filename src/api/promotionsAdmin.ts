@@ -11,6 +11,12 @@ export type PromotionTierInput = {
   sortOrder: number
 }
 
+export type PromotionQuantityTierInput = {
+  minQty: number
+  discountPercent: number
+  sortOrder: number
+}
+
 export type PromotionProductQtyInput = {
   productId: string
   quantity: number
@@ -34,6 +40,8 @@ export type PromotionInput = {
   /** `FREE_SELECTION` — max total units across chosen lines. */
   maxSelectionQty: number | null
   tiers: PromotionTierInput[]
+  /** `TIERED_QUANTITY_DISCOUNT` — sorted by `minQty` ascending in DB via `sort_order`. */
+  quantityTiers: PromotionQuantityTierInput[]
   giftId: string | null
   thresholdAmountCents: number | null
 }
@@ -72,7 +80,7 @@ function rowPayload(input: PromotionInput) {
       threshold_amount: input.thresholdAmountCents,
     }
   }
-  if (input.kind === 'TIERED') {
+  if (input.kind === 'TIERED' || input.kind === 'TIERED_QUANTITY_DISCOUNT') {
     return {
       ...base,
       buy_qty: null,
@@ -179,6 +187,22 @@ async function replacePromotionRules(promotionId: string, tiers: PromotionTierIn
   if (insErr) throw insErr
 }
 
+async function replacePromotionTiers(promotionId: string, tiers: PromotionQuantityTierInput[]) {
+  const { error: delErr } = await supabase.from('promotion_tiers').delete().eq('promotion_id', promotionId)
+  if (delErr) throw delErr
+
+  if (tiers.length === 0) return
+  const { error: insErr } = await supabase.from('promotion_tiers').insert(
+    tiers.map((t) => ({
+      promotion_id: promotionId,
+      min_qty: t.minQty,
+      discount_percent: t.discountPercent,
+      sort_order: t.sortOrder,
+    })),
+  )
+  if (insErr) throw insErr
+}
+
 async function syncPromotionRelations(id: string, input: PromotionInput) {
   if (input.kind === 'FREE_SELECTION') {
     await replacePromotionProductEntries(id, [])
@@ -200,6 +224,11 @@ async function syncPromotionRelations(id: string, input: PromotionInput) {
     await replacePromotionRules(id, input.tiers)
   } else {
     await replacePromotionRules(id, [])
+  }
+  if (input.kind === 'TIERED_QUANTITY_DISCOUNT') {
+    await replacePromotionTiers(id, input.quantityTiers)
+  } else {
+    await replacePromotionTiers(id, [])
   }
 }
 

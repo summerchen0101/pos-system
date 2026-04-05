@@ -78,6 +78,7 @@ create table if not exists public.promotions (
       'BULK_DISCOUNT',
       'SINGLE_DISCOUNT',
       'TIERED',
+      'TIERED_QUANTITY_DISCOUNT',
       'GIFT_WITH_THRESHOLD',
       'FIXED_DISCOUNT',
       'FREE_ITEMS',
@@ -162,6 +163,16 @@ create table if not exists public.promotion_rules (
 
 create index if not exists promotion_rules_promotion_id_idx on public.promotion_rules (promotion_id);
 
+create table if not exists public.promotion_tiers (
+  id uuid primary key default gen_random_uuid(),
+  promotion_id uuid not null references public.promotions (id) on delete cascade,
+  min_qty integer not null check (min_qty >= 1),
+  discount_percent integer not null check (discount_percent >= 1 and discount_percent <= 100),
+  sort_order integer not null default 0
+);
+
+create index if not exists promotion_tiers_promotion_id_idx on public.promotion_tiers (promotion_id);
+
 alter table public.categories enable row level security;
 alter table public.bundle_groups enable row level security;
 
@@ -184,6 +195,7 @@ alter table public.promotions enable row level security;
 alter table public.promotion_products enable row level security;
 alter table public.promotion_selectable_items enable row level security;
 alter table public.promotion_rules enable row level security;
+alter table public.promotion_tiers enable row level security;
 alter table public.gifts enable row level security;
 alter table public.gift_inventory enable row level security;
 
@@ -224,6 +236,12 @@ create policy "promotion_rules_select_anon" on public.promotion_rules for select
 
 drop policy if exists "promotion_rules_write_anon" on public.promotion_rules;
 create policy "promotion_rules_write_anon" on public.promotion_rules for all using (true) with check (true);
+
+drop policy if exists "promotion_tiers_select_anon" on public.promotion_tiers;
+create policy "promotion_tiers_select_anon" on public.promotion_tiers for select using (true);
+
+drop policy if exists "promotion_tiers_write_anon" on public.promotion_tiers;
+create policy "promotion_tiers_write_anon" on public.promotion_tiers for all using (true) with check (true);
 
 drop policy if exists "gifts_select_anon" on public.gifts;
 create policy "gifts_select_anon" on public.gifts for select using (true);

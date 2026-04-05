@@ -67,6 +67,7 @@ export const PROMOTION_KINDS = [
   'BULK_DISCOUNT',
   'SINGLE_DISCOUNT',
   'TIERED',
+  'TIERED_QUANTITY_DISCOUNT',
   'GIFT_WITH_THRESHOLD',
   'FIXED_DISCOUNT',
   'FREE_ITEMS',
@@ -87,6 +88,14 @@ export type PromotionTierRule = {
   minQty: number
   freeQty: number | null
   discountPercent: number | null
+  sortOrder: number
+}
+
+/** Row from `promotion_tiers` (`TIERED_QUANTITY_DISCOUNT`). */
+export type PromotionQuantityDiscountTier = {
+  id: string
+  minQty: number
+  discountPercent: number
   sortOrder: number
 }
 
@@ -113,6 +122,8 @@ export type Promotion = {
   productIds: string[]
   /** Populated when `kind === 'TIERED'`. */
   rules: PromotionTierRule[]
+  /** Populated when `kind === 'TIERED_QUANTITY_DISCOUNT'`; sorted by `minQty` ascending for display. */
+  quantityDiscountTiers: PromotionQuantityDiscountTier[]
   /** DB `gift_id`; only set for `GIFT_WITH_THRESHOLD`. */
   giftId: string | null
   /** Threshold in minor units; only for `GIFT_WITH_THRESHOLD`. */
