@@ -6,6 +6,7 @@ import { AdminLayout } from "./layouts/AdminLayout";
 import { AdminCategoriesPage } from "./pages/AdminCategoriesPage";
 import { AdminOrdersPage } from "./pages/AdminOrdersPage";
 import { AdminProductsPage } from "./pages/AdminProductsPage";
+import { AdminGiftsPage } from "./pages/AdminGiftsPage";
 import { AdminPromotionsPage } from "./pages/AdminPromotionsPage";
 
 const appTheme = {
@@ -61,6 +62,7 @@ export default function App() {
               />
               <Route path="categories" element={<AdminCategoriesPage />} />
               <Route path="products" element={<AdminProductsPage />} />
+              <Route path="gifts" element={<AdminGiftsPage />} />
               <Route path="promotions" element={<AdminPromotionsPage />} />
               <Route path="orders" element={<AdminOrdersPage />} />
             </Route>

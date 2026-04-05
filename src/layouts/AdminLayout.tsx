@@ -1,4 +1,10 @@
-import { AppstoreOutlined, GiftOutlined, HistoryOutlined, ShoppingOutlined } from '@ant-design/icons'
+import {
+  AppstoreOutlined,
+  GiftOutlined,
+  HistoryOutlined,
+  ShoppingOutlined,
+  SkinOutlined,
+} from '@ant-design/icons'
 import { Layout, Menu, Typography, theme } from 'antd'
 import { useMemo } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -16,6 +22,7 @@ export function AdminLayout() {
     () => [
       { key: '/admin/categories', icon: <AppstoreOutlined />, label: zhtw.admin.layout.menuCategories },
       { key: '/admin/products', icon: <ShoppingOutlined />, label: zhtw.admin.layout.menuProducts },
+      { key: '/admin/gifts', icon: <SkinOutlined />, label: zhtw.admin.layout.menuGifts },
       { key: '/admin/promotions', icon: <GiftOutlined />, label: zhtw.admin.layout.menuPromotions },
       { key: '/admin/orders', icon: <HistoryOutlined />, label: zhtw.admin.layout.menuOrders },
     ],

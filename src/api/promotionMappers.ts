@@ -1,4 +1,10 @@
-import type { Promotion, PromotionKind, PromotionTierRule } from '../types/pos'
+import { mapProductRow, type ProductRowWithCategory } from './productMapper'
+import type {
+  Promotion,
+  PromotionGiftDetail,
+  PromotionKind,
+  PromotionTierRule,
+} from '../types/pos'
 import { isPromotionKindString } from '../types/pos'
 import type { PromotionRow, PromotionRuleRow } from '../types/supabase'
 
@@ -8,9 +14,49 @@ export type PromotionRuleNestedRow = Pick<
   'id' | 'min_qty' | 'free_qty' | 'discount_percent' | 'sort_order'
 >
 
+type GiftInventoryNestedRow = { stock: number }
+
+type GiftNestedRow = {
+  id: string
+  name: string
+  product_id: string
+  is_active: boolean
+  /** PostgREST may return one object or a single-element array. */
+  gift_inventory?: GiftInventoryNestedRow | GiftInventoryNestedRow[] | null
+  products?: ProductRowWithCategory | ProductRowWithCategory[] | null
+}
+
 export type PromotionRowWithProducts = PromotionRow & {
   promotion_products?: { product_id: string }[] | null
   promotion_rules?: PromotionRuleNestedRow[] | null
+  gifts?: GiftNestedRow | GiftNestedRow[] | null
+}
+
+function unwrapOne<T>(x: T | T[] | null | undefined): T | null {
+  if (x == null) return null
+  return Array.isArray(x) ? x[0] ?? null : x
+}
+
+function firstInventory(
+  x: GiftInventoryNestedRow | GiftInventoryNestedRow[] | null | undefined,
+): GiftInventoryNestedRow | null {
+  if (x == null) return null
+  return Array.isArray(x) ? x[0] ?? null : x
+}
+
+function mapGiftDetail(row: GiftNestedRow | null): PromotionGiftDetail | null {
+  if (!row) return null
+  const inv = firstInventory(row.gift_inventory)
+  const stock = inv?.stock ?? 0
+  const prodRow = unwrapOne(row.products)
+  return {
+    giftId: row.id,
+    displayName: row.name,
+    productId: row.product_id,
+    stock,
+    isActive: row.is_active,
+    product: prodRow ? mapProductRow(prodRow) : null,
+  }
 }
 
 function mapTierRows(rows: PromotionRuleNestedRow[] | null | undefined): PromotionTierRule[] {
@@ -32,6 +78,9 @@ export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
     throw new Error(`Invalid promotion kind: ${row.kind}`)
   }
   const kind: PromotionKind = row.kind
+  const giftNested = unwrapOne(row.gifts)
+  const gift = mapGiftDetail(giftNested)
+
   return {
     id: row.id,
     code: row.code,
@@ -43,5 +92,8 @@ export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
     active: row.active,
     productIds,
     rules: mapTierRows(row.promotion_rules ?? undefined),
+    giftId: row.gift_id ?? null,
+    thresholdAmountCents: row.threshold_amount ?? null,
+    gift,
   }
 }

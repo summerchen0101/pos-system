@@ -36,15 +36,51 @@ create table if not exists public.products (
 
 create index if not exists products_category_id_idx on public.products (category_id);
 
+create table if not exists public.gifts (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products (id) on delete restrict,
+  name text not null,
+  is_active boolean not null default true
+);
+
+create table if not exists public.gift_inventory (
+  gift_id uuid primary key references public.gifts (id) on delete cascade,
+  stock integer not null default 0 check (stock >= 0)
+);
+
+create index if not exists gifts_product_id_idx on public.gifts (product_id);
+
 create table if not exists public.promotions (
   id uuid primary key default gen_random_uuid(),
   code text unique,
   name text not null,
-  kind text not null check (kind in ('BUY_X_GET_Y', 'BULK_DISCOUNT', 'SINGLE_DISCOUNT', 'TIERED')),
+  kind text not null check (
+    kind in (
+      'BUY_X_GET_Y',
+      'BULK_DISCOUNT',
+      'SINGLE_DISCOUNT',
+      'TIERED',
+      'GIFT_WITH_THRESHOLD'
+    )
+  ),
   buy_qty integer,
   free_qty integer,
   discount_percent integer check (discount_percent is null or (discount_percent >= 0 and discount_percent <= 100)),
-  active boolean not null default true
+  active boolean not null default true,
+  gift_id uuid references public.gifts (id) on delete set null,
+  threshold_amount integer check (threshold_amount is null or threshold_amount >= 1),
+  constraint promotions_gift_threshold_kind check (
+    (
+      kind = 'GIFT_WITH_THRESHOLD'
+      and gift_id is not null
+      and threshold_amount is not null
+    )
+    or (
+      kind <> 'GIFT_WITH_THRESHOLD'
+      and gift_id is null
+      and threshold_amount is null
+    )
+  )
 );
 
 create table if not exists public.promotion_products (
@@ -84,6 +120,8 @@ alter table public.products enable row level security;
 alter table public.promotions enable row level security;
 alter table public.promotion_products enable row level security;
 alter table public.promotion_rules enable row level security;
+alter table public.gifts enable row level security;
+alter table public.gift_inventory enable row level security;
 
 -- Example: kiosk read + admin writes in dev (tighten in production).
 drop policy if exists "categories_select_anon" on public.categories;
@@ -116,6 +154,18 @@ create policy "promotion_rules_select_anon" on public.promotion_rules for select
 
 drop policy if exists "promotion_rules_write_anon" on public.promotion_rules;
 create policy "promotion_rules_write_anon" on public.promotion_rules for all using (true) with check (true);
+
+drop policy if exists "gifts_select_anon" on public.gifts;
+create policy "gifts_select_anon" on public.gifts for select using (true);
+
+drop policy if exists "gifts_write_anon" on public.gifts;
+create policy "gifts_write_anon" on public.gifts for all using (true) with check (true);
+
+drop policy if exists "gift_inventory_select_anon" on public.gift_inventory;
+create policy "gift_inventory_select_anon" on public.gift_inventory for select using (true);
+
+drop policy if exists "gift_inventory_write_anon" on public.gift_inventory;
+create policy "gift_inventory_write_anon" on public.gift_inventory for all using (true) with check (true);
 
 -- Order receipts (amounts in cents)
 create table if not exists public.orders (

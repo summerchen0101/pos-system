@@ -239,6 +239,38 @@
   color: var(--pos-text-muted);
 }
 
+.pos-cart-line--gift {
+  border-left: 3px solid var(--pos-accent);
+  padding-left: 0.55rem;
+  margin-left: -0.1rem;
+}
+
+.pos-cart-line__gift-badge {
+  margin-left: 0.45rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--pos-accent);
+  vertical-align: middle;
+}
+
+.pos-qty__btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pos-order-summary__gifts {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+}
+
+.pos-order-summary__gift-line {
+  font-size: 0.78rem;
+  color: var(--pos-accent);
+  margin-bottom: 0.2rem;
+}
+
 .pos-cart-line__controls {
   display: flex;
   align-items: center;

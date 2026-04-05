@@ -1,4 +1,6 @@
 -- Product inventory (safe to re-run).
+-- NOTE: `checkout_order_deduct_stock` is replaced again in `migrate_gifts_gift_promotion.sql`
+-- (gift lines deduct `gift_inventory` when JSON includes `gift_id`).
 
 alter table public.products
   add column if not exists stock integer not null default 0 check (stock >= 0);

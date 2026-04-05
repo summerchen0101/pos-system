@@ -1,0 +1,30 @@
+import { productSelectWithCategory } from './productMapper'
+
+/** Nested gift + product for `GIFT_WITH_THRESHOLD` (PostgREST embed). */
+const giftEmbed = `
+  id,
+  name,
+  product_id,
+  is_active,
+  gift_inventory ( stock ),
+  products ( ${productSelectWithCategory} )
+`
+
+/** Shared select for POS and admin promotion lists. */
+export const PROMOTION_LIST_SELECT = `
+  id,
+  code,
+  name,
+  kind,
+  buy_qty,
+  free_qty,
+  discount_percent,
+  active,
+  gift_id,
+  threshold_amount,
+  promotion_products ( product_id ),
+  promotion_rules ( id, min_qty, free_qty, discount_percent, sort_order ),
+  gifts!promotions_gift_id_fkey (
+    ${giftEmbed}
+  )
+`

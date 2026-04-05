@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchProducts } from "../../api/fetchProducts";
 import { fetchPromotions } from "../../api/fetchPromotions";
+import { useThresholdGiftSync } from "../../hooks/useThresholdGiftSync";
 import { zhtw } from "../../locales/zhTW";
 import { useCartStore } from "../../store/cartStore";
 import type { Product, Promotion } from "../../types/pos";
@@ -28,6 +29,8 @@ export function PosLayout() {
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
   const [promotionsError, setPromotionsError] = useState<string | null>(null);
+
+  useThresholdGiftSync(promotions);
 
   const tabItems = useMemo(
     () => POS_SIZE_TAB_LABELS.map((label) => ({ key: label, label })),

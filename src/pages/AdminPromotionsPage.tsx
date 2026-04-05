@@ -16,6 +16,7 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import { useCallback, useEffect, useState } from 'react'
 import { fetchAllProducts } from '../api/fetchAllProducts'
+import { listGiftsAdmin, type AdminGift } from '../api/giftsAdmin'
 import {
   createPromotion,
   deletePromotion,
@@ -25,6 +26,7 @@ import {
   type PromotionInput,
   type PromotionTierInput,
 } from '../api/promotionsAdmin'
+import { formatMoney } from '../lib/money'
 import { zhtw } from '../locales/zhTW'
 import type { Product, Promotion, PromotionKind } from '../types/pos'
 
@@ -32,11 +34,20 @@ const { Title, Text } = Typography
 const pr = zhtw.admin.promotions
 const common = zhtw.common
 
+function dollarsToCents(d: number): number {
+  return Math.round(d * 100)
+}
+
+function centsToDollars(c: number): number {
+  return c / 100
+}
+
 const KIND_OPTIONS: { value: PromotionKind; label: string }[] = [
   { value: 'BUY_X_GET_Y', label: pr.kindBogo },
   { value: 'BULK_DISCOUNT', label: pr.kindBulk },
   { value: 'SINGLE_DISCOUNT', label: pr.kindSingle },
   { value: 'TIERED', label: pr.kindTiered },
+  { value: 'GIFT_WITH_THRESHOLD', label: pr.kindThreshold },
 ]
 
 function promotionSummary(p: Promotion): string {
@@ -50,6 +61,8 @@ function promotionSummary(p: Promotion): string {
       return pr.summarySingle(p.discountPercent ?? 0)
     case 'TIERED':
       return pr.summaryTiered(p.rules.length)
+    case 'GIFT_WITH_THRESHOLD':
+      return pr.summaryThreshold(formatMoney(p.thresholdAmountCents ?? 0), p.gift?.displayName ?? dash)
     default:
       return dash
   }
@@ -71,6 +84,8 @@ type FormValues = {
   active: boolean
   productIds: string[]
   tiers?: TierFormRow[]
+  promotionGiftId?: string
+  thresholdDollars?: number | null
 }
 
 function buildTierInputs(rows: TierFormRow[]): PromotionTierInput[] {
@@ -94,6 +109,21 @@ function buildTierInputs(rows: TierFormRow[]): PromotionTierInput[] {
 function toInput(values: FormValues): PromotionInput {
   const tiers: PromotionTierInput[] =
     values.kind === 'TIERED' ? buildTierInputs(values.tiers ?? []) : []
+  if (values.kind === 'GIFT_WITH_THRESHOLD') {
+    return {
+      code: values.code?.trim() ? values.code.trim() : null,
+      name: values.name.trim(),
+      kind: values.kind,
+      buyQty: null,
+      freeQty: null,
+      discountPercent: null,
+      active: values.active,
+      productIds: [],
+      tiers: [],
+      giftId: values.promotionGiftId ?? null,
+      thresholdAmountCents: dollarsToCents(Number(values.thresholdDollars)),
+    }
+  }
   return {
     code: values.code?.trim() ? values.code.trim() : null,
     name: values.name.trim(),
@@ -104,6 +134,8 @@ function toInput(values: FormValues): PromotionInput {
     active: values.active,
     productIds: values.productIds ?? [],
     tiers,
+    giftId: null,
+    thresholdAmountCents: null,
   }
 }
 
@@ -112,6 +144,7 @@ export function AdminPromotionsPage() {
   const [form] = Form.useForm<FormValues>()
   const [products, setProducts] = useState<Product[]>([])
   const [promotions, setPromotions] = useState<Promotion[]>([])
+  const [gifts, setGifts] = useState<AdminGift[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -122,9 +155,14 @@ export function AdminPromotionsPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [plist, mlist] = await Promise.all([fetchAllProducts(), listPromotionsAdmin()])
+      const [plist, mlist, glist] = await Promise.all([
+        fetchAllProducts(),
+        listPromotionsAdmin(),
+        listGiftsAdmin(),
+      ])
       setProducts(plist)
       setPromotions(mlist)
+      setGifts(glist)
     } catch (e) {
       message.error(e instanceof Error ? e.message : pr.loadError)
     } finally {
@@ -149,6 +187,8 @@ export function AdminPromotionsPage() {
       active: true,
       productIds: [],
       tiers: [],
+      promotionGiftId: undefined,
+      thresholdDollars: undefined,
     })
     setModalOpen(true)
   }
@@ -163,7 +203,7 @@ export function AdminPromotionsPage() {
       freeQty: p.freeQty,
       discountPercent: p.discountPercent,
       active: p.active,
-      productIds: p.productIds,
+      productIds: p.kind === 'GIFT_WITH_THRESHOLD' ? [] : p.productIds,
       tiers:
         p.kind === 'TIERED'
           ? p.rules.map((r) => ({
@@ -172,6 +212,11 @@ export function AdminPromotionsPage() {
               discount_percent: r.discountPercent ?? undefined,
             }))
           : [],
+      promotionGiftId: p.giftId ?? undefined,
+      thresholdDollars:
+        p.kind === 'GIFT_WITH_THRESHOLD' && p.thresholdAmountCents != null
+          ? centsToDollars(p.thresholdAmountCents)
+          : undefined,
     })
     setModalOpen(true)
   }
@@ -189,6 +234,16 @@ export function AdminPromotionsPage() {
         message.error(pr.addTierError)
         return
       }
+      if (values.kind === 'GIFT_WITH_THRESHOLD') {
+        if (!values.promotionGiftId) {
+          message.error(pr.selectGiftError)
+          return
+        }
+        if (values.thresholdDollars == null || Number(values.thresholdDollars) <= 0) {
+          message.error(pr.thresholdError)
+          return
+        }
+      }
       let input: PromotionInput
       try {
         input = toInput(values)
@@ -196,8 +251,15 @@ export function AdminPromotionsPage() {
         message.error(err instanceof Error ? err.message : pr.invalidTiers)
         return
       }
-      if (input.productIds.length === 0) {
+      if (input.kind !== 'GIFT_WITH_THRESHOLD' && input.productIds.length === 0) {
         message.error(pr.selectProductError)
+        return
+      }
+      if (
+        input.kind === 'GIFT_WITH_THRESHOLD' &&
+        (!input.thresholdAmountCents || input.thresholdAmountCents < 1)
+      ) {
+        message.error(pr.thresholdError)
         return
       }
       setSaving(true)
@@ -247,6 +309,11 @@ export function AdminPromotionsPage() {
     value: pr.id,
   }))
 
+  const giftOptions = gifts.map((x) => ({
+    label: `${x.name}${x.product ? ` · ${x.product.sku}` : ''}`,
+    value: x.id,
+  }))
+
   const columns: ColumnsType<Promotion> = [
     {
       title: pr.colName,
@@ -280,7 +347,8 @@ export function AdminPromotionsPage() {
       key: 'pc',
       width: 72,
       align: 'center',
-      render: (_, row) => row.productIds.length,
+      render: (_, row) =>
+        row.kind === 'GIFT_WITH_THRESHOLD' ? common.dash : row.productIds.length,
     },
     {
       title: pr.colActive,
@@ -381,6 +449,15 @@ export function AdminPromotionsPage() {
                     discountPercent: null,
                   })
                 }
+              } else if (k === 'GIFT_WITH_THRESHOLD') {
+                form.setFieldsValue({
+                  buyQty: null,
+                  freeQty: null,
+                  discountPercent: null,
+                  tiers: [],
+                  productIds: [],
+                  thresholdDollars: form.getFieldValue('thresholdDollars') ?? 500,
+                })
               } else {
                 form.setFieldsValue({
                   buyQty: null,
@@ -504,26 +581,52 @@ export function AdminPromotionsPage() {
             </Form.Item>
           )}
 
-          <Form.Item
-            name="productIds"
-            label={pr.labelProducts}
-            rules={[
-              {
-                validator: async (_, v: string[]) => {
-                  if (!v?.length) throw new Error(pr.validatorProducts)
-                },
-              },
-            ]}
-          >
-            <Select
-              mode="multiple"
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              placeholder={pr.productsPh}
-              options={productOptions}
-            />
-          </Form.Item>
+          {kindWatch === 'GIFT_WITH_THRESHOLD' ? (
+            <>
+              <Form.Item
+                name="promotionGiftId"
+                label={pr.labelGift}
+                rules={[{ required: true, message: pr.selectGiftError }]}
+              >
+                <Select
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder={pr.giftPh}
+                  options={giftOptions}
+                />
+              </Form.Item>
+              <Form.Item
+                name="thresholdDollars"
+                label={pr.labelThreshold}
+                rules={[{ required: true, type: 'number', min: 0.01 }]}
+                extra={pr.thresholdExtra}
+              >
+                <InputNumber min={0.01} step={1} style={{ width: '100%' }} placeholder={pr.thresholdPh} />
+              </Form.Item>
+            </>
+          ) : (
+            <Form.Item
+              name="productIds"
+              label={pr.labelProducts}
+              rules={[
+                ({ getFieldValue }) => ({
+                  validator: async (_, v: string[]) => {
+                    if (getFieldValue('kind') === 'GIFT_WITH_THRESHOLD') return
+                    if (!v?.length) throw new Error(pr.validatorProducts)
+                  },
+                }),
+              ]}
+            >
+              <Select
+                mode="multiple"
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                placeholder={pr.productsPh}
+                options={productOptions}
+              />
+            </Form.Item>
+          )}
 
           <Form.Item name="active" label={pr.colActive} valuePropName="checked">
             <Switch />

@@ -21,6 +21,8 @@ export type OrderInsert = {
 export type CheckoutLine = {
   productId: string
   quantity: number
+  /** When set, `gift_inventory` is decremented instead of `products.stock`. */
+  giftId?: string | null
 }
 
 /** List orders whose `created_at` falls in `[dayStart, dayEnd]` (inclusive), local day boundaries as ISO strings. */
@@ -48,10 +50,14 @@ export async function fetchOrdersForDateRange(
  */
 export async function checkoutOrder(input: OrderInsert, lines: CheckoutLine[]): Promise<void> {
   if (lines.length === 0) throw new Error('empty_cart')
-  const p_lines = lines.map((l) => ({
-    product_id: l.productId,
-    quantity: l.quantity,
-  }))
+  const p_lines = lines.map((l) => {
+    const row: { product_id: string; quantity: number; gift_id?: string } = {
+      product_id: l.productId,
+      quantity: l.quantity,
+    }
+    if (l.giftId) row.gift_id = l.giftId
+    return row
+  })
   const { error } = await supabase.rpc('checkout_order_deduct_stock', {
     p_total_amount: input.totalAmountCents,
     p_discount_amount: input.discountAmountCents,

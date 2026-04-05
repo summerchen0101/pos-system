@@ -8,6 +8,7 @@ type Props = {
   appliedPromotionName: string | null
   hasPromotionRules: boolean
   promotionsFailed: boolean
+  thresholdGiftSummaries: string[]
 }
 
 export function OrderSummary({
@@ -16,6 +17,7 @@ export function OrderSummary({
   appliedPromotionName,
   hasPromotionRules,
   promotionsFailed,
+  thresholdGiftSummaries,
 }: Props) {
   const hasDiscount = totals.discountCents > 0
   const pctOff =
@@ -42,6 +44,15 @@ export function OrderSummary({
   return (
     <div className="pos-order-summary">
       <h3 className="pos-order-summary__title">{zhtw.pos.totals}</h3>
+      {thresholdGiftSummaries.length > 0 ? (
+        <ul className="pos-order-summary__gifts" aria-label={zhtw.pos.thresholdGiftsAria}>
+          {thresholdGiftSummaries.map((t) => (
+            <li key={t} className="pos-order-summary__gift-line">
+              {t}
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <dl className="pos-order-summary__rows">
         <div className="pos-order-summary__row">
           <dt>{zhtw.pos.subtotal}</dt>

@@ -1,25 +1,13 @@
 import { supabase } from '../supabase'
 import { mapPromotionFromRow } from './promotionMappers'
+import { PROMOTION_LIST_SELECT } from './promotionSelect'
 import type { Promotion } from '../types/pos'
-
-const promotionSelect = `
-  id,
-  code,
-  name,
-  kind,
-  buy_qty,
-  free_qty,
-  discount_percent,
-  active,
-  promotion_products ( product_id ),
-  promotion_rules ( id, min_qty, free_qty, discount_percent, sort_order )
-`
 
 /** Active promotions for the register (with product scope). */
 export async function fetchPromotions(): Promise<Promotion[]> {
   const { data, error } = await supabase
     .from('promotions')
-    .select(promotionSelect)
+    .select(PROMOTION_LIST_SELECT)
     .eq('active', true)
     .order('name', { ascending: true })
 

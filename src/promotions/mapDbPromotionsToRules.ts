@@ -7,11 +7,13 @@ import type { PromotionRule } from './types'
  * - Bulk: `promotionId`
  * - Per product: `${promotionId}~p~${productId}`
  */
-export function mapDbPromotionsToEngineRules(promotions: Promotion[]): PromotionRule[] {
+export function mapDbPromotionsToEngineRules(promotions: readonly Promotion[]): PromotionRule[] {
   const rules: PromotionRule[] = []
 
   for (const p of promotions) {
     if (!p.active || !isPromotionKindString(p.kind)) continue
+    if (p.kind === 'GIFT_WITH_THRESHOLD') continue
+
     const ids = p.productIds
     if (ids.length === 0) continue
 

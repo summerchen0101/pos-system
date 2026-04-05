@@ -23,7 +23,13 @@ export function CartPanel({ promotions, promotionsError }: Props) {
   const totals = useCartPromotionTotals(promotions)
   const isEmpty = lines.length === 0
   const unitCount = lines.reduce((sum, line) => sum + line.quantity, 0)
-  const stockOk = lines.every((l) => l.quantity <= l.product.stock && l.product.stock > 0)
+  const stockOk = lines.every((l) => {
+    if (l.isGift) {
+      const gs = l.giftStock ?? 0
+      return gs > 0 && l.quantity <= gs
+    }
+    return l.quantity <= l.product.stock && l.product.stock > 0
+  })
   const canCheckout = !isEmpty && stockOk
 
   const handleCheckout = () => {
@@ -36,7 +42,11 @@ export function CartPanel({ promotions, promotionsError }: Props) {
             discountAmountCents: totals.discountCents,
             finalAmountCents: totals.finalCents,
           },
-          lines.map((l) => ({ productId: l.product.id, quantity: l.quantity })),
+          lines.map((l) => ({
+            productId: l.product.id,
+            quantity: l.quantity,
+            ...(l.isGift && l.giftId ? { giftId: l.giftId } : {}),
+          })),
         )
       } catch (e) {
         console.error('Checkout failed', e)
@@ -80,7 +90,7 @@ export function CartPanel({ promotions, promotionsError }: Props) {
         <ul className="pos-cart-list">
           {lines.map((line) => (
             <CartLineRow
-              key={line.product.id}
+              key={line.lineId}
               line={line}
               onIncrement={increment}
               onDecrement={decrement}
@@ -96,6 +106,7 @@ export function CartPanel({ promotions, promotionsError }: Props) {
         appliedPromotionName={totals.appliedPromotionName}
         hasPromotionRules={promotions.length > 0}
         promotionsFailed={promotionsError != null}
+        thresholdGiftSummaries={totals.thresholdGiftSummaries}
       />
 
       <CheckoutButton totals={totals} disabled={!canCheckout} onCheckout={handleCheckout} />

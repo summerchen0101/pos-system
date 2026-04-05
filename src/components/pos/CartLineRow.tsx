@@ -1,6 +1,6 @@
 import { zhtw } from '../../locales/zhTW'
-import type { CartLine, Product } from '../../types/pos'
 import { formatMoney } from '../../lib/money'
+import type { CartLine, Product } from '../../types/pos'
 
 function productCartLabel(p: Product): string {
   const size = p.size?.trim()
@@ -9,32 +9,42 @@ function productCartLabel(p: Product): string {
 
 type Props = {
   line: CartLine
-  onIncrement: (productId: string) => void
-  onDecrement: (productId: string) => void
-  onRemove: (productId: string) => void
+  onIncrement: (lineId: string) => void
+  onDecrement: (lineId: string) => void
+  onRemove: (lineId: string) => void
 }
 
 export function CartLineRow({ line, onIncrement, onDecrement, onRemove }: Props) {
-  const { product, quantity } = line
-  const lineTotal = product.price * quantity
+  const { product, quantity, lineId, isGift, giftStock } = line
+  const unitPrice = isGift ? 0 : product.price
+  const lineTotal = unitPrice * quantity
   const label = productCartLabel(product)
+  const stockLabel = isGift
+    ? zhtw.pos.giftStockCount(giftStock ?? 0)
+    : zhtw.pos.stockCount(product.stock)
 
   return (
-    <li className="pos-cart-line">
+    <li className={`pos-cart-line${isGift ? ' pos-cart-line--gift' : ''}`}>
       <div className="pos-cart-line__info">
-        <span className="pos-cart-line__name">{label}</span>
+        <span className="pos-cart-line__name">
+          {label}
+          {isGift ? (
+            <span className="pos-cart-line__gift-badge">{zhtw.pos.giftBadge}</span>
+          ) : null}
+        </span>
         <span className="pos-cart-line__unit">
-          {formatMoney(product.price)}
+          {formatMoney(unitPrice)}
           {zhtw.pos.each}
         </span>
-        <span className="pos-cart-line__stock">{zhtw.pos.stockCount(product.stock)}</span>
+        <span className="pos-cart-line__stock">{stockLabel}</span>
       </div>
       <div className="pos-cart-line__controls">
         <div className="pos-qty" role="group" aria-label={zhtw.pos.qtyGroup(label)}>
           <button
             type="button"
             className="pos-qty__btn"
-            onClick={() => onDecrement(product.id)}
+            onClick={() => onDecrement(lineId)}
+            disabled={isGift}
             aria-label={zhtw.pos.decreaseQty}
           >
             −
@@ -43,7 +53,8 @@ export function CartLineRow({ line, onIncrement, onDecrement, onRemove }: Props)
           <button
             type="button"
             className="pos-qty__btn"
-            onClick={() => onIncrement(product.id)}
+            onClick={() => onIncrement(lineId)}
+            disabled={isGift}
             aria-label={zhtw.pos.increaseQty}
           >
             +
@@ -53,7 +64,7 @@ export function CartLineRow({ line, onIncrement, onDecrement, onRemove }: Props)
         <button
           type="button"
           className="pos-cart-line__remove"
-          onClick={() => onRemove(product.id)}
+          onClick={() => onRemove(lineId)}
           aria-label={zhtw.pos.removeLine(label)}
         >
           ×

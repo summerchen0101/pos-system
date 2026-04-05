@@ -1,19 +1,7 @@
 import { supabase } from '../supabase'
 import { mapPromotionFromRow } from './promotionMappers'
+import { PROMOTION_LIST_SELECT } from './promotionSelect'
 import type { Promotion, PromotionKind } from '../types/pos'
-
-const promotionSelect = `
-  id,
-  code,
-  name,
-  kind,
-  buy_qty,
-  free_qty,
-  discount_percent,
-  active,
-  promotion_products ( product_id ),
-  promotion_rules ( id, min_qty, free_qty, discount_percent, sort_order )
-`
 
 export type PromotionTierInput = {
   minQty: number
@@ -33,6 +21,9 @@ export type PromotionInput = {
   productIds: string[]
   /** Required when kind is TIERED (at least one row). */
   tiers: PromotionTierInput[]
+  /** Required when kind is GIFT_WITH_THRESHOLD. */
+  giftId: string | null
+  thresholdAmountCents: number | null
 }
 
 function rowPayload(input: PromotionInput) {
@@ -42,12 +33,24 @@ function rowPayload(input: PromotionInput) {
     kind: input.kind,
     active: input.active,
   }
+  if (input.kind === 'GIFT_WITH_THRESHOLD') {
+    return {
+      ...base,
+      buy_qty: null,
+      free_qty: null,
+      discount_percent: null,
+      gift_id: input.giftId,
+      threshold_amount: input.thresholdAmountCents,
+    }
+  }
   if (input.kind === 'TIERED') {
     return {
       ...base,
       buy_qty: null,
       free_qty: null,
       discount_percent: null,
+      gift_id: null,
+      threshold_amount: null,
     }
   }
   return {
@@ -55,6 +58,8 @@ function rowPayload(input: PromotionInput) {
     buy_qty: input.buyQty,
     free_qty: input.freeQty,
     discount_percent: input.discountPercent,
+    gift_id: null,
+    threshold_amount: null,
   }
 }
 
@@ -90,7 +95,11 @@ async function replacePromotionRules(promotionId: string, tiers: PromotionTierIn
 }
 
 async function syncPromotionRelations(id: string, input: PromotionInput) {
-  await replacePromotionProducts(id, input.productIds)
+  if (input.kind === 'GIFT_WITH_THRESHOLD') {
+    await replacePromotionProducts(id, [])
+  } else {
+    await replacePromotionProducts(id, input.productIds)
+  }
   if (input.kind === 'TIERED') {
     await replacePromotionRules(id, input.tiers)
   } else {
@@ -101,7 +110,7 @@ async function syncPromotionRelations(id: string, input: PromotionInput) {
 export async function listPromotionsAdmin(): Promise<Promotion[]> {
   const { data, error } = await supabase
     .from('promotions')
-    .select(promotionSelect)
+    .select(PROMOTION_LIST_SELECT)
     .order('name', { ascending: true })
 
   if (error) throw error
@@ -122,7 +131,7 @@ export async function createPromotion(input: PromotionInput): Promise<Promotion>
 
   const { data: full, error: fetchErr } = await supabase
     .from('promotions')
-    .select(promotionSelect)
+    .select(PROMOTION_LIST_SELECT)
     .eq('id', data.id)
     .single()
 
@@ -138,7 +147,7 @@ export async function updatePromotion(id: string, input: PromotionInput): Promis
 
   const { data: full, error: fetchErr } = await supabase
     .from('promotions')
-    .select(promotionSelect)
+    .select(PROMOTION_LIST_SELECT)
     .eq('id', id)
     .single()
 

@@ -29,6 +29,20 @@ export type PromotionRow = {
   free_qty: number | null
   discount_percent: number | null
   active: boolean
+  gift_id: string | null
+  threshold_amount: number | null
+}
+
+export type GiftRow = {
+  id: string
+  product_id: string
+  name: string
+  is_active: boolean
+}
+
+export type GiftInventoryRow = {
+  gift_id: string
+  stock: number
 }
 
 export type PromotionProductRow = {
@@ -80,7 +94,43 @@ export type Database = {
         Row: PromotionRow
         Insert: Omit<PromotionRow, 'id'> & { id?: string }
         Update: Partial<PromotionRow>
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'promotions_gift_id_fkey'
+            columns: ['gift_id']
+            isOneToOne: false
+            referencedRelation: 'gifts'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      gifts: {
+        Row: GiftRow
+        Insert: Omit<GiftRow, 'id'> & { id?: string }
+        Update: Partial<GiftRow>
+        Relationships: [
+          {
+            foreignKeyName: 'gifts_product_id_fkey'
+            columns: ['product_id']
+            isOneToOne: false
+            referencedRelation: 'products'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      gift_inventory: {
+        Row: GiftInventoryRow
+        Insert: GiftInventoryRow
+        Update: Partial<GiftInventoryRow>
+        Relationships: [
+          {
+            foreignKeyName: 'gift_inventory_gift_id_fkey'
+            columns: ['gift_id']
+            isOneToOne: true
+            referencedRelation: 'gifts'
+            referencedColumns: ['id']
+          },
+        ]
       }
       promotion_products: {
         Row: PromotionProductRow
@@ -131,7 +181,7 @@ export type Database = {
           p_total_amount: number
           p_discount_amount: number
           p_final_amount: number
-          p_lines: { product_id: string; quantity: number }[]
+          p_lines: { product_id: string; quantity: number; gift_id?: string | null }[]
         }
         Returns: string
       }

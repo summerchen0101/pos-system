@@ -22,8 +22,16 @@ export type Product = {
 }
 
 export type CartLine = {
+  /** Stable row key: `product.id` for regular lines; `gift:${promotionId}` for threshold gifts. */
+  lineId: string
   product: Product
   quantity: number
+  /** Auto-added 滿額贈 line (checkout deducts `gift_inventory`, not product stock). */
+  isGift?: boolean
+  giftId?: string
+  promotionId?: string
+  /** Snapshot from promotion payload; used for stock checks and sync. */
+  giftStock?: number
 }
 
 export const PROMOTION_KINDS = [
@@ -31,6 +39,7 @@ export const PROMOTION_KINDS = [
   'BULK_DISCOUNT',
   'SINGLE_DISCOUNT',
   'TIERED',
+  'GIFT_WITH_THRESHOLD',
 ] as const
 export type PromotionKind = (typeof PROMOTION_KINDS)[number]
 
@@ -47,6 +56,16 @@ export type PromotionTierRule = {
   sortOrder: number
 }
 
+/** Resolved gift row for POS / mappers (`GIFT_WITH_THRESHOLD`). */
+export type PromotionGiftDetail = {
+  giftId: string
+  displayName: string
+  productId: string
+  stock: number
+  isActive: boolean
+  product: Product | null
+}
+
 export type Promotion = {
   id: string
   code: string | null
@@ -59,4 +78,10 @@ export type Promotion = {
   productIds: string[]
   /** Populated when `kind === 'TIERED'`. */
   rules: PromotionTierRule[]
+  /** DB `gift_id`; only set for `GIFT_WITH_THRESHOLD`. */
+  giftId: string | null
+  /** Threshold in minor units; only for `GIFT_WITH_THRESHOLD`. */
+  thresholdAmountCents: number | null
+  /** Joined gift + inventory + product when `gift_id` is set. */
+  gift: PromotionGiftDetail | null
 }
