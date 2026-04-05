@@ -31,10 +31,31 @@ create table if not exists public.products (
   sku text not null unique,
   price integer not null check (price >= 0),
   stock integer not null default 0 check (stock >= 0),
-  is_active boolean not null default true
+  is_active boolean not null default true,
+  kind text not null default 'STANDARD' check (kind in ('STANDARD', 'CUSTOM_BUNDLE')),
+  bundle_total_qty integer,
+  constraint products_bundle_total_qty_by_kind check (
+    (
+      kind = 'CUSTOM_BUNDLE'
+      and bundle_total_qty is not null
+      and bundle_total_qty >= 1
+    )
+    or (kind = 'STANDARD' and bundle_total_qty is null)
+  )
 );
 
 create index if not exists products_category_id_idx on public.products (category_id);
+
+create table if not exists public.product_bundle_options (
+  bundle_product_id uuid not null references public.products (id) on delete cascade,
+  component_product_id uuid not null references public.products (id) on delete restrict,
+  quantity integer not null check (quantity >= 1),
+  primary key (bundle_product_id, component_product_id),
+  constraint product_bundle_options_not_self check (bundle_product_id <> component_product_id)
+);
+
+create index if not exists product_bundle_options_component_idx
+  on public.product_bundle_options (component_product_id);
 
 create table if not exists public.gifts (
   id uuid primary key default gen_random_uuid(),
@@ -142,6 +163,16 @@ create table if not exists public.promotion_rules (
 create index if not exists promotion_rules_promotion_id_idx on public.promotion_rules (promotion_id);
 
 alter table public.categories enable row level security;
+alter table public.product_bundle_options enable row level security;
+
+drop policy if exists "product_bundle_options_select_anon" on public.product_bundle_options;
+create policy "product_bundle_options_select_anon"
+  on public.product_bundle_options for select using (true);
+
+drop policy if exists "product_bundle_options_write_anon" on public.product_bundle_options;
+create policy "product_bundle_options_write_anon"
+  on public.product_bundle_options for all using (true) with check (true);
+
 alter table public.products enable row level security;
 alter table public.promotions enable row level security;
 alter table public.promotion_products enable row level security;

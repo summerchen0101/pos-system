@@ -1,6 +1,6 @@
 import { supabase } from '../supabase'
 import { mapProductRow, productSelectWithCategory, type ProductRowWithCategory } from './productMapper'
-import type { Product } from '../types/pos'
+import type { Product, ProductBundleOption, ProductKind } from '../types/pos'
 
 export type ProductInput = {
   categoryId: string | null
@@ -12,9 +12,13 @@ export type ProductInput = {
   priceCents: number
   stock: number
   isActive: boolean
+  kind: ProductKind
+  bundleTotalQty: number | null
+  bundleOptions: ProductBundleOption[]
 }
 
 function rowPayload(input: ProductInput) {
+  const isBundle = input.kind === 'CUSTOM_BUNDLE'
   return {
     category_id: input.categoryId,
     name: input.name.trim(),
@@ -25,7 +29,29 @@ function rowPayload(input: ProductInput) {
     price: input.priceCents,
     stock: input.stock,
     is_active: input.isActive,
+    kind: input.kind,
+    bundle_total_qty: isBundle ? input.bundleTotalQty : null,
   }
+}
+
+async function replaceProductBundleOptions(
+  bundleProductId: string,
+  rows: ProductBundleOption[],
+): Promise<void> {
+  const { error: delErr } = await supabase
+    .from('product_bundle_options')
+    .delete()
+    .eq('bundle_product_id', bundleProductId)
+  if (delErr) throw delErr
+  if (rows.length === 0) return
+  const { error } = await supabase.from('product_bundle_options').insert(
+    rows.map((r) => ({
+      bundle_product_id: bundleProductId,
+      component_product_id: r.productId,
+      quantity: Math.max(1, Math.trunc(r.quantity)),
+    })),
+  )
+  if (error) throw error
 }
 
 /** Strip LIKE wildcards and commas (PostgREST `or()` is comma-separated). */
@@ -91,6 +117,10 @@ export async function createProduct(input: ProductInput): Promise<Product> {
   if (error) throw error
   if (!data?.id) throw new Error('No id returned')
 
+  if (input.kind === 'CUSTOM_BUNDLE') {
+    await replaceProductBundleOptions(data.id, input.bundleOptions)
+  }
+
   const { data: full, error: fetchErr } = await supabase
     .from('products')
     .select(productSelectWithCategory)
@@ -104,6 +134,12 @@ export async function createProduct(input: ProductInput): Promise<Product> {
 export async function updateProduct(id: string, input: ProductInput): Promise<Product> {
   const { error } = await supabase.from('products').update(rowPayload(input)).eq('id', id)
   if (error) throw error
+
+  if (input.kind === 'CUSTOM_BUNDLE') {
+    await replaceProductBundleOptions(id, input.bundleOptions)
+  } else {
+    await replaceProductBundleOptions(id, [])
+  }
 
   const { data: full, error: fetchErr } = await supabase
     .from('products')
@@ -148,6 +184,9 @@ function mergedProductInput(p: Product, patch: ProductBulkPatch): ProductInput {
     priceCents: patch.priceCents !== undefined ? patch.priceCents : p.price,
     stock,
     isActive: p.isActive,
+    kind: p.kind,
+    bundleTotalQty: p.bundleTotalQty,
+    bundleOptions: [...p.bundleOptions],
   }
 }
 

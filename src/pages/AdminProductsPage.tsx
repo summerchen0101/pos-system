@@ -1,3 +1,4 @@
+import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons'
 import {
   App,
   AutoComplete,
@@ -32,11 +33,16 @@ import {
 } from '../api/productsAdmin'
 import { zhtw } from '../locales/zhTW'
 import { formatMoney } from '../lib/money'
-import type { Category, Product } from '../types/pos'
+import type { Category, Product, ProductKind } from '../types/pos'
 
 const { Title, Text } = Typography
 const p = zhtw.admin.products
 const common = zhtw.common
+
+type BundleOptionFormRow = {
+  productId?: string
+  qty?: number
+}
 
 type FormValues = {
   categoryId?: string | null
@@ -48,6 +54,9 @@ type FormValues = {
   priceDollars: number
   stock: number
   isActive: boolean
+  productKind: ProductKind
+  bundleTotalQty?: number
+  bundleOptions?: BundleOptionFormRow[]
 }
 
 type BulkStockMode = 'set' | 'adjust'
@@ -76,6 +85,16 @@ function centsToDollars(c: number): number {
 }
 
 function toInput(values: FormValues): ProductInput {
+  const kind = values.productKind ?? 'STANDARD'
+  const bundleOptions =
+    kind === 'CUSTOM_BUNDLE'
+      ? (values.bundleOptions ?? [])
+          .filter((r) => r?.productId)
+          .map((r) => ({
+            productId: r.productId!,
+            quantity: Math.max(1, Math.trunc(Number(r.qty) || 1)),
+          }))
+      : []
   return {
     categoryId: values.categoryId ?? null,
     name: values.name,
@@ -86,6 +105,9 @@ function toInput(values: FormValues): ProductInput {
     priceCents: dollarsToCents(values.priceDollars),
     stock: Math.max(0, Math.floor(Number(values.stock) || 0)),
     isActive: values.isActive,
+    kind,
+    bundleTotalQty: kind === 'CUSTOM_BUNDLE' ? Math.max(1, Math.trunc(Number(values.bundleTotalQty) || 0)) : null,
+    bundleOptions,
   }
 }
 
@@ -119,6 +141,17 @@ export function AdminProductsPage() {
   const watchFilterSize = Form.useWatch('filterSize', filterForm)
   const watchFilterCategoryId = Form.useWatch('filterCategoryId', filterForm)
   const bulkStockMode = (Form.useWatch('bulkStockMode', bulkForm) ?? 'set') as BulkStockMode
+  const productKindWatch = Form.useWatch('productKind', form) as ProductKind | undefined
+
+  const componentProductOptions = useMemo(() => {
+    return products
+      .filter((x) => x.kind === 'STANDARD')
+      .filter((x) => !editingId || x.id !== editingId)
+      .map((x) => ({
+        label: `${x.name}${x.size ? ` (${x.size})` : ''} · ${x.sku}`,
+        value: x.id,
+      }))
+  }, [products, editingId])
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -199,6 +232,9 @@ export function AdminProductsPage() {
       stock: 0,
       isActive: true,
       categoryId: categoryOptions[0]?.value,
+      productKind: 'STANDARD',
+      bundleTotalQty: 1,
+      bundleOptions: [],
     })
     setModalOpen(true)
   }
@@ -215,6 +251,12 @@ export function AdminProductsPage() {
       priceDollars: centsToDollars(p.price),
       stock: p.stock,
       isActive: p.isActive,
+      productKind: p.kind,
+      bundleTotalQty: p.bundleTotalQty ?? 1,
+      bundleOptions:
+        p.kind === 'CUSTOM_BUNDLE' && p.bundleOptions.length > 0
+          ? p.bundleOptions.map((o) => ({ productId: o.productId, qty: o.quantity }))
+          : [],
     })
     setModalOpen(true)
   }
@@ -228,6 +270,27 @@ export function AdminProductsPage() {
   const submit = async () => {
     try {
       const values = await form.validateFields()
+      if (values.productKind === 'CUSTOM_BUNDLE') {
+        const total = values.bundleTotalQty
+        if (total == null || Number(total) < 1) {
+          message.error(p.bundleTotalQtyError)
+          return
+        }
+        const rows = (values.bundleOptions ?? []).filter((r) => r?.productId)
+        if (rows.length === 0) {
+          message.error(p.bundleOptionsRequired)
+          return
+        }
+        const ids = rows.map((r) => r.productId as string)
+        if (new Set(ids).size !== ids.length) {
+          message.error(p.bundleDuplicateProduct)
+          return
+        }
+        if (editingId && ids.includes(editingId)) {
+          message.error(p.bundleCannotIncludeSelf)
+          return
+        }
+      }
       const input = toInput(values)
       setSaving(true)
       if (editingId) {
@@ -368,6 +431,17 @@ export function AdminProductsPage() {
       ),
     },
     {
+      title: p.colType,
+      key: 'kind',
+      width: 108,
+      render: (_, row) =>
+        row.kind === 'CUSTOM_BUNDLE' ? (
+          <Tag color="purple">{p.kindCustomBundle}</Tag>
+        ) : (
+          <Tag>{p.kindStandard}</Tag>
+        ),
+    },
+    {
       title: p.colSize,
       dataIndex: 'size',
       key: 'size',
@@ -498,10 +572,68 @@ export function AdminProductsPage() {
         onOk={() => void submit()}
         confirmLoading={saving}
         destroyOnClose
-        width={560}
+        width={640}
         okText={common.save}
       >
         <Form<FormValues> form={form} layout="vertical" style={{ marginTop: 8 }}>
+          <Form.Item name="productKind" label={p.labelProductKind}>
+            <Radio.Group>
+              <Radio value="STANDARD">{p.kindStandard}</Radio>
+              <Radio value="CUSTOM_BUNDLE">{p.kindCustomBundle}</Radio>
+            </Radio.Group>
+          </Form.Item>
+          {productKindWatch === 'CUSTOM_BUNDLE' ? (
+            <>
+              <Form.Item
+                name="bundleTotalQty"
+                label={p.labelBundleTotalQty}
+                rules={[{ required: true, type: 'number', min: 1 }]}
+                extra={p.bundleTotalQtyPh}
+              >
+                <InputNumber min={1} step={1} precision={0} style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item label={p.bundleOptionsLabel} required>
+                <Form.List name="bundleOptions">
+                  {(fields, { add, remove }) => (
+                    <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                      {fields.map(({ key, name, ...restField }) => (
+                        <Space key={key} style={{ width: '100%', flexWrap: 'wrap' }} align="baseline">
+                          <Form.Item
+                            {...restField}
+                            name={[name, 'productId']}
+                            rules={[{ required: true, message: common.required }]}
+                            style={{ flex: '1 1 200px', marginBottom: 0, minWidth: 0 }}
+                          >
+                            <Select
+                              placeholder={p.bundleProductCol}
+                              options={componentProductOptions}
+                              showSearch
+                              optionFilterProp="label"
+                            />
+                          </Form.Item>
+                          <Form.Item
+                            {...restField}
+                            name={[name, 'qty']}
+                            rules={[{ required: true, type: 'number', min: 1 }]}
+                            style={{ width: 120, marginBottom: 0 }}
+                          >
+                            <InputNumber min={1} step={1} precision={0} placeholder={p.bundleQtyCol} />
+                          </Form.Item>
+                          <MinusCircleOutlined
+                            onClick={() => remove(name)}
+                            style={{ color: '#ff4d4f', cursor: 'pointer' }}
+                          />
+                        </Space>
+                      ))}
+                      <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                        {p.bundleAddRow}
+                      </Button>
+                    </Space>
+                  )}
+                </Form.List>
+              </Form.Item>
+            </>
+          ) : null}
           <Form.Item name="name" label={p.labelName} rules={[{ required: true, message: common.required }]}>
             <Input />
           </Form.Item>
@@ -529,6 +661,7 @@ export function AdminProductsPage() {
             name="stock"
             label={p.labelStock}
             rules={[{ required: true, type: 'number', min: 0 }]}
+            extra={productKindWatch === 'CUSTOM_BUNDLE' ? p.stockBundleExtra : undefined}
           >
             <InputNumber min={0} step={1} precision={0} style={{ width: '100%' }} />
           </Form.Item>

@@ -18,6 +18,14 @@ export type ProductRow = {
   price: number
   stock: number
   is_active: boolean
+  kind: string
+  bundle_total_qty: number | null
+}
+
+export type ProductBundleOptionRow = {
+  bundle_product_id: string
+  component_product_id: string
+  quantity: number
 }
 
 export type PromotionRow = {
@@ -113,6 +121,27 @@ export type Database = {
             columns: ['category_id']
             isOneToOne: false
             referencedRelation: 'categories'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      product_bundle_options: {
+        Row: ProductBundleOptionRow
+        Insert: Omit<ProductBundleOptionRow, never>
+        Update: Partial<ProductBundleOptionRow>
+        Relationships: [
+          {
+            foreignKeyName: 'product_bundle_options_bundle_product_id_fkey'
+            columns: ['bundle_product_id']
+            isOneToOne: false
+            referencedRelation: 'products'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'product_bundle_options_component_product_id_fkey'
+            columns: ['component_product_id']
+            isOneToOne: false
+            referencedRelation: 'products'
             referencedColumns: ['id']
           },
         ]

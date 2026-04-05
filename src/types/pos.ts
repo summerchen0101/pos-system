@@ -5,6 +5,14 @@ export type Category = {
   isActive: boolean
 }
 
+export const PRODUCT_KINDS = ['STANDARD', 'CUSTOM_BUNDLE'] as const
+export type ProductKind = (typeof PRODUCT_KINDS)[number]
+
+export type ProductBundleOption = {
+  productId: string
+  quantity: number
+}
+
 /** `price` is in TWD minor units (1 = NT$0.01). */
 export type Product = {
   id: string
@@ -19,6 +27,13 @@ export type Product = {
   isActive: boolean
   categoryId: string | null
   categoryName: string | null
+  kind: ProductKind
+  /**
+   * `CUSTOM_BUNDLE` only — total units the buyer must pick across pool lines (like max selection).
+   */
+  bundleTotalQty: number | null
+  /** `CUSTOM_BUNDLE` only — selectable component SKUs and max units per line in the bundle UI. */
+  bundleOptions: ProductBundleOption[]
 }
 
 export type CartLine = {

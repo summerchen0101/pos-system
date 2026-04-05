@@ -7,6 +7,7 @@ export async function fetchAllProducts(): Promise<Product[]> {
   const { data, error } = await supabase
     .from('products')
     .select(productSelectWithCategory)
+    .eq('kind', 'STANDARD')
     .order('name', { ascending: true })
 
   if (error) throw error
