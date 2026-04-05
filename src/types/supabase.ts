@@ -34,6 +34,12 @@ export type BundleGroupItemRow = {
   product_id: string
 }
 
+export type BoothRow = {
+  id: string
+  name: string
+  location: string | null
+}
+
 export type PromotionRow = {
   id: string
   code: string | null
@@ -49,6 +55,7 @@ export type PromotionRow = {
   threshold_amount: number | null
   /** `FREE_SELECTION` only. */
   max_selection_qty: number | null
+  booth_id: string
 }
 
 export type PromotionSelectableItemRow = {
@@ -98,6 +105,7 @@ export type OrderRow = {
   discount_amount: number
   final_amount: number
   promotion_snapshot: unknown | null
+  booth_id: string
 }
 
 export type OrderItemRow = {
@@ -119,6 +127,12 @@ export type OrderItemRow = {
 export type Database = {
   public: {
     Tables: {
+      booths: {
+        Row: BoothRow
+        Insert: Omit<BoothRow, 'id'> & { id?: string }
+        Update: Partial<BoothRow>
+        Relationships: []
+      }
       categories: {
         Row: CategoryRow
         Insert: Omit<CategoryRow, 'id'> & { id?: string }
@@ -184,6 +198,13 @@ export type Database = {
             columns: ['gift_id']
             isOneToOne: false
             referencedRelation: 'gifts'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'promotions_booth_id_fkey'
+            columns: ['booth_id']
+            isOneToOne: false
+            referencedRelation: 'booths'
             referencedColumns: ['id']
           },
         ]
@@ -290,6 +311,13 @@ export type Database = {
             referencedRelation: 'order_items'
             referencedColumns: ['order_id']
           },
+          {
+            foreignKeyName: 'orders_booth_id_fkey'
+            columns: ['booth_id']
+            isOneToOne: false
+            referencedRelation: 'booths'
+            referencedColumns: ['id']
+          },
         ]
       }
       order_items: {
@@ -323,6 +351,7 @@ export type Database = {
           p_final_amount: number
           p_lines: Record<string, unknown>[]
           p_promotion_snapshot?: unknown | null
+          p_booth_id?: string
         }
         Returns: string
       }

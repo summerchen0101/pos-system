@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import { mapPromotionFromRow } from './promotionMappers'
+import { mapPromotionFromRow, type PromotionRowWithProducts } from './promotionMappers'
 import { PROMOTION_LIST_SELECT } from './promotionSelect'
 import type { Promotion, PromotionKind } from '../types/pos'
 import type { PromotionApplyMode } from '../types/pos'
@@ -23,6 +23,7 @@ export type PromotionProductQtyInput = {
 }
 
 export type PromotionInput = {
+  boothId: string
   code: string | null
   name: string
   kind: PromotionKind
@@ -61,6 +62,7 @@ function rowPayload(input: PromotionInput) {
   const apply_mode = resolvedApplyMode(input)
   const max_selection_qty = maxSelectionColumn(input)
   const base = {
+    booth_id: input.boothId,
     code: input.code || null,
     name: input.name,
     kind: input.kind,
@@ -232,14 +234,21 @@ async function syncPromotionRelations(id: string, input: PromotionInput) {
   }
 }
 
-export async function listPromotionsAdmin(): Promise<Promotion[]> {
-  const { data, error } = await supabase
-    .from('promotions')
-    .select(PROMOTION_LIST_SELECT)
-    .order('name', { ascending: true })
+export type PromotionListFilters = {
+  /** When set, only promotions for this booth. Omit or `undefined` = all booths. */
+  boothId?: string | null
+}
+
+export async function listPromotionsAdmin(filters?: PromotionListFilters): Promise<Promotion[]> {
+  let q = supabase.from('promotions').select(PROMOTION_LIST_SELECT).order('name', { ascending: true })
+  if (filters?.boothId) {
+    q = q.eq('booth_id', filters.boothId)
+  }
+
+  const { data, error } = await q
 
   if (error) throw error
-  return (data ?? []).map((row) => mapPromotionFromRow(row))
+  return (data ?? []).map((row) => mapPromotionFromRow(row as PromotionRowWithProducts))
 }
 
 export async function createPromotion(input: PromotionInput): Promise<Promotion> {

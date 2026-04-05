@@ -30,7 +30,10 @@ export type PromotionQuantityTierNestedRow = Pick<
   'id' | 'min_qty' | 'discount_percent' | 'sort_order'
 >
 
+type BoothNestedRow = { id: string; name: string; location: string | null }
+
 export type PromotionRowWithProducts = PromotionRow & {
+  booths?: BoothNestedRow | BoothNestedRow[] | null
   promotion_products?: { product_id: string; quantity?: number }[] | null
   promotion_selectable_items?: { product_id: string }[] | null
   promotion_rules?: PromotionRuleNestedRow[] | null
@@ -110,9 +113,13 @@ export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
 
   const selectableRows = row.promotion_selectable_items ?? []
   const selectableProductIds = selectableRows.map((x) => x.product_id)
+  const boothNested = unwrapOne(row.booths as BoothNestedRow | BoothNestedRow[] | null | undefined)
 
   return {
     id: row.id,
+    boothId: row.booth_id,
+    boothName: boothNested?.name ?? null,
+    boothLocation: boothNested?.location ?? null,
     code: row.code,
     name: row.name,
     kind,

@@ -68,6 +68,18 @@ create table if not exists public.gift_inventory (
   stock integer not null default 0 check (stock >= 0)
 );
 
+create table if not exists public.booths (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  location text
+);
+
+create index if not exists booths_name_idx on public.booths (name);
+
+insert into public.booths (id, name, location)
+values ('00000000-0000-0000-0000-000000000001', '預設攤位', null)
+on conflict (id) do nothing;
+
 create table if not exists public.promotions (
   id uuid primary key default gen_random_uuid(),
   code text unique,
@@ -119,7 +131,8 @@ create table if not exists public.promotions (
       kind <> 'FREE_SELECTION'
       and max_selection_qty is null
     )
-  )
+  ),
+  booth_id uuid not null default '00000000-0000-0000-0000-000000000001'::uuid references public.booths (id)
 );
 
 create table if not exists public.promotion_products (
@@ -172,6 +185,16 @@ create table if not exists public.promotion_tiers (
 );
 
 create index if not exists promotion_tiers_promotion_id_idx on public.promotion_tiers (promotion_id);
+
+create index if not exists promotions_booth_id_idx on public.promotions (booth_id);
+
+alter table public.booths enable row level security;
+
+drop policy if exists "booths_select_anon" on public.booths;
+create policy "booths_select_anon" on public.booths for select using (true);
+
+drop policy if exists "booths_write_anon" on public.booths;
+create policy "booths_write_anon" on public.booths for all using (true) with check (true);
 
 alter table public.categories enable row level security;
 alter table public.bundle_groups enable row level security;
@@ -262,10 +285,13 @@ create table if not exists public.orders (
   total_amount integer not null check (total_amount >= 0),
   discount_amount integer not null check (discount_amount >= 0),
   final_amount integer not null check (final_amount >= 0),
-  promotion_snapshot jsonb
+  promotion_snapshot jsonb,
+  booth_id uuid not null default '00000000-0000-0000-0000-000000000001'::uuid references public.booths (id)
 );
 
 create index if not exists orders_created_at_idx on public.orders (created_at desc);
+
+create index if not exists orders_booth_id_idx on public.orders (booth_id);
 
 create table if not exists public.order_items (
   id uuid primary key default gen_random_uuid(),

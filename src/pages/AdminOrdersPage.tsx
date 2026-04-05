@@ -1,19 +1,21 @@
-import { Button, DatePicker, Descriptions, Modal, Space, Table, Tag, Typography } from 'antd'
+import { Button, DatePicker, Descriptions, Modal, Select, Space, Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs, { type Dayjs } from 'dayjs'
 import { useCallback, useEffect, useState } from 'react'
+import { listBoothsAdmin, type AdminBooth } from '../api/boothsAdmin'
 import { fetchOrderDetail, fetchOrdersForDateRange } from '../api/ordersApi'
 import { zhtw } from '../locales/zhTW'
 import { formatMoney } from '../lib/money'
 import type { OrderDetail, OrderItem, OrderListEntry } from '../types/order'
 
 const { Title, Text } = Typography
+const { RangePicker } = DatePicker
 const o = zhtw.admin.orders
 
-function startEndOfDay(d: Dayjs): { start: Date; end: Date } {
-  const start = d.startOf('day').toDate()
-  const end = d.endOf('day').toDate()
-  return { start, end }
+function startEndRange(d0: Dayjs, d1: Dayjs): { start: Date; end: Date } {
+  const a = d0.isAfter(d1) ? d1 : d0
+  const b = d0.isAfter(d1) ? d0 : d1
+  return { start: a.startOf('day').toDate(), end: b.endOf('day').toDate() }
 }
 
 function lineTags(item: OrderItem) {
@@ -25,25 +27,38 @@ function lineTags(item: OrderItem) {
 }
 
 export function AdminOrdersPage() {
-  const [selectedDay, setSelectedDay] = useState<Dayjs>(() => dayjs())
+  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>(() => [dayjs(), dayjs()])
+  const [boothFilterId, setBoothFilterId] = useState<string | null>(null)
+  const [booths, setBooths] = useState<AdminBooth[]>([])
   const [orders, setOrders] = useState<OrderListEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [detailOpen, setDetailOpen] = useState(false)
   const [detail, setDetail] = useState<OrderDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
+  useEffect(() => {
+    void listBoothsAdmin()
+      .then(setBooths)
+      .catch(() => setBooths([]))
+  }, [])
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const { start, end } = startEndOfDay(selectedDay)
-      const list = await fetchOrdersForDateRange(start, end)
+      const [a, b] = dateRange
+      const { start, end } = startEndRange(a, b)
+      const list = await fetchOrdersForDateRange(
+        start,
+        end,
+        boothFilterId ? { boothId: boothFilterId } : undefined,
+      )
       setOrders(list)
     } catch {
       setOrders([])
     } finally {
       setLoading(false)
     }
-  }, [selectedDay])
+  }, [dateRange, boothFilterId])
 
   useEffect(() => {
     void load()
@@ -70,13 +85,22 @@ export function AdminOrdersPage() {
       title: o.colDate,
       dataIndex: 'createdAt',
       key: 'createdAt',
+      width: 152,
       render: (iso: string) => dayjs(iso).format('YYYY-MM-DD HH:mm'),
+    },
+    {
+      title: o.colBooth,
+      key: 'booth',
+      width: 120,
+      ellipsis: true,
+      render: (_, row) => row.boothName ?? zhtw.common.dash,
     },
     {
       title: o.colFinal,
       dataIndex: 'finalAmountCents',
       key: 'final',
       align: 'right',
+      width: 112,
       render: (cents: number) => formatMoney(cents),
     },
     {
@@ -140,21 +164,31 @@ export function AdminOrdersPage() {
 
   const snap = detail?.promotionSnapshot
   const freeSelectionSnap = snap?.promotions?.filter((p) => p.type === 'FREE_SELECTION') ?? []
-  const thresholdGiftLines =
-    detail?.items.filter((i) => i.isGift && i.giftId) ?? []
+  const thresholdGiftLines = detail?.items.filter((i) => i.isGift && i.giftId) ?? []
   const freeSelectionLines = detail?.items.filter((i) => i.source === 'FREE_SELECTION') ?? []
-  const manualFreeLines =
-    detail?.items.filter((i) => i.isManualFree && i.source !== 'FREE_SELECTION') ?? []
+  const manualFreeLines = detail?.items.filter((i) => i.isManualFree && i.source !== 'FREE_SELECTION') ?? []
 
   return (
     <div className="admin-page">
       <Title level={4} style={{ marginTop: 0 }}>
         {o.pageTitle}
       </Title>
-      <div style={{ marginBottom: 16 }}>
-        <span style={{ marginRight: 8 }}>{o.dateLabel}</span>
-        <DatePicker value={selectedDay} onChange={(d) => d && setSelectedDay(d)} allowClear={false} />
-      </div>
+      <Space wrap style={{ marginBottom: 16 }}>
+        <span>{o.filterDateRange}</span>
+        <RangePicker value={dateRange} onChange={(v) => v && v[0] && v[1] && setDateRange([v[0], v[1]])} />
+        <span>{o.filterBooth}</span>
+        <Select
+          allowClear
+          placeholder={o.filterBoothAll}
+          style={{ minWidth: 200 }}
+          options={booths.map((b) => ({
+            label: b.location ? `${b.name}（${b.location}）` : b.name,
+            value: b.id,
+          }))}
+          value={boothFilterId ?? undefined}
+          onChange={(v) => setBoothFilterId(v ?? null)}
+        />
+      </Space>
       <Table<OrderListEntry>
         rowKey="id"
         loading={loading}
@@ -182,6 +216,9 @@ export function AdminOrdersPage() {
             <Descriptions size="small" column={{ xs: 1, sm: 2 }} bordered>
               <Descriptions.Item label={o.colDate}>
                 {dayjs(detail.createdAt).format('YYYY-MM-DD HH:mm:ss')}
+              </Descriptions.Item>
+              <Descriptions.Item label={o.labelBoothInDetail}>
+                {detail.boothName ?? zhtw.common.dash}
               </Descriptions.Item>
               <Descriptions.Item label={o.colFinal}>{formatMoney(detail.finalAmountCents)}</Descriptions.Item>
               <Descriptions.Item label={o.colTotal}>{formatMoney(detail.totalAmountCents)}</Descriptions.Item>

@@ -109,6 +109,9 @@ export type PromotionGiftDetail = {
 
 export type Promotion = {
   id: string
+  boothId: string
+  boothName: string | null
+  boothLocation: string | null
   code: string | null
   name: string
   kind: PromotionKind

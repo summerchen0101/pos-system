@@ -8,13 +8,23 @@ import type {
 } from '../types/order'
 import type { OrderItemRow, OrderRow } from '../types/supabase'
 
-function mapOrderRow(row: OrderRow): Order {
+type BoothNameNested = { name: string } | { name: string }[] | null | undefined
+
+function unwrapBoothName(booths: BoothNameNested): string | null {
+  if (booths == null) return null
+  const b = Array.isArray(booths) ? booths[0] : booths
+  return b?.name ?? null
+}
+
+function mapOrderRow(row: OrderRow & { booths?: BoothNameNested }): Order {
   return {
     id: row.id,
     createdAt: row.created_at,
     totalAmountCents: row.total_amount,
     discountAmountCents: row.discount_amount,
     finalAmountCents: row.final_amount,
+    boothId: row.booth_id,
+    boothName: unwrapBoothName(row.booths),
   }
 }
 
@@ -84,6 +94,7 @@ export type OrderInsert = {
   totalAmountCents: number
   discountAmountCents: number
   finalAmountCents: number
+  boothId: string
 }
 
 /** Payload for `checkout_order_deduct_stock` line objects (DB snake_case). */
@@ -115,15 +126,21 @@ function lineToRpcJson(l: CheckoutLinePayload): Record<string, unknown> {
   return row
 }
 
-/** List orders whose `created_at` falls in `[dayStart, dayEnd]` (inclusive). */
+export type OrdersDateFilter = {
+  /** When set, only orders for this booth. Omit = all booths. */
+  boothId?: string | null
+}
+
+/** List orders whose `created_at` falls in `[rangeStart, rangeEnd]` (inclusive). */
 export async function fetchOrdersForDateRange(
   rangeStart: Date,
   rangeEnd: Date,
+  filters?: OrdersDateFilter,
 ): Promise<OrderListEntry[]> {
   const startIso = rangeStart.toISOString()
   const endIso = rangeEnd.toISOString()
 
-  const { data, error } = await supabase
+  let q = supabase
     .from('orders')
     .select(
       `
@@ -132,6 +149,8 @@ export async function fetchOrdersForDateRange(
       total_amount,
       discount_amount,
       final_amount,
+      booth_id,
+      booths ( name ),
       order_items ( product_name, quantity, sort_order )
     `,
     )
@@ -139,6 +158,12 @@ export async function fetchOrdersForDateRange(
     .lte('created_at', endIso)
     .order('created_at', { ascending: false })
     .order('sort_order', { referencedTable: 'order_items', ascending: true })
+
+  if (filters?.boothId) {
+    q = q.eq('booth_id', filters.boothId)
+  }
+
+  const { data, error } = await q
 
   if (error) throw error
 
@@ -148,6 +173,8 @@ export async function fetchOrdersForDateRange(
     total_amount: number
     discount_amount: number
     final_amount: number
+    booth_id: string
+    booths: BoothNameNested
     order_items: Pick<OrderItemRow, 'product_name' | 'quantity' | 'sort_order'>[] | null
   }
 
@@ -159,6 +186,8 @@ export async function fetchOrdersForDateRange(
       discount_amount: row.discount_amount,
       final_amount: row.final_amount,
       promotion_snapshot: null,
+      booth_id: row.booth_id,
+      booths: row.booths,
     })
     const itemsPreview = buildItemsPreview(row.order_items ?? [])
     return { ...base, itemsPreview }
@@ -176,6 +205,8 @@ export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | n
       discount_amount,
       final_amount,
       promotion_snapshot,
+      booth_id,
+      booths ( name ),
       order_items (
         id,
         order_id,
@@ -200,7 +231,7 @@ export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | n
   if (error) throw error
   if (!data) return null
 
-  type DetailRow = OrderRow & { order_items: OrderItemRow[] | null }
+  type DetailRow = OrderRow & { booths?: BoothNameNested; order_items: OrderItemRow[] | null }
   const row = data as unknown as DetailRow
   const items = (row.order_items ?? []).map(mapOrderItemRow)
   return {
@@ -227,6 +258,7 @@ export async function checkoutOrder(
     p_final_amount: input.finalAmountCents,
     p_lines,
     p_promotion_snapshot: promotionSnapshot,
+    p_booth_id: input.boothId,
   })
   if (error) throw error
 }

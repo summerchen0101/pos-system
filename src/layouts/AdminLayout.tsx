@@ -1,7 +1,9 @@
 import {
   AppstoreOutlined,
+  DashboardOutlined,
   GiftOutlined,
   HistoryOutlined,
+  ShopOutlined,
   ShoppingOutlined,
   SkinOutlined,
 } from '@ant-design/icons'
@@ -20,6 +22,8 @@ export function AdminLayout() {
 
   const menuItems = useMemo(
     () => [
+      { key: '/admin/dashboard', icon: <DashboardOutlined />, label: zhtw.admin.layout.menuDashboard },
+      { key: '/admin/booths', icon: <ShopOutlined />, label: zhtw.admin.layout.menuBooths },
       { key: '/admin/categories', icon: <AppstoreOutlined />, label: zhtw.admin.layout.menuCategories },
       { key: '/admin/products', icon: <ShoppingOutlined />, label: zhtw.admin.layout.menuProducts },
       { key: '/admin/gifts', icon: <SkinOutlined />, label: zhtw.admin.layout.menuGifts },
@@ -31,7 +35,7 @@ export function AdminLayout() {
 
   const selectedKeys = useMemo(() => {
     const match = menuItems.find((m) => location.pathname.startsWith(m.key))
-    return match ? [match.key] : ['/admin/products']
+    return match ? [match.key] : ['/admin/dashboard']
   }, [location.pathname, menuItems])
 
   return (

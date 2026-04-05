@@ -1,6 +1,7 @@
-import { Tabs } from "antd";
+import { Spin, Tabs, Typography } from "antd";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import { listBoothsAdmin } from "../../api/boothsAdmin";
 import { fetchProducts } from "../../api/fetchProducts";
 import { fetchPromotions } from "../../api/fetchPromotions";
 import { useManualFreeLineSync } from "../../hooks/useManualFreeLineSync";
@@ -47,9 +48,12 @@ function categoryTabsFromProducts(
 }
 
 export function PosLayout() {
+  const { boothId } = useParams<{ boothId: string }>();
   const addProduct = useCartStore((s) => s.addProduct);
   const addBundleLines = useCartStore((s) => s.addBundleLines);
 
+  const [boothOk, setBoothOk] = useState<boolean | null>(null);
+  const [boothLabel, setBoothLabel] = useState<string>("");
   const [products, setProducts] = useState<Product[]>([]);
   const [bundleModalProduct, setBundleModalProduct] = useState<Product | null>(null);
   const [activeTab, setActiveTab] = useState<string>("");
@@ -107,13 +111,44 @@ export function PosLayout() {
     }
 
     async function load() {
+      if (!boothId) {
+        setBoothOk(false);
+        setProductsLoading(false);
+        return;
+      }
+
       setProductsLoading(true);
       setProductsError(null);
       setPromotionsError(null);
+      setBoothOk(null);
+
+      try {
+        const booths = await listBoothsAdmin();
+        if (cancelled) return;
+        const b = booths.find((x) => x.id === boothId);
+        if (!b) {
+          setBoothOk(false);
+          setBoothLabel("");
+          setProducts([]);
+          setPromotions([]);
+          setProductsLoading(false);
+          return;
+        }
+        setBoothOk(true);
+        setBoothLabel(b.location ? `${b.name} · ${b.location}` : b.name);
+      } catch {
+        if (cancelled) return;
+        setBoothOk(false);
+        setBoothLabel("");
+        setProducts([]);
+        setPromotions([]);
+        setProductsLoading(false);
+        return;
+      }
 
       const [pRes, prRes] = await Promise.allSettled([
         fetchProducts(),
-        fetchPromotions(),
+        fetchPromotions(boothId),
       ]);
 
       if (cancelled) return;
@@ -141,7 +176,35 @@ export function PosLayout() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [boothId]);
+
+  if (boothOk === false) {
+    return (
+      <div
+        className="pos-layout"
+        style={{ gridTemplateColumns: "1fr", placeItems: "center", padding: "2rem" }}>
+        <div style={{ maxWidth: 420, textAlign: "center" }}>
+          <Typography.Title level={4} style={{ color: "var(--pos-text-strong)" }}>
+            {zhtw.pos.boothInvalidTitle}
+          </Typography.Title>
+          <Typography.Paragraph type="secondary">{zhtw.pos.boothInvalidHint}</Typography.Paragraph>
+          <Link className="pos-admin-link" to="/">
+            {zhtw.pos.boothPickerBack}
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (boothOk === null && boothId) {
+    return (
+      <div
+        className="pos-layout"
+        style={{ gridTemplateColumns: "1fr", placeItems: "center" }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   return (
     <div className="pos-layout">
@@ -153,7 +216,14 @@ export function PosLayout() {
               {zhtw.pos.adminLink}
             </Link>
           </div>
-          <p className="pos-main__hint">{zhtw.pos.hint}</p>
+          {boothLabel ? (
+            <p className="pos-main__hint" style={{ marginBottom: 4 }}>
+              {zhtw.pos.currentBooth(boothLabel)}
+            </p>
+          ) : null}
+          <p className="pos-main__hint" style={boothLabel ? { marginTop: 0 } : undefined}>
+            {zhtw.pos.hint}
+          </p>
         </header>
         {!productsLoading && !productsError && tabItems.length > 0 ? (
           <Tabs
@@ -173,7 +243,12 @@ export function PosLayout() {
           }
         />
       </main>
-      <CartPanel promotions={promotions} products={products} promotionsError={promotionsError} />
+      <CartPanel
+        boothId={boothId ?? ""}
+        promotions={promotions}
+        products={products}
+        promotionsError={promotionsError}
+      />
       <BundleApplyModal
         open={bundleModalProduct != null}
         bundleProduct={bundleModalProduct}

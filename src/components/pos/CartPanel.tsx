@@ -20,12 +20,13 @@ import { ManualPromotionApplyModal } from './ManualPromotionApplyModal'
 import { OrderSummary } from './OrderSummary'
 
 type Props = {
+  boothId: string
   promotions: Promotion[]
   products: Product[]
   promotionsError: string | null
 }
 
-export function CartPanel({ promotions, products, promotionsError }: Props) {
+export function CartPanel({ boothId, promotions, products, promotionsError }: Props) {
   const { message } = App.useApp()
   const lines = useCartStore((s) => s.lines)
   const manualPromotionIds = useCartStore((s) => s.manualPromotionIds)
@@ -52,7 +53,7 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
     }
     return l.quantity <= l.product.stock && l.product.stock > 0
   })
-  const canCheckout = !isEmpty && stockOk
+  const canCheckout = !isEmpty && stockOk && !!boothId
 
   const handleIncrement = (lineId: string) => {
     const line = lines.find((l) => l.lineId === lineId)
@@ -121,7 +122,7 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
   }, [manualPromotionIds, promotions])
 
   const handleCheckout = () => {
-    if (!canCheckout) return
+    if (!canCheckout || !boothId) return
     void (async () => {
       try {
         const checkoutLines: CheckoutLinePayload[] = lines.map((l) => {
@@ -147,6 +148,7 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
             totalAmountCents: totals.subtotalCents,
             discountAmountCents: totals.discountCents,
             finalAmountCents: totals.finalCents,
+            boothId,
           },
           checkoutLines,
           {

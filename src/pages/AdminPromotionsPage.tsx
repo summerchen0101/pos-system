@@ -16,6 +16,7 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchAllProducts } from "../api/fetchAllProducts";
+import { listBoothsAdmin, type AdminBooth } from "../api/boothsAdmin";
 import { listGiftsAdmin, type AdminGift } from "../api/giftsAdmin";
 import {
   createPromotion,
@@ -27,6 +28,7 @@ import {
   type PromotionQuantityTierInput,
   type PromotionTierInput,
 } from "../api/promotionsAdmin";
+import { DEFAULT_BOOTH_ID } from "../lib/boothConstants";
 import { formatMoney } from "../lib/money";
 import { zhtw } from "../locales/zhTW";
 import type {
@@ -112,6 +114,7 @@ type QtyDiscountTierFormRow = {
 };
 
 type FormValues = {
+  boothId: string;
   code?: string;
   name: string;
   kind: PromotionKind;
@@ -187,7 +190,7 @@ function buildTierInputs(rows: TierFormRow[]): PromotionTierInput[] {
   });
 }
 
-function toInput(values: FormValues): PromotionInput {
+function toInput(values: FormValues): Omit<PromotionInput, "boothId"> {
   const tiers: PromotionTierInput[] =
     values.kind === "TIERED" ? buildTierInputs(values.tiers ?? []) : [];
   const quantityTiers: PromotionQuantityTierInput[] =
@@ -369,6 +372,8 @@ export function AdminPromotionsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [gifts, setGifts] = useState<AdminGift[]>([]);
+  const [booths, setBooths] = useState<AdminBooth[]>([]);
+  const [boothFilterId, setBoothFilterId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -379,20 +384,24 @@ export function AdminPromotionsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [plist, mlist, glist] = await Promise.all([
+      const [plist, mlist, glist, blist] = await Promise.all([
         fetchAllProducts({ kinds: ["STANDARD", "CUSTOM_BUNDLE"] }),
-        listPromotionsAdmin(),
+        listPromotionsAdmin(
+          boothFilterId ? { boothId: boothFilterId } : undefined,
+        ),
         listGiftsAdmin(),
+        listBoothsAdmin(),
       ]);
       setProducts(plist);
       setPromotions(mlist);
       setGifts(glist);
+      setBooths(blist);
     } catch (e) {
       message.error(e instanceof Error ? e.message : pr.loadError);
     } finally {
       setLoading(false);
     }
-  }, [message]);
+  }, [message, boothFilterId]);
 
   useEffect(() => {
     void load();
@@ -401,7 +410,12 @@ export function AdminPromotionsPage() {
   const openCreate = () => {
     setEditingId(null);
     form.resetFields();
+    const defaultBooth =
+      boothFilterId ??
+      booths[0]?.id ??
+      DEFAULT_BOOTH_ID;
     form.setFieldsValue({
+      boothId: defaultBooth,
       name: "",
       code: "",
       kind: "BULK_DISCOUNT",
@@ -423,6 +437,7 @@ export function AdminPromotionsPage() {
   const openEdit = (p: Promotion) => {
     setEditingId(p.id);
     form.setFieldsValue({
+      boothId: p.boothId,
       name: p.name,
       code: p.code ?? "",
       kind: p.kind,
@@ -567,9 +582,13 @@ export function AdminPromotionsPage() {
           return;
         }
       }
+      if (!values.boothId) {
+        message.error(pr.boothRequired);
+        return;
+      }
       let input: PromotionInput;
       try {
-        input = toInput(values);
+        input = { ...toInput(values), boothId: values.boothId };
       } catch (err) {
         message.error(err instanceof Error ? err.message : pr.invalidTiers);
         return;
@@ -674,6 +693,11 @@ export function AdminPromotionsPage() {
     value: x.id,
   }));
 
+  const boothOptions = booths.map((b) => ({
+    label: b.location ? `${b.name}（${b.location}）` : b.name,
+    value: b.id,
+  }));
+
   const columns: ColumnsType<Promotion> = [
     {
       title: pr.colName,
@@ -689,6 +713,13 @@ export function AdminPromotionsPage() {
           ) : null}
         </Space>
       ),
+    },
+    {
+      title: pr.colBooth,
+      key: "booth",
+      width: 140,
+      ellipsis: true,
+      render: (_, row) => row.boothName ?? common.dash,
     },
     {
       title: pr.colApplyMode,
@@ -775,6 +806,19 @@ export function AdminPromotionsPage() {
           <Button type="primary" onClick={openCreate}>
             {pr.newPromotion}
           </Button>
+        </Space>
+
+        <Space wrap align="center">
+          <Text>{pr.filterBooth}</Text>
+          <Select
+            allowClear
+            placeholder={pr.filterBoothAll}
+            style={{ minWidth: 220 }}
+            options={boothOptions}
+            value={boothFilterId ?? undefined}
+            onChange={(v) => setBoothFilterId(v ?? null)}
+            optionFilterProp="label"
+          />
         </Space>
 
         <Card>
@@ -934,6 +978,17 @@ export function AdminPromotionsPage() {
               }
             }
           }}>
+          <Form.Item
+            name="boothId"
+            label={pr.labelBooth}
+            rules={[{ required: true, message: pr.boothRequired }]}>
+            <Select
+              options={boothOptions}
+              placeholder={pr.boothPh}
+              optionFilterProp="label"
+              showSearch
+            />
+          </Form.Item>
           <Form.Item
             name="name"
             label={pr.labelName}

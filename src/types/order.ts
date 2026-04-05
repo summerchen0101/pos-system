@@ -5,6 +5,9 @@ export type Order = {
   totalAmountCents: number
   discountAmountCents: number
   finalAmountCents: number
+  boothId: string
+  /** Present when list/detail query embeds `booths`. */
+  boothName?: string | null
 }
 
 /** Stored with checkout for admin history (JSON on `orders.promotion_snapshot`). */
