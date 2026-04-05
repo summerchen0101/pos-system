@@ -49,15 +49,15 @@
   color: var(--pos-text-muted);
 }
 
-.pos-size-tabs {
+.pos-category-tabs {
   margin-bottom: 1rem;
 }
 
-.pos-size-tabs .ant-tabs-nav {
+.pos-category-tabs .ant-tabs-nav {
   margin-bottom: 0.5rem;
 }
 
-.pos-size-tabs .ant-tabs-tab {
+.pos-category-tabs .ant-tabs-tab {
   font-weight: 500;
 }
 

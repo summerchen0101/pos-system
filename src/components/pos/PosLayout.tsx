@@ -12,13 +12,37 @@ import { ProductGrid } from "./ProductGrid";
 import { CartPanel } from "./CartPanel";
 import "./pos.css";
 
-/** POS register: filter products by pack size (order = default tab order). */
-const POS_SIZE_TAB_LABELS = ["小包", "中包"] as const;
+/** Tab key for products without `category_id`. */
+const UNCATEGORIZED_TAB_KEY = "__uncategorized__";
 
-const SIZE_TAB_KEYS = new Set<string>(POS_SIZE_TAB_LABELS);
+function categoryTabKey(p: Product): string {
+  return p.categoryId ?? UNCATEGORIZED_TAB_KEY;
+}
 
-function normalizeSize(size: string | null | undefined): string {
-  return size?.trim() ?? "";
+function categoryTabLabel(p: Product, uncategorized: string): string {
+  const n = p.categoryName?.trim();
+  return n || uncategorized;
+}
+
+/** Unique categories from catalog; stable key, sorted label (uncategorized last). */
+function categoryTabsFromProducts(
+  products: Product[],
+  uncategorizedLabel: string,
+): { key: string; label: string }[] {
+  const byKey = new Map<string, string>();
+  for (const p of products) {
+    const key = categoryTabKey(p);
+    if (!byKey.has(key)) {
+      byKey.set(key, categoryTabLabel(p, uncategorizedLabel));
+    }
+  }
+  return [...byKey.entries()]
+    .sort(([ka, la], [kb, lb]) => {
+      if (ka === UNCATEGORIZED_TAB_KEY) return 1;
+      if (kb === UNCATEGORIZED_TAB_KEY) return -1;
+      return la.localeCompare(lb, "zh-Hant");
+    })
+    .map(([key, label]) => ({ key, label }));
 }
 
 export function PosLayout() {
@@ -35,17 +59,20 @@ export function PosLayout() {
   useThresholdGiftSync(promotions);
 
   const tabItems = useMemo(
-    () => POS_SIZE_TAB_LABELS.map((label) => ({ key: label, label })),
-    [],
+    () => categoryTabsFromProducts(products, zhtw.pos.uncategorized),
+    [products],
   );
 
+  const categoryKeySet = useMemo(() => new Set(tabItems.map((t) => t.key)), [tabItems]);
+
   const displayTab = useMemo(() => {
-    if (activeTab && SIZE_TAB_KEYS.has(activeTab)) return activeTab;
-    return POS_SIZE_TAB_LABELS[0];
-  }, [activeTab]);
+    if (activeTab && categoryKeySet.has(activeTab)) return activeTab;
+    return tabItems[0]?.key ?? "";
+  }, [activeTab, categoryKeySet, tabItems]);
 
   const gridProducts = useMemo(() => {
-    return products.filter((p) => normalizeSize(p.size) === displayTab);
+    if (!displayTab) return [];
+    return products.filter((p) => categoryTabKey(p) === displayTab);
   }, [products, displayTab]);
 
   useEffect(() => {
@@ -104,9 +131,9 @@ export function PosLayout() {
           </div>
           <p className="pos-main__hint">{zhtw.pos.hint}</p>
         </header>
-        {!productsLoading && !productsError ? (
+        {!productsLoading && !productsError && tabItems.length > 0 ? (
           <Tabs
-            className="pos-size-tabs"
+            className="pos-category-tabs"
             activeKey={displayTab}
             onChange={setActiveTab}
             items={tabItems}
@@ -117,7 +144,9 @@ export function PosLayout() {
           loading={productsLoading}
           error={productsError}
           onAddProduct={addProduct}
-          emptyMessage={zhtw.pos.emptySize}
+          emptyMessage={
+            products.length === 0 ? zhtw.pos.emptyCatalog : zhtw.pos.emptyCategory
+          }
         />
       </main>
       <CartPanel promotions={promotions} products={products} promotionsError={promotionsError} />
