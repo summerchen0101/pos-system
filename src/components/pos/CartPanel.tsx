@@ -1,4 +1,4 @@
-import { App, Button, Space, Tag } from 'antd'
+import { App, Space, Tag } from 'antd'
 import { useMemo, useState } from 'react'
 import { checkoutOrder, type CheckoutLinePayload } from '../../api/ordersApi'
 import { useCartPromotionTotals } from '../../hooks/useCartPromotionTotals'
@@ -197,9 +197,13 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
       ) : null}
 
       <div className="pos-cart-panel__manual-actions">
-        <Button type="default" size="small" block onClick={() => setManualModalOpen(true)}>
+        <button
+          type="button"
+          className="pos-apply-promotion"
+          onClick={() => setManualModalOpen(true)}
+        >
           {zhtw.pos.applyPromotion}
-        </Button>
+        </button>
         {manualTags.length > 0 ? (
           <Space size={[4, 4]} wrap style={{ marginTop: 8 }}>
             {manualTags.map((t) => (
@@ -216,36 +220,40 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
         ) : null}
       </div>
 
-      {isEmpty ? (
-        <p className="pos-cart-empty">{zhtw.pos.cartEmpty}</p>
-      ) : (
-        <ul className="pos-cart-list">
-          {lines.map((line) => (
-            <CartLineRow
-              key={line.lineId}
-              line={line}
-              onIncrement={handleIncrement}
-              onDecrement={handleDecrement}
-              onRemove={removeLine}
-              allowQtyAdjust={
-                isFreeSelectionCartLine(line, promotions) || !!line.isBundleComponent
-              }
-            />
-          ))}
-        </ul>
-      )}
+      <div className="pos-cart-panel__lines-scroll">
+        {isEmpty ? (
+          <p className="pos-cart-empty">{zhtw.pos.cartEmpty}</p>
+        ) : (
+          <ul className="pos-cart-list">
+            {lines.map((line) => (
+              <CartLineRow
+                key={line.lineId}
+                line={line}
+                onIncrement={handleIncrement}
+                onDecrement={handleDecrement}
+                onRemove={removeLine}
+                allowQtyAdjust={
+                  isFreeSelectionCartLine(line, promotions) || !!line.isBundleComponent
+                }
+              />
+            ))}
+          </ul>
+        )}
+      </div>
 
-      <OrderSummary
-        totals={totals}
-        isEmpty={isEmpty}
-        appliedPromotionName={totals.appliedPromotionName}
-        hasPromotionRules={promotions.length > 0}
-        promotionsFailed={promotionsError != null}
-        thresholdGiftSummaries={totals.thresholdGiftSummaries}
-        manualPromotionDetails={totals.manualPromotionDetails}
-      />
+      <div className="pos-cart-panel__footer">
+        <OrderSummary
+          totals={totals}
+          isEmpty={isEmpty}
+          appliedPromotionName={totals.appliedPromotionName}
+          hasPromotionRules={promotions.length > 0}
+          promotionsFailed={promotionsError != null}
+          thresholdGiftSummaries={totals.thresholdGiftSummaries}
+          manualPromotionDetails={totals.manualPromotionDetails}
+        />
 
-      <CheckoutButton totals={totals} disabled={!canCheckout} onCheckout={handleCheckout} />
+        <CheckoutButton totals={totals} disabled={!canCheckout} onCheckout={handleCheckout} />
+      </div>
 
       <ManualPromotionApplyModal
         open={manualModalOpen}
