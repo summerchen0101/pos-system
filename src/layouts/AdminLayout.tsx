@@ -1,4 +1,4 @@
-import { GiftOutlined, HistoryOutlined } from '@ant-design/icons'
+import { GiftOutlined, HistoryOutlined, ShoppingOutlined } from '@ant-design/icons'
 import { Layout, Menu, Typography } from 'antd'
 import { useMemo } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -7,6 +7,7 @@ const { Header, Sider, Content } = Layout
 const { Text } = Typography
 
 const MENU = [
+  { key: '/admin/products', icon: <ShoppingOutlined />, label: 'Product Management' },
   { key: '/admin/promotions', icon: <GiftOutlined />, label: 'Promotion Management' },
   { key: '/admin/orders', icon: <HistoryOutlined />, label: 'Order History' },
 ]
@@ -17,7 +18,7 @@ export function AdminLayout() {
 
   const selectedKeys = useMemo(() => {
     const match = MENU.find((m) => location.pathname.startsWith(m.key))
-    return match ? [match.key] : ['/admin/promotions']
+    return match ? [match.key] : ['/admin/products']
   }, [location.pathname])
 
   return (

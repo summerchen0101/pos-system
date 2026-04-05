@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { PosLayout } from './components/pos/PosLayout'
 import { AdminLayout } from './layouts/AdminLayout'
 import { AdminOrdersPage } from './pages/AdminOrdersPage'
+import { AdminProductsPage } from './pages/AdminProductsPage'
 import { AdminPromotionsPage } from './pages/AdminPromotionsPage'
 
 export default function App() {
@@ -13,7 +14,8 @@ export default function App() {
           <Routes>
             <Route path="/" element={<PosLayout />} />
             <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<Navigate to="/admin/promotions" replace />} />
+              <Route index element={<Navigate to="/admin/products" replace />} />
+              <Route path="products" element={<AdminProductsPage />} />
               <Route path="promotions" element={<AdminPromotionsPage />} />
               <Route path="orders" element={<AdminOrdersPage />} />
             </Route>

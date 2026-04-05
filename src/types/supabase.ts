@@ -1,6 +1,13 @@
 /** Row shapes for `public` tables — align migrations with these columns. */
+export type CategoryRow = {
+  id: string
+  name: string
+  sort_order: number
+}
+
 export type ProductRow = {
   id: string
+  category_id: string | null
   name: string
   name_en: string | null
   description: string | null
@@ -47,6 +54,12 @@ export type OrderRow = {
 export type Database = {
   public: {
     Tables: {
+      categories: {
+        Row: CategoryRow
+        Insert: Omit<CategoryRow, 'id'> & { id?: string }
+        Update: Partial<CategoryRow>
+        Relationships: []
+      }
       products: {
         Row: ProductRow
         Insert: Omit<ProductRow, 'id'> & { id?: string }

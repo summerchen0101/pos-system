@@ -5,8 +5,24 @@
 --
 -- `products.price` and promotion amounts are in minor units (e.g. cents) where applicable.
 
+create table if not exists public.categories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  sort_order integer not null default 0
+);
+
+create index if not exists categories_sort_order_idx on public.categories (sort_order, name);
+
+insert into public.categories (name, sort_order)
+values
+  ('Drinks', 1),
+  ('Food', 2),
+  ('Bakery', 3)
+on conflict (name) do nothing;
+
 create table if not exists public.products (
   id uuid primary key default gen_random_uuid(),
+  category_id uuid references public.categories (id) on delete set null,
   name text not null,
   name_en text,
   description text,
@@ -15,6 +31,8 @@ create table if not exists public.products (
   price integer not null check (price >= 0),
   is_active boolean not null default true
 );
+
+create index if not exists products_category_id_idx on public.products (category_id);
 
 create table if not exists public.promotions (
   id uuid primary key default gen_random_uuid(),
@@ -59,14 +77,24 @@ create table if not exists public.promotion_rules (
 
 create index if not exists promotion_rules_promotion_id_idx on public.promotion_rules (promotion_id);
 
+alter table public.categories enable row level security;
 alter table public.products enable row level security;
 alter table public.promotions enable row level security;
 alter table public.promotion_products enable row level security;
 alter table public.promotion_rules enable row level security;
 
--- Example: kiosk read-only; tighten writes in production (use auth + service role).
+-- Example: kiosk read + admin writes in dev (tighten in production).
+drop policy if exists "categories_select_anon" on public.categories;
+create policy "categories_select_anon" on public.categories for select using (true);
+
+drop policy if exists "categories_write_anon" on public.categories;
+create policy "categories_write_anon" on public.categories for all using (true) with check (true);
+
 drop policy if exists "products_select_anon" on public.products;
 create policy "products_select_anon" on public.products for select using (true);
+
+drop policy if exists "products_write_anon" on public.products;
+create policy "products_write_anon" on public.products for all using (true) with check (true);
 
 drop policy if exists "promotions_select_anon" on public.promotions;
 create policy "promotions_select_anon" on public.promotions for select using (true);

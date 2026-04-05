@@ -1,3 +1,9 @@
+export type Category = {
+  id: string
+  name: string
+  sortOrder: number
+}
+
 /** `price` is in minor units (e.g. cents). */
 export type Product = {
   id: string
@@ -8,6 +14,8 @@ export type Product = {
   sku: string
   price: number
   isActive: boolean
+  categoryId: string | null
+  categoryName: string | null
 }
 
 export type CartLine = {
