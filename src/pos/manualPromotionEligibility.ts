@@ -18,11 +18,11 @@ export function isManualPromotionEligible(
   if (!p.active || p.applyMode !== 'MANUAL' || !isManualPromotionSelectableKind(p)) return false
 
   const paid = lines.filter((l) => !l.isGift && !l.isManualFree)
-  if (paid.length === 0) return false
 
   if (p.kind === 'FIXED_DISCOUNT') return (p.fixedDiscountCents ?? 0) >= 1
 
   if (p.kind === 'BUY_X_GET_Y') {
+    if (paid.length === 0) return true
     return p.productIds.some((pid) => paid.some((l) => l.product.id === pid))
   }
 

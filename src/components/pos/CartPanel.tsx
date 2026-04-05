@@ -152,27 +152,25 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
         </p>
       ) : null}
 
-      {!isEmpty ? (
-        <div className="pos-cart-panel__manual-actions">
-          <Button type="default" size="small" block onClick={() => setManualModalOpen(true)}>
-            {zhtw.pos.applyPromotion}
-          </Button>
-          {manualTags.length > 0 ? (
-            <Space size={[4, 4]} wrap style={{ marginTop: 8 }}>
-              {manualTags.map((t) => (
-                <Tag
-                  key={t.id}
-                  closable
-                  onClose={() => removeManualPromotion(t.id)}
-                  color="gold"
-                >
-                  {t.name}
-                </Tag>
-              ))}
-            </Space>
-          ) : null}
-        </div>
-      ) : null}
+      <div className="pos-cart-panel__manual-actions">
+        <Button type="default" size="small" block onClick={() => setManualModalOpen(true)}>
+          {zhtw.pos.applyPromotion}
+        </Button>
+        {manualTags.length > 0 ? (
+          <Space size={[4, 4]} wrap style={{ marginTop: 8 }}>
+            {manualTags.map((t) => (
+              <Tag
+                key={t.id}
+                closable
+                onClose={() => removeManualPromotion(t.id)}
+                color="gold"
+              >
+                {t.name}
+              </Tag>
+            ))}
+          </Space>
+        ) : null}
+      </div>
 
       {isEmpty ? (
         <p className="pos-cart-empty">{zhtw.pos.cartEmpty}</p>
