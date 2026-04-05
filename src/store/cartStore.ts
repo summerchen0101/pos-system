@@ -9,28 +9,15 @@ export type CartTotals = {
 
 type CartState = {
   lines: CartLine[]
-  discountPercent: number
   addProduct: (product: Product) => void
   increment: (productId: string) => void
   decrement: (productId: string) => void
   removeLine: (productId: string) => void
-  setDiscountPercent: (percent: number) => void
   clearCart: () => void
-}
-
-function computeTotals(lines: CartLine[], discountPercent: number): CartTotals {
-  const subtotalCents = lines.reduce(
-    (sum, line) => sum + line.product.price * line.quantity,
-    0,
-  )
-  const discountCents = Math.round((subtotalCents * discountPercent) / 100)
-  const finalCents = Math.max(0, subtotalCents - discountCents)
-  return { subtotalCents, discountCents, finalCents }
 }
 
 export const useCartStore = create<CartState>((set) => ({
   lines: [],
-  discountPercent: 0,
 
   addProduct: (product) =>
     set((state) => {
@@ -74,14 +61,5 @@ export const useCartStore = create<CartState>((set) => ({
       lines: state.lines.filter((l) => l.product.id !== productId),
     })),
 
-  setDiscountPercent: (percent) =>
-    set({ discountPercent: Math.min(100, Math.max(0, percent)) }),
-
-  clearCart: () => set({ lines: [], discountPercent: 0 }),
+  clearCart: () => set({ lines: [] }),
 }))
-
-export function useCartTotals(): CartTotals {
-  const lines = useCartStore((s) => s.lines)
-  const discountPercent = useCartStore((s) => s.discountPercent)
-  return computeTotals(lines, discountPercent)
-}

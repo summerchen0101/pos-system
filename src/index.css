@@ -57,3 +57,10 @@ body {
 #root {
   min-height: 100svh;
 }
+
+.admin-promotions {
+  box-sizing: border-box;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 2.5rem;
+}

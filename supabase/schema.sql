@@ -1,10 +1,9 @@
 -- Greenfield / empty project: run this file once.
 --
--- If you ALREADY have `products` / `promotions` tables, do NOT run the CREATE
--- statements blindly — use `migrate_existing_to_app_schema.sql` in the SQL
--- Editor instead (adds/renames columns to match the app).
+-- If you ALREADY have tables, use `migrate_existing_to_app_schema.sql` and
+-- `migrate_promotions_admin.sql` instead of blind CREATEs.
 --
--- `price` is stored in minor units (e.g. cents).
+-- `products.price` and promotion amounts are in minor units (e.g. cents) where applicable.
 
 create table if not exists public.products (
   id uuid primary key default gen_random_uuid(),
@@ -21,13 +20,38 @@ create table if not exists public.promotions (
   id uuid primary key default gen_random_uuid(),
   code text unique,
   name text not null,
-  discount_percent integer not null check (discount_percent >= 0 and discount_percent <= 100),
+  kind text not null check (kind in ('BUY_X_GET_Y', 'BULK_DISCOUNT', 'SINGLE_DISCOUNT')),
+  buy_qty integer,
+  free_qty integer,
+  discount_percent integer check (discount_percent is null or (discount_percent >= 0 and discount_percent <= 100)),
   active boolean not null default true
 );
 
+create table if not exists public.promotion_products (
+  promotion_id uuid not null references public.promotions (id) on delete cascade,
+  product_id uuid not null references public.products (id) on delete cascade,
+  primary key (promotion_id, product_id)
+);
+
+create index if not exists promotion_products_product_id_idx on public.promotion_products (product_id);
+
 alter table public.products enable row level security;
 alter table public.promotions enable row level security;
+alter table public.promotion_products enable row level security;
 
--- Example: allow anonymous read for POS kiosk (tighten for production).
+-- Example: kiosk read-only; tighten writes in production (use auth + service role).
+drop policy if exists "products_select_anon" on public.products;
 create policy "products_select_anon" on public.products for select using (true);
+
+drop policy if exists "promotions_select_anon" on public.promotions;
 create policy "promotions_select_anon" on public.promotions for select using (true);
+
+drop policy if exists "promotion_products_select_anon" on public.promotion_products;
+create policy "promotion_products_select_anon" on public.promotion_products for select using (true);
+
+-- Development / admin SPA using anon key: allow writes (replace with auth in production).
+drop policy if exists "promotions_write_anon" on public.promotions;
+create policy "promotions_write_anon" on public.promotions for all using (true) with check (true);
+
+drop policy if exists "promotion_products_write_anon" on public.promotion_products;
+create policy "promotion_products_write_anon" on public.promotion_products for all using (true) with check (true);

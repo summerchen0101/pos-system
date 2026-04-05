@@ -1,25 +1,27 @@
 import { supabase } from '../supabase'
+import { mapPromotionFromRow } from './promotionMappers'
 import type { Promotion } from '../types/pos'
-import type { PromotionRow } from '../types/supabase'
 
-function mapPromotionRow(row: PromotionRow): Promotion {
-  return {
-    id: row.id,
-    code: row.code,
-    name: row.name,
-    discountPercent: row.discount_percent,
-    active: row.active,
-  }
-}
+const promotionSelect = `
+  id,
+  code,
+  name,
+  kind,
+  buy_qty,
+  free_qty,
+  discount_percent,
+  active,
+  promotion_products ( product_id )
+`
 
-/** Returns promotions where `active` is true, ordered by name. */
+/** Active promotions for the register (with product scope). */
 export async function fetchPromotions(): Promise<Promotion[]> {
   const { data, error } = await supabase
     .from('promotions')
-    .select('id, code, name, discount_percent, active')
+    .select(promotionSelect)
     .eq('active', true)
     .order('name', { ascending: true })
 
   if (error) throw error
-  return (data ?? []).map(mapPromotionRow)
+  return (data ?? []).map((row) => mapPromotionFromRow(row))
 }

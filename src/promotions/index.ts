@@ -6,6 +6,8 @@ export {
 export { evaluatePromotionEngine, scorePromotions } from './engine'
 export { evaluatePromotionRule } from './registry'
 export { cartLineInputsFromPos } from './posAdapter'
+export { mapDbPromotionsToEngineRules } from './mapDbPromotionsToRules'
+export { resolveAppliedPromotionName } from './resolveAppliedPromotion'
 export type {
   AggregatedLine,
   BulkDiscountRule,

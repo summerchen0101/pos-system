@@ -1,4 +1,5 @@
-import { useCartStore, useCartTotals } from '../../store/cartStore'
+import { useCartStore } from '../../store/cartStore'
+import { useCartPromotionTotals } from '../../hooks/useCartPromotionTotals'
 import type { Promotion } from '../../types/pos'
 import { CartLineRow } from './CartLineRow'
 import { OrderSummary } from './OrderSummary'
@@ -11,14 +12,12 @@ type Props = {
 
 export function CartPanel({ promotions, promotionsError }: Props) {
   const lines = useCartStore((s) => s.lines)
-  const discountPercent = useCartStore((s) => s.discountPercent)
   const increment = useCartStore((s) => s.increment)
   const decrement = useCartStore((s) => s.decrement)
   const removeLine = useCartStore((s) => s.removeLine)
-  const setDiscountPercent = useCartStore((s) => s.setDiscountPercent)
   const clearCart = useCartStore((s) => s.clearCart)
 
-  const totals = useCartTotals()
+  const totals = useCartPromotionTotals(promotions)
   const isEmpty = lines.length === 0
   const unitCount = lines.reduce((sum, line) => sum + line.quantity, 0)
 
@@ -62,10 +61,10 @@ export function CartPanel({ promotions, promotionsError }: Props) {
 
       <OrderSummary
         totals={totals}
-        discountPercent={discountPercent}
-        onDiscountChange={setDiscountPercent}
         isEmpty={isEmpty}
-        promotions={promotions}
+        appliedPromotionName={totals.appliedPromotionName}
+        hasPromotionRules={promotions.length > 0}
+        promotionsFailed={promotionsError != null}
       />
 
       <CheckoutButton totals={totals} disabled={isEmpty} onCheckout={handleCheckout} />

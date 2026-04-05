@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { fetchProducts } from '../../api/fetchProducts'
 import { fetchPromotions } from '../../api/fetchPromotions'
 import { useCartStore } from '../../store/cartStore'
@@ -61,7 +62,12 @@ export function PosLayout() {
     <div className="pos-layout">
       <main className="pos-main">
         <header className="pos-main__header">
-          <h1>Register</h1>
+          <div className="pos-main__title-row">
+            <h1>Register</h1>
+            <Link className="pos-admin-link" to="/admin/promotions">
+              Manage promotions
+            </Link>
+          </div>
           <p className="pos-main__hint">Select items to add to the cart</p>
         </header>
         <ProductGrid
