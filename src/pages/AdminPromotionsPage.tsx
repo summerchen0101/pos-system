@@ -28,7 +28,7 @@ import {
 } from '../api/promotionsAdmin'
 import { formatMoney } from '../lib/money'
 import { zhtw } from '../locales/zhTW'
-import type { Product, Promotion, PromotionKind } from '../types/pos'
+import type { Product, Promotion, PromotionApplyMode, PromotionKind } from '../types/pos'
 
 const { Title, Text } = Typography
 const pr = zhtw.admin.promotions
@@ -48,6 +48,9 @@ const KIND_OPTIONS: { value: PromotionKind; label: string }[] = [
   { value: 'SINGLE_DISCOUNT', label: pr.kindSingle },
   { value: 'TIERED', label: pr.kindTiered },
   { value: 'GIFT_WITH_THRESHOLD', label: pr.kindThreshold },
+  { value: 'FIXED_DISCOUNT', label: pr.kindFixed },
+  { value: 'FREE_ITEMS', label: pr.kindFreeItems },
+  { value: 'FREE_PRODUCT', label: pr.kindFreeProduct },
 ]
 
 function promotionSummary(p: Promotion): string {
@@ -63,6 +66,11 @@ function promotionSummary(p: Promotion): string {
       return pr.summaryTiered(p.rules.length)
     case 'GIFT_WITH_THRESHOLD':
       return pr.summaryThreshold(formatMoney(p.thresholdAmountCents ?? 0), p.gift?.displayName ?? dash)
+    case 'FIXED_DISCOUNT':
+      return pr.summaryFixed(formatMoney(p.fixedDiscountCents ?? 0))
+    case 'FREE_ITEMS':
+    case 'FREE_PRODUCT':
+      return pr.summaryFreeUnits(p.freeQty ?? 0)
     default:
       return dash
   }
@@ -78,9 +86,11 @@ type FormValues = {
   code?: string
   name: string
   kind: PromotionKind
+  applyMode: PromotionApplyMode
   buyQty?: number | null
   freeQty?: number | null
   discountPercent?: number | null
+  fixedDiscountDollars?: number | null
   active: boolean
   productIds: string[]
   tiers?: TierFormRow[]
@@ -109,29 +119,93 @@ function buildTierInputs(rows: TierFormRow[]): PromotionTierInput[] {
 function toInput(values: FormValues): PromotionInput {
   const tiers: PromotionTierInput[] =
     values.kind === 'TIERED' ? buildTierInputs(values.tiers ?? []) : []
+  const code = values.code?.trim() ? values.code.trim() : null
+  const name = values.name.trim()
+
   if (values.kind === 'GIFT_WITH_THRESHOLD') {
     return {
-      code: values.code?.trim() ? values.code.trim() : null,
-      name: values.name.trim(),
+      code,
+      name,
       kind: values.kind,
       buyQty: null,
       freeQty: null,
       discountPercent: null,
       active: values.active,
+      applyMode: 'AUTO',
+      fixedDiscountCents: null,
       productIds: [],
       tiers: [],
       giftId: values.promotionGiftId ?? null,
       thresholdAmountCents: dollarsToCents(Number(values.thresholdDollars)),
     }
   }
+
+  const applyMode = values.applyMode ?? 'AUTO'
+
+  if (values.kind === 'FIXED_DISCOUNT') {
+    return {
+      code,
+      name,
+      kind: values.kind,
+      buyQty: null,
+      freeQty: null,
+      discountPercent: null,
+      active: values.active,
+      applyMode,
+      fixedDiscountCents: dollarsToCents(Number(values.fixedDiscountDollars)),
+      productIds: [],
+      tiers: [],
+      giftId: null,
+      thresholdAmountCents: null,
+    }
+  }
+
+  if (values.kind === 'FREE_ITEMS' || values.kind === 'FREE_PRODUCT') {
+    return {
+      code,
+      name,
+      kind: values.kind,
+      buyQty: null,
+      freeQty: values.freeQty ?? null,
+      discountPercent: null,
+      active: values.active,
+      applyMode,
+      fixedDiscountCents: null,
+      productIds: values.productIds ?? [],
+      tiers: [],
+      giftId: null,
+      thresholdAmountCents: null,
+    }
+  }
+
+  if (values.kind === 'TIERED') {
+    return {
+      code,
+      name,
+      kind: values.kind,
+      buyQty: null,
+      freeQty: null,
+      discountPercent: null,
+      active: values.active,
+      applyMode,
+      fixedDiscountCents: null,
+      productIds: values.productIds ?? [],
+      tiers,
+      giftId: null,
+      thresholdAmountCents: null,
+    }
+  }
+
   return {
-    code: values.code?.trim() ? values.code.trim() : null,
-    name: values.name.trim(),
+    code,
+    name,
     kind: values.kind,
     buyQty: values.buyQty ?? null,
     freeQty: values.freeQty ?? null,
     discountPercent: values.discountPercent ?? null,
     active: values.active,
+    applyMode,
+    fixedDiscountCents: null,
     productIds: values.productIds ?? [],
     tiers,
     giftId: null,
@@ -181,9 +255,11 @@ export function AdminPromotionsPage() {
       name: '',
       code: '',
       kind: 'BULK_DISCOUNT',
+      applyMode: 'AUTO',
       buyQty: 2,
       freeQty: null,
       discountPercent: 15,
+      fixedDiscountDollars: undefined,
       active: true,
       productIds: [],
       tiers: [],
@@ -199,11 +275,16 @@ export function AdminPromotionsPage() {
       name: p.name,
       code: p.code ?? '',
       kind: p.kind,
+      applyMode: p.kind === 'GIFT_WITH_THRESHOLD' ? 'AUTO' : p.applyMode,
       buyQty: p.buyQty,
       freeQty: p.freeQty,
       discountPercent: p.discountPercent,
+      fixedDiscountDollars:
+        p.kind === 'FIXED_DISCOUNT' && p.fixedDiscountCents != null
+          ? centsToDollars(p.fixedDiscountCents)
+          : undefined,
       active: p.active,
-      productIds: p.kind === 'GIFT_WITH_THRESHOLD' ? [] : p.productIds,
+      productIds: p.kind === 'GIFT_WITH_THRESHOLD' || p.kind === 'FIXED_DISCOUNT' ? [] : p.productIds,
       tiers:
         p.kind === 'TIERED'
           ? p.rules.map((r) => ({
@@ -244,6 +325,22 @@ export function AdminPromotionsPage() {
           return
         }
       }
+      if (values.kind === 'FIXED_DISCOUNT') {
+        if (values.fixedDiscountDollars == null || Number(values.fixedDiscountDollars) <= 0) {
+          message.error(pr.fixedDiscountError)
+          return
+        }
+      }
+      if (values.kind === 'FREE_ITEMS' || values.kind === 'FREE_PRODUCT') {
+        if (!values.productIds?.length) {
+          message.error(pr.selectProductError)
+          return
+        }
+        if (values.freeQty == null || values.freeQty < 1) {
+          message.error(pr.freeQtyError)
+          return
+        }
+      }
       let input: PromotionInput
       try {
         input = toInput(values)
@@ -251,7 +348,11 @@ export function AdminPromotionsPage() {
         message.error(err instanceof Error ? err.message : pr.invalidTiers)
         return
       }
-      if (input.kind !== 'GIFT_WITH_THRESHOLD' && input.productIds.length === 0) {
+      if (
+        input.kind !== 'GIFT_WITH_THRESHOLD' &&
+        input.kind !== 'FIXED_DISCOUNT' &&
+        input.productIds.length === 0
+      ) {
         message.error(pr.selectProductError)
         return
       }
@@ -260,6 +361,13 @@ export function AdminPromotionsPage() {
         (!input.thresholdAmountCents || input.thresholdAmountCents < 1)
       ) {
         message.error(pr.thresholdError)
+        return
+      }
+      if (
+        input.kind === 'FIXED_DISCOUNT' &&
+        (!input.fixedDiscountCents || input.fixedDiscountCents < 1)
+      ) {
+        message.error(pr.fixedDiscountError)
         return
       }
       setSaving(true)
@@ -331,6 +439,16 @@ export function AdminPromotionsPage() {
       ),
     },
     {
+      title: pr.colApplyMode,
+      key: 'apply',
+      width: 88,
+      render: (_, row) => (
+        <Tag color={row.applyMode === 'MANUAL' ? 'gold' : 'default'}>
+          {row.kind === 'GIFT_WITH_THRESHOLD' ? pr.applyAuto : row.applyMode === 'MANUAL' ? pr.applyManual : pr.applyAuto}
+        </Tag>
+      ),
+    },
+    {
       title: pr.colType,
       dataIndex: 'kind',
       key: 'kind',
@@ -348,7 +466,9 @@ export function AdminPromotionsPage() {
       width: 72,
       align: 'center',
       render: (_, row) =>
-        row.kind === 'GIFT_WITH_THRESHOLD' ? common.dash : row.productIds.length,
+        row.kind === 'GIFT_WITH_THRESHOLD' || row.kind === 'FIXED_DISCOUNT'
+          ? common.dash
+          : row.productIds.length,
     },
     {
       title: pr.colActive,
@@ -456,7 +576,34 @@ export function AdminPromotionsPage() {
                   discountPercent: null,
                   tiers: [],
                   productIds: [],
+                  applyMode: 'AUTO',
                   thresholdDollars: form.getFieldValue('thresholdDollars') ?? 500,
+                })
+              } else if (k === 'FIXED_DISCOUNT') {
+                form.setFieldsValue({
+                  buyQty: null,
+                  freeQty: null,
+                  discountPercent: null,
+                  tiers: [],
+                  productIds: [],
+                  applyMode: 'MANUAL',
+                  fixedDiscountDollars: form.getFieldValue('fixedDiscountDollars') ?? 50,
+                })
+              } else if (k === 'FREE_ITEMS') {
+                form.setFieldsValue({
+                  buyQty: null,
+                  discountPercent: null,
+                  tiers: [],
+                  applyMode: 'MANUAL',
+                  freeQty: form.getFieldValue('freeQty') ?? 20,
+                })
+              } else if (k === 'FREE_PRODUCT') {
+                form.setFieldsValue({
+                  buyQty: null,
+                  discountPercent: null,
+                  tiers: [],
+                  applyMode: 'MANUAL',
+                  freeQty: form.getFieldValue('freeQty') ?? 1,
                 })
               } else {
                 form.setFieldsValue({
@@ -482,6 +629,17 @@ export function AdminPromotionsPage() {
               placeholder={pr.kindPh}
             />
           </Form.Item>
+
+          {kindWatch && kindWatch !== 'GIFT_WITH_THRESHOLD' ? (
+            <Form.Item name="applyMode" label={pr.labelApplyMode} rules={[{ required: true }]}>
+              <Select
+                options={[
+                  { value: 'AUTO', label: pr.applyAuto },
+                  { value: 'MANUAL', label: pr.applyManual },
+                ]}
+              />
+            </Form.Item>
+          ) : null}
 
           {kindWatch === 'BUY_X_GET_Y' && (
             <Space size="middle" style={{ display: 'flex' }}>
@@ -604,28 +762,49 @@ export function AdminPromotionsPage() {
                 <InputNumber min={0.01} step={1} style={{ width: '100%' }} placeholder={pr.thresholdPh} />
               </Form.Item>
             </>
-          ) : (
+          ) : kindWatch === 'FIXED_DISCOUNT' ? (
             <Form.Item
-              name="productIds"
-              label={pr.labelProducts}
-              rules={[
-                ({ getFieldValue }) => ({
-                  validator: async (_, v: string[]) => {
-                    if (getFieldValue('kind') === 'GIFT_WITH_THRESHOLD') return
-                    if (!v?.length) throw new Error(pr.validatorProducts)
-                  },
-                }),
-              ]}
+              name="fixedDiscountDollars"
+              label={pr.labelFixedDiscount}
+              rules={[{ required: true, type: 'number', min: 0.01 }]}
+              extra={pr.fixedDiscountExtra}
             >
-              <Select
-                mode="multiple"
-                allowClear
-                showSearch
-                optionFilterProp="label"
-                placeholder={pr.productsPh}
-                options={productOptions}
-              />
+              <InputNumber min={0.01} step={1} style={{ width: '100%' }} placeholder={pr.fixedDiscountPh} />
             </Form.Item>
+          ) : (
+            <>
+              {(kindWatch === 'FREE_ITEMS' || kindWatch === 'FREE_PRODUCT') && (
+                <Form.Item
+                  name="freeQty"
+                  label={kindWatch === 'FREE_ITEMS' ? pr.labelFreeQtyItems : pr.labelFreeQtyProduct}
+                  rules={[{ required: true, type: 'number', min: 1 }]}
+                >
+                  <InputNumber min={1} precision={0} style={{ width: '100%' }} />
+                </Form.Item>
+              )}
+              <Form.Item
+                name="productIds"
+                label={pr.labelProducts}
+                rules={[
+                  ({ getFieldValue }) => ({
+                    validator: async (_, v: string[]) => {
+                      const k = getFieldValue('kind') as PromotionKind
+                      if (k === 'GIFT_WITH_THRESHOLD' || k === 'FIXED_DISCOUNT') return
+                      if (!v?.length) throw new Error(pr.validatorProducts)
+                    },
+                  }),
+                ]}
+              >
+                <Select
+                  mode="multiple"
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder={pr.productsPh}
+                  options={productOptions}
+                />
+              </Form.Item>
+            </>
           )}
 
           <Form.Item name="active" label={pr.colActive} valuePropName="checked">

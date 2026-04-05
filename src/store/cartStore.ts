@@ -9,21 +9,27 @@ export type CartTotals = {
 
 type CartState = {
   lines: CartLine[]
+  /** Staff-selected manual promotion ids (order preserved). */
+  manualPromotionIds: string[]
   addProduct: (product: Product) => void
   increment: (lineId: string) => void
   decrement: (lineId: string) => void
   removeLine: (lineId: string) => void
   mergeGiftLines: (giftLines: CartLine[]) => void
+  replaceManualFreeLines: (manualLines: CartLine[]) => void
+  addManualPromotion: (promotionId: string) => void
+  removeManualPromotion: (promotionId: string) => void
   clearCart: () => void
 }
 
 export const useCartStore = create<CartState>((set) => ({
   lines: [],
+  manualPromotionIds: [],
 
   addProduct: (product) =>
     set((state) => {
       if (product.stock <= 0) return state
-      const idx = state.lines.findIndex((l) => !l.isGift && l.product.id === product.id)
+      const idx = state.lines.findIndex((l) => !l.isGift && !l.isManualFree && l.product.id === product.id)
       if (idx >= 0) {
         const line = state.lines[idx]
         const next = Math.min(line.quantity + 1, product.stock)
@@ -43,7 +49,7 @@ export const useCartStore = create<CartState>((set) => ({
     set((state) => ({
       lines: state.lines.map((l) => {
         if (l.lineId !== lineId) return l
-        if (l.isGift) return l
+        if (l.isGift || l.isManualFree) return l
         if (l.quantity >= l.product.stock) return l
         return { ...l, quantity: l.quantity + 1 }
       }),
@@ -53,7 +59,7 @@ export const useCartStore = create<CartState>((set) => ({
     set((state) => {
       const line = state.lines.find((l) => l.lineId === lineId)
       if (!line) return state
-      if (line.isGift) {
+      if (line.isGift || line.isManualFree) {
         return { lines: state.lines.filter((l) => l.lineId !== lineId) }
       }
       if (line.quantity <= 1) {
@@ -73,8 +79,32 @@ export const useCartStore = create<CartState>((set) => ({
 
   mergeGiftLines: (giftLines) =>
     set((state) => ({
-      lines: [...state.lines.filter((l) => !l.isGift), ...giftLines],
+      lines: [
+        ...state.lines.filter((l) => !l.isGift && !l.isManualFree),
+        ...state.lines.filter((l) => l.isManualFree),
+        ...giftLines,
+      ],
     })),
 
-  clearCart: () => set({ lines: [] }),
+  replaceManualFreeLines: (manualLines) =>
+    set((state) => ({
+      lines: [
+        ...state.lines.filter((l) => !l.isGift && !l.isManualFree),
+        ...manualLines,
+        ...state.lines.filter((l) => l.isGift),
+      ],
+    })),
+
+  addManualPromotion: (promotionId) =>
+    set((state) => {
+      if (state.manualPromotionIds.includes(promotionId)) return state
+      return { manualPromotionIds: [...state.manualPromotionIds, promotionId] }
+    }),
+
+  removeManualPromotion: (promotionId) =>
+    set((state) => ({
+      manualPromotionIds: state.manualPromotionIds.filter((id) => id !== promotionId),
+    })),
+
+  clearCart: () => set({ lines: [], manualPromotionIds: [] }),
 }))

@@ -2,6 +2,7 @@ import { supabase } from '../supabase'
 import { mapPromotionFromRow } from './promotionMappers'
 import { PROMOTION_LIST_SELECT } from './promotionSelect'
 import type { Promotion, PromotionKind } from '../types/pos'
+import type { PromotionApplyMode } from '../types/pos'
 
 export type PromotionTierInput = {
   minQty: number
@@ -18,27 +19,36 @@ export type PromotionInput = {
   freeQty: number | null
   discountPercent: number | null
   active: boolean
+  applyMode: PromotionApplyMode
+  fixedDiscountCents: number | null
   productIds: string[]
-  /** Required when kind is TIERED (at least one row). */
   tiers: PromotionTierInput[]
-  /** Required when kind is GIFT_WITH_THRESHOLD. */
   giftId: string | null
   thresholdAmountCents: number | null
 }
 
+function resolvedApplyMode(input: PromotionInput): PromotionApplyMode {
+  if (input.kind === 'GIFT_WITH_THRESHOLD') return 'AUTO'
+  return input.applyMode
+}
+
 function rowPayload(input: PromotionInput) {
+  const apply_mode = resolvedApplyMode(input)
   const base = {
     code: input.code || null,
     name: input.name,
     kind: input.kind,
     active: input.active,
+    apply_mode,
   }
+
   if (input.kind === 'GIFT_WITH_THRESHOLD') {
     return {
       ...base,
       buy_qty: null,
       free_qty: null,
       discount_percent: null,
+      fixed_discount_cents: null,
       gift_id: input.giftId,
       threshold_amount: input.thresholdAmountCents,
     }
@@ -49,6 +59,29 @@ function rowPayload(input: PromotionInput) {
       buy_qty: null,
       free_qty: null,
       discount_percent: null,
+      fixed_discount_cents: null,
+      gift_id: null,
+      threshold_amount: null,
+    }
+  }
+  if (input.kind === 'FIXED_DISCOUNT') {
+    return {
+      ...base,
+      buy_qty: null,
+      free_qty: null,
+      discount_percent: null,
+      fixed_discount_cents: input.fixedDiscountCents,
+      gift_id: null,
+      threshold_amount: null,
+    }
+  }
+  if (input.kind === 'FREE_ITEMS' || input.kind === 'FREE_PRODUCT') {
+    return {
+      ...base,
+      buy_qty: null,
+      free_qty: input.freeQty,
+      discount_percent: null,
+      fixed_discount_cents: null,
       gift_id: null,
       threshold_amount: null,
     }
@@ -58,6 +91,7 @@ function rowPayload(input: PromotionInput) {
     buy_qty: input.buyQty,
     free_qty: input.freeQty,
     discount_percent: input.discountPercent,
+    fixed_discount_cents: null,
     gift_id: null,
     threshold_amount: null,
   }
@@ -95,7 +129,7 @@ async function replacePromotionRules(promotionId: string, tiers: PromotionTierIn
 }
 
 async function syncPromotionRelations(id: string, input: PromotionInput) {
-  if (input.kind === 'GIFT_WITH_THRESHOLD') {
+  if (input.kind === 'GIFT_WITH_THRESHOLD' || input.kind === 'FIXED_DISCOUNT') {
     await replacePromotionProducts(id, [])
   } else {
     await replacePromotionProducts(id, input.productIds)

@@ -1,3 +1,4 @@
+import type { ManualPromotionDetail } from '../../promotions/computeCartPromotionBreakdown'
 import { zhtw } from '../../locales/zhTW'
 import { formatMoney } from '../../lib/money'
 import type { CartTotals } from '../../store/cartStore'
@@ -9,6 +10,7 @@ type Props = {
   hasPromotionRules: boolean
   promotionsFailed: boolean
   thresholdGiftSummaries: string[]
+  manualPromotionDetails: ManualPromotionDetail[]
 }
 
 export function OrderSummary({
@@ -18,6 +20,7 @@ export function OrderSummary({
   hasPromotionRules,
   promotionsFailed,
   thresholdGiftSummaries,
+  manualPromotionDetails,
 }: Props) {
   const hasDiscount = totals.discountCents > 0
   const pctOff =
@@ -49,6 +52,22 @@ export function OrderSummary({
           {thresholdGiftSummaries.map((t) => (
             <li key={t} className="pos-order-summary__gift-line">
               {t}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {manualPromotionDetails.length > 0 ? (
+        <ul className="pos-order-summary__manual" aria-label={zhtw.pos.manualPromoModalTitle}>
+          {manualPromotionDetails.map((m) => (
+            <li key={m.promotionId} className="pos-order-summary__manual-line">
+              <span className="pos-order-summary__manual-name">
+                {zhtw.pos.manualPromoBadge} · {m.name}
+              </span>
+              <span className="pos-order-summary__manual-discount">
+                {m.discountCents > 0
+                  ? `−${formatMoney(m.discountCents)}`
+                  : zhtw.pos.manualPromoConflict}
+              </span>
             </li>
           ))}
         </ul>

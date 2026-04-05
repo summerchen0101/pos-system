@@ -1,28 +1,14 @@
-import { evaluatePromotionEngine } from './engine'
-import { mapDbPromotionsToEngineRules } from './mapDbPromotionsToRules'
-import { cartLineInputsFromPos } from './posAdapter'
 import { formatMoney } from '../lib/money'
 import type { CartLine, Promotion } from '../types/pos'
-
-/**
- * Payable merchandise total after the best auto discount (BOGO, bulk, single, tiered).
- * Excludes gift lines; `GIFT_WITH_THRESHOLD` is not in engine rules — evaluated after this.
- */
-export function merchandiseFinalAfterAutoPromotionsCents(
-  lines: readonly CartLine[],
-  promotions: readonly Promotion[],
-): number {
-  const rules = mapDbPromotionsToEngineRules(promotions)
-  const cart = cartLineInputsFromPos(lines)
-  return evaluatePromotionEngine(cart, rules).finalTotalCents
-}
+import { payableAmountBeforeGiftsCents } from './computeCartPromotionBreakdown'
 
 /** Auto gift lines to merge into the cart when threshold + stock allow. */
 export function buildThresholdGiftLines(
   allLines: readonly CartLine[],
   promotions: readonly Promotion[],
+  manualPromotionIds: readonly string[],
 ): CartLine[] {
-  const basisCents = merchandiseFinalAfterAutoPromotionsCents(allLines, promotions)
+  const basisCents = payableAmountBeforeGiftsCents(allLines, promotions, manualPromotionIds)
   const desired: CartLine[] = []
 
   for (const pr of promotions) {
@@ -59,8 +45,9 @@ function giftLinesSignature(lines: readonly CartLine[]): string {
 export function thresholdGiftLinesInSync(
   allLines: readonly CartLine[],
   promotions: readonly Promotion[],
+  manualPromotionIds: readonly string[],
 ): boolean {
-  const desired = buildThresholdGiftLines(allLines, promotions)
+  const desired = buildThresholdGiftLines(allLines, promotions, manualPromotionIds)
   const current = allLines.filter((l) => l.isGift)
   return giftLinesSignature(desired) === giftLinesSignature(current)
 }
@@ -69,9 +56,10 @@ export function thresholdGiftLinesInSync(
 export function thresholdGiftSummaryLines(
   lines: readonly CartLine[],
   promotions: readonly Promotion[],
+  manualPromotionIds: readonly string[],
   template: (amountFormatted: string, giftName: string) => string,
 ): string[] {
-  const basisCents = merchandiseFinalAfterAutoPromotionsCents(lines, promotions)
+  const basisCents = payableAmountBeforeGiftsCents(lines, promotions, manualPromotionIds)
   const out: string[] = []
 
   for (const pr of promotions) {

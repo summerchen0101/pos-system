@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchProducts } from "../../api/fetchProducts";
 import { fetchPromotions } from "../../api/fetchPromotions";
+import { useManualFreeLineSync } from "../../hooks/useManualFreeLineSync";
 import { useThresholdGiftSync } from "../../hooks/useThresholdGiftSync";
 import { zhtw } from "../../locales/zhTW";
 import { useCartStore } from "../../store/cartStore";
@@ -30,6 +31,7 @@ export function PosLayout() {
   const [productsError, setProductsError] = useState<string | null>(null);
   const [promotionsError, setPromotionsError] = useState<string | null>(null);
 
+  useManualFreeLineSync(promotions, products);
   useThresholdGiftSync(promotions);
 
   const tabItems = useMemo(
@@ -118,7 +120,7 @@ export function PosLayout() {
           emptyMessage={zhtw.pos.emptySize}
         />
       </main>
-      <CartPanel promotions={promotions} promotionsError={promotionsError} />
+      <CartPanel promotions={promotions} products={products} promotionsError={promotionsError} />
     </div>
   );
 }

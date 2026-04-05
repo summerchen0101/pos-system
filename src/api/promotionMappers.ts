@@ -1,6 +1,7 @@
 import { mapProductRow, type ProductRowWithCategory } from './productMapper'
 import type {
   Promotion,
+  PromotionApplyMode,
   PromotionGiftDetail,
   PromotionKind,
   PromotionTierRule,
@@ -80,6 +81,7 @@ export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
   const kind: PromotionKind = row.kind
   const giftNested = unwrapOne(row.gifts)
   const gift = mapGiftDetail(giftNested)
+  const applyMode: PromotionApplyMode = row.apply_mode === 'MANUAL' ? 'MANUAL' : 'AUTO'
 
   return {
     id: row.id,
@@ -90,6 +92,8 @@ export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
     freeQty: row.free_qty,
     discountPercent: row.discount_percent,
     active: row.active,
+    applyMode,
+    fixedDiscountCents: row.fixed_discount_cents ?? null,
     productIds,
     rules: mapTierRows(row.promotion_rules ?? undefined),
     giftId: row.gift_id ?? null,

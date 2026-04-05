@@ -1,24 +1,33 @@
+import { App, Button, Space, Tag } from 'antd'
+import { useMemo, useState } from 'react'
 import { checkoutOrder } from '../../api/ordersApi'
 import { useCartPromotionTotals } from '../../hooks/useCartPromotionTotals'
 import { zhtw } from '../../locales/zhTW'
 import { formatMoney } from '../../lib/money'
 import { useCartStore } from '../../store/cartStore'
-import type { Promotion } from '../../types/pos'
+import type { Product, Promotion } from '../../types/pos'
 import { CartLineRow } from './CartLineRow'
-import { OrderSummary } from './OrderSummary'
 import { CheckoutButton } from './CheckoutButton'
+import { ManualPromotionApplyModal } from './ManualPromotionApplyModal'
+import { OrderSummary } from './OrderSummary'
 
 type Props = {
   promotions: Promotion[]
+  products: Product[]
   promotionsError: string | null
 }
 
-export function CartPanel({ promotions, promotionsError }: Props) {
+export function CartPanel({ promotions, products, promotionsError }: Props) {
+  const { message } = App.useApp()
   const lines = useCartStore((s) => s.lines)
+  const manualPromotionIds = useCartStore((s) => s.manualPromotionIds)
   const increment = useCartStore((s) => s.increment)
   const decrement = useCartStore((s) => s.decrement)
   const removeLine = useCartStore((s) => s.removeLine)
   const clearCart = useCartStore((s) => s.clearCart)
+  const removeManualPromotion = useCartStore((s) => s.removeManualPromotion)
+
+  const [manualModalOpen, setManualModalOpen] = useState(false)
 
   const totals = useCartPromotionTotals(promotions)
   const isEmpty = lines.length === 0
@@ -31,6 +40,13 @@ export function CartPanel({ promotions, promotionsError }: Props) {
     return l.quantity <= l.product.stock && l.product.stock > 0
   })
   const canCheckout = !isEmpty && stockOk
+
+  const manualTags = useMemo(() => {
+    return manualPromotionIds.map((id) => {
+      const p = promotions.find((x) => x.id === id)
+      return { id, name: p?.name ?? id }
+    })
+  }, [manualPromotionIds, promotions])
 
   const handleCheckout = () => {
     if (!canCheckout) return
@@ -54,10 +70,10 @@ export function CartPanel({ promotions, promotionsError }: Props) {
         const msg = raw.includes('insufficient_stock')
           ? zhtw.pos.checkoutInsufficient
           : zhtw.pos.checkoutFailed
-        window.alert(msg)
+        message.error(msg)
         return
       }
-      window.alert(zhtw.pos.chargedThanks(formatMoney(totals.finalCents)))
+      message.success(zhtw.pos.chargedThanks(formatMoney(totals.finalCents)))
       clearCart()
     })()
   }
@@ -84,6 +100,28 @@ export function CartPanel({ promotions, promotionsError }: Props) {
         </p>
       ) : null}
 
+      {!isEmpty ? (
+        <div className="pos-cart-panel__manual-actions">
+          <Button type="default" size="small" block onClick={() => setManualModalOpen(true)}>
+            {zhtw.pos.applyPromotion}
+          </Button>
+          {manualTags.length > 0 ? (
+            <Space size={[4, 4]} wrap style={{ marginTop: 8 }}>
+              {manualTags.map((t) => (
+                <Tag
+                  key={t.id}
+                  closable
+                  onClose={() => removeManualPromotion(t.id)}
+                  color="gold"
+                >
+                  {t.name}
+                </Tag>
+              ))}
+            </Space>
+          ) : null}
+        </div>
+      ) : null}
+
       {isEmpty ? (
         <p className="pos-cart-empty">{zhtw.pos.cartEmpty}</p>
       ) : (
@@ -107,9 +145,17 @@ export function CartPanel({ promotions, promotionsError }: Props) {
         hasPromotionRules={promotions.length > 0}
         promotionsFailed={promotionsError != null}
         thresholdGiftSummaries={totals.thresholdGiftSummaries}
+        manualPromotionDetails={totals.manualPromotionDetails}
       />
 
       <CheckoutButton totals={totals} disabled={!canCheckout} onCheckout={handleCheckout} />
+
+      <ManualPromotionApplyModal
+        open={manualModalOpen}
+        onClose={() => setManualModalOpen(false)}
+        promotions={promotions}
+        products={products}
+      />
     </aside>
   )
 }

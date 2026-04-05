@@ -29,6 +29,8 @@ export type PromotionRow = {
   free_qty: number | null
   discount_percent: number | null
   active: boolean
+  apply_mode?: string
+  fixed_discount_cents: number | null
   gift_id: string | null
   threshold_amount: number | null
 }

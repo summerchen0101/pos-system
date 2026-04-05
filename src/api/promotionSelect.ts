@@ -20,6 +20,8 @@ export const PROMOTION_LIST_SELECT = `
   free_qty,
   discount_percent,
   active,
+  apply_mode,
+  fixed_discount_cents,
   gift_id,
   threshold_amount,
   promotion_products ( product_id ),

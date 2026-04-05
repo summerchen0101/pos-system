@@ -32,6 +32,9 @@ export type CartLine = {
   promotionId?: string
   /** Snapshot from promotion payload; used for stock checks and sync. */
   giftStock?: number
+  /** Staff-applied FREE_PRODUCT / FREE_ITEMS (normal product stock at checkout). */
+  isManualFree?: boolean
+  manualPromotionId?: string
 }
 
 export const PROMOTION_KINDS = [
@@ -40,8 +43,14 @@ export const PROMOTION_KINDS = [
   'SINGLE_DISCOUNT',
   'TIERED',
   'GIFT_WITH_THRESHOLD',
+  'FIXED_DISCOUNT',
+  'FREE_ITEMS',
+  'FREE_PRODUCT',
 ] as const
 export type PromotionKind = (typeof PROMOTION_KINDS)[number]
+
+export const PROMOTION_APPLY_MODES = ['AUTO', 'MANUAL'] as const
+export type PromotionApplyMode = (typeof PROMOTION_APPLY_MODES)[number]
 
 export function isPromotionKindString(value: string): value is PromotionKind {
   return (PROMOTION_KINDS as readonly string[]).includes(value)
@@ -75,6 +84,9 @@ export type Promotion = {
   freeQty: number | null
   discountPercent: number | null
   active: boolean
+  applyMode: PromotionApplyMode
+  /** `FIXED_DISCOUNT` — amount off in minor units. */
+  fixedDiscountCents: number | null
   productIds: string[]
   /** Populated when `kind === 'TIERED'`. */
   rules: PromotionTierRule[]

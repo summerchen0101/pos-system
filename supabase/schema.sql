@@ -60,13 +60,18 @@ create table if not exists public.promotions (
       'BULK_DISCOUNT',
       'SINGLE_DISCOUNT',
       'TIERED',
-      'GIFT_WITH_THRESHOLD'
+      'GIFT_WITH_THRESHOLD',
+      'FIXED_DISCOUNT',
+      'FREE_ITEMS',
+      'FREE_PRODUCT'
     )
   ),
   buy_qty integer,
   free_qty integer,
   discount_percent integer check (discount_percent is null or (discount_percent >= 0 and discount_percent <= 100)),
   active boolean not null default true,
+  apply_mode text not null default 'AUTO' check (apply_mode in ('AUTO', 'MANUAL')),
+  fixed_discount_cents integer check (fixed_discount_cents is null or fixed_discount_cents >= 1),
   gift_id uuid references public.gifts (id) on delete set null,
   threshold_amount integer check (threshold_amount is null or threshold_amount >= 1),
   constraint promotions_gift_threshold_kind check (
