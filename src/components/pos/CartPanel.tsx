@@ -4,6 +4,7 @@ import { checkoutOrder, type CheckoutLinePayload } from '../../api/ordersApi'
 import { useCartPromotionTotals } from '../../hooks/useCartPromotionTotals'
 import { zhtw } from '../../locales/zhTW'
 import { formatMoney } from '../../lib/money'
+import { isFreeSelectionCartLine } from '../../promotions/freeSelectionLines'
 import { useCartStore } from '../../store/cartStore'
 import type { Product, Promotion } from '../../types/pos'
 import { CartLineRow } from './CartLineRow'
@@ -26,6 +27,8 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
   const removeLine = useCartStore((s) => s.removeLine)
   const clearCart = useCartStore((s) => s.clearCart)
   const removeManualPromotion = useCartStore((s) => s.removeManualPromotion)
+  const applyFreeSelectionLines = useCartStore((s) => s.applyFreeSelectionLines)
+  const updateLineQuantity = useCartStore((s) => s.updateLineQuantity)
 
   const [manualModalOpen, setManualModalOpen] = useState(false)
 
@@ -40,6 +43,40 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
     return l.quantity <= l.product.stock && l.product.stock > 0
   })
   const canCheckout = !isEmpty && stockOk
+
+  const handleIncrement = (lineId: string) => {
+    const line = lines.find((l) => l.lineId === lineId)
+    if (!line) return
+    if (isFreeSelectionCartLine(line, promotions)) {
+      const p = promotions.find((x) => x.id === line.manualPromotionId)
+      if (!p || p.kind !== 'FREE_SELECTION') return
+      const max = p.maxSelectionQty ?? 0
+      const totalOthers = lines
+        .filter((l) => l.isManualFree && l.manualPromotionId === p.id && l.lineId !== lineId)
+        .reduce((a, l) => a + l.quantity, 0)
+      const next = line.quantity + 1
+      if (totalOthers + next > max) return
+      if (next > line.product.stock) return
+      updateLineQuantity(lineId, next)
+      return
+    }
+    increment(lineId)
+  }
+
+  const handleDecrement = (lineId: string) => {
+    const line = lines.find((l) => l.lineId === lineId)
+    if (!line) return
+    if (isFreeSelectionCartLine(line, promotions)) {
+      const next = line.quantity - 1
+      if (next < 1) {
+        removeLine(lineId)
+        return
+      }
+      updateLineQuantity(lineId, next)
+      return
+    }
+    decrement(lineId)
+  }
 
   const manualTags = useMemo(() => {
     return manualPromotionIds.map((id) => {
@@ -145,9 +182,10 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
             <CartLineRow
               key={line.lineId}
               line={line}
-              onIncrement={increment}
-              onDecrement={decrement}
+              onIncrement={handleIncrement}
+              onDecrement={handleDecrement}
               onRemove={removeLine}
+              allowQtyAdjust={isFreeSelectionCartLine(line, promotions)}
             />
           ))}
         </ul>
@@ -170,6 +208,7 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
         onClose={() => setManualModalOpen(false)}
         promotions={promotions}
         products={products}
+        onApplyFreeSelection={(promotionId, cartLines) => applyFreeSelectionLines(promotionId, cartLines)}
       />
     </aside>
   )

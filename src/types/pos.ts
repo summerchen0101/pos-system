@@ -45,6 +45,7 @@ export const PROMOTION_KINDS = [
   'GIFT_WITH_THRESHOLD',
   'FIXED_DISCOUNT',
   'FREE_ITEMS',
+  'FREE_SELECTION',
 ] as const
 export type PromotionKind = (typeof PROMOTION_KINDS)[number]
 
@@ -100,4 +101,10 @@ export type Promotion = {
    * Always `[]` for other kinds.
    */
   freeItems: { productId: string; quantity: number }[]
+  /**
+   * `FREE_SELECTION` only — products the cashier may pick (qty capped by `maxSelectionQty` total).
+   */
+  selectableProductIds: string[]
+  /** `FREE_SELECTION` only — max total units across chosen pool products. */
+  maxSelectionQty: number | null
 }

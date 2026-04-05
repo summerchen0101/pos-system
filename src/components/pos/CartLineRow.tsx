@@ -12,9 +12,11 @@ type Props = {
   onIncrement: (lineId: string) => void
   onDecrement: (lineId: string) => void
   onRemove: (lineId: string) => void
+  /** When true, +/- stay enabled for $0 manual lines (FREE_SELECTION). */
+  allowQtyAdjust?: boolean
 }
 
-export function CartLineRow({ line, onIncrement, onDecrement, onRemove }: Props) {
+export function CartLineRow({ line, onIncrement, onDecrement, onRemove, allowQtyAdjust }: Props) {
   const { product, quantity, lineId, isGift, giftStock, isManualFree } = line
   const unitPrice = isGift || isManualFree ? 0 : product.price
   const lineTotal = unitPrice * quantity
@@ -22,7 +24,7 @@ export function CartLineRow({ line, onIncrement, onDecrement, onRemove }: Props)
   const stockLabel = isGift
     ? zhtw.pos.giftStockCount(giftStock ?? 0)
     : zhtw.pos.stockCount(product.stock)
-  const lockQty = isGift || isManualFree
+  const lockQty = (isGift || isManualFree) && !allowQtyAdjust
 
   return (
     <li

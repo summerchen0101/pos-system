@@ -24,7 +24,9 @@ export const PROMOTION_LIST_SELECT = `
   fixed_discount_cents,
   gift_id,
   threshold_amount,
+  max_selection_qty,
   promotion_products ( product_id, quantity ),
+  promotion_selectable_items ( product_id ),
   promotion_rules ( id, min_qty, free_qty, discount_percent, sort_order ),
   gifts!promotions_gift_id_fkey (
     ${giftEmbed}

@@ -62,7 +62,8 @@ create table if not exists public.promotions (
       'TIERED',
       'GIFT_WITH_THRESHOLD',
       'FIXED_DISCOUNT',
-      'FREE_ITEMS'
+      'FREE_ITEMS',
+      'FREE_SELECTION'
     )
   ),
   buy_qty integer,
@@ -73,6 +74,7 @@ create table if not exists public.promotions (
   fixed_discount_cents integer check (fixed_discount_cents is null or fixed_discount_cents >= 1),
   gift_id uuid references public.gifts (id) on delete set null,
   threshold_amount integer check (threshold_amount is null or threshold_amount >= 1),
+  max_selection_qty integer,
   constraint promotions_gift_threshold_kind check (
     (
       kind = 'GIFT_WITH_THRESHOLD'
@@ -85,8 +87,19 @@ create table if not exists public.promotions (
       and threshold_amount is null
     )
   ),
-  constraint promotions_free_items_manual_only check (
-    kind <> 'FREE_ITEMS' or apply_mode = 'MANUAL'
+  constraint promotions_manual_pool_kinds check (
+    kind not in ('FREE_ITEMS', 'FREE_SELECTION') or apply_mode = 'MANUAL'
+  ),
+  constraint promotions_max_selection_qty_by_kind check (
+    (
+      kind = 'FREE_SELECTION'
+      and max_selection_qty is not null
+      and max_selection_qty >= 1
+    )
+    or (
+      kind <> 'FREE_SELECTION'
+      and max_selection_qty is null
+    )
   )
 );
 
@@ -98,6 +111,14 @@ create table if not exists public.promotion_products (
 );
 
 create index if not exists promotion_products_product_id_idx on public.promotion_products (product_id);
+
+create table if not exists public.promotion_selectable_items (
+  promotion_id uuid not null references public.promotions (id) on delete cascade,
+  product_id uuid not null references public.products (id) on delete cascade,
+  primary key (promotion_id, product_id)
+);
+
+create index if not exists promotion_selectable_items_product_id_idx on public.promotion_selectable_items (product_id);
 
 create table if not exists public.promotion_rules (
   id uuid primary key default gen_random_uuid(),
@@ -127,6 +148,7 @@ alter table public.categories enable row level security;
 alter table public.products enable row level security;
 alter table public.promotions enable row level security;
 alter table public.promotion_products enable row level security;
+alter table public.promotion_selectable_items enable row level security;
 alter table public.promotion_rules enable row level security;
 alter table public.gifts enable row level security;
 alter table public.gift_inventory enable row level security;
@@ -156,6 +178,12 @@ create policy "promotions_write_anon" on public.promotions for all using (true) 
 
 drop policy if exists "promotion_products_write_anon" on public.promotion_products;
 create policy "promotion_products_write_anon" on public.promotion_products for all using (true) with check (true);
+
+drop policy if exists "promotion_selectable_items_select_anon" on public.promotion_selectable_items;
+create policy "promotion_selectable_items_select_anon" on public.promotion_selectable_items for select using (true);
+
+drop policy if exists "promotion_selectable_items_write_anon" on public.promotion_selectable_items;
+create policy "promotion_selectable_items_write_anon" on public.promotion_selectable_items for all using (true) with check (true);
 
 drop policy if exists "promotion_rules_select_anon" on public.promotion_rules;
 create policy "promotion_rules_select_anon" on public.promotion_rules for select using (true);

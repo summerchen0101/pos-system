@@ -50,6 +50,7 @@ const KIND_OPTIONS: { value: PromotionKind; label: string }[] = [
   { value: 'GIFT_WITH_THRESHOLD', label: pr.kindThreshold },
   { value: 'FIXED_DISCOUNT', label: pr.kindFixed },
   { value: 'FREE_ITEMS', label: pr.kindFreeItems },
+  { value: 'FREE_SELECTION', label: pr.kindFreeSelection },
 ]
 
 function promotionSummary(p: Promotion, products: Product[]): string {
@@ -74,6 +75,8 @@ function promotionSummary(p: Promotion, products: Product[]): string {
         .map((f) => `${byId.get(f.productId)?.name ?? dash}×${f.quantity}`)
         .join('、')
     }
+    case 'FREE_SELECTION':
+      return pr.summaryFreeSelection(p.selectableProductIds.length, p.maxSelectionQty ?? 0)
     default:
       return dash
   }
@@ -101,6 +104,9 @@ type FormValues = {
   thresholdDollars?: number | null
   /** `FREE_ITEMS` — one row per gift product + qty. */
   freeItemRows?: { product_id: string; qty: number }[]
+  /** `FREE_SELECTION` — multi-select pool. */
+  selectablePoolIds?: string[]
+  maxSelectionQty?: number
 }
 
 function buildTierInputs(rows: TierFormRow[]): PromotionTierInput[] {
@@ -143,6 +149,8 @@ function toInput(values: FormValues): PromotionInput {
       tiers: [],
       giftId: values.promotionGiftId ?? null,
       thresholdAmountCents: dollarsToCents(Number(values.thresholdDollars)),
+      selectableProductIds: [],
+      maxSelectionQty: null,
     }
   }
 
@@ -164,6 +172,8 @@ function toInput(values: FormValues): PromotionInput {
       tiers: [],
       giftId: null,
       thresholdAmountCents: null,
+      selectableProductIds: [],
+      maxSelectionQty: null,
     }
   }
 
@@ -190,6 +200,30 @@ function toInput(values: FormValues): PromotionInput {
       tiers: [],
       giftId: null,
       thresholdAmountCents: null,
+      selectableProductIds: [],
+      maxSelectionQty: null,
+    }
+  }
+
+  if (values.kind === 'FREE_SELECTION') {
+    const pool = values.selectablePoolIds ?? []
+    return {
+      code,
+      name,
+      kind: 'FREE_SELECTION',
+      buyQty: null,
+      freeQty: null,
+      discountPercent: null,
+      active: values.active,
+      applyMode: 'MANUAL',
+      fixedDiscountCents: null,
+      productIds: [],
+      freeItems: [],
+      selectableProductIds: pool,
+      maxSelectionQty: Math.max(1, Math.trunc(Number(values.maxSelectionQty) || 1)),
+      tiers: [],
+      giftId: null,
+      thresholdAmountCents: null,
     }
   }
 
@@ -209,6 +243,8 @@ function toInput(values: FormValues): PromotionInput {
       tiers,
       giftId: null,
       thresholdAmountCents: null,
+      selectableProductIds: [],
+      maxSelectionQty: null,
     }
   }
 
@@ -227,6 +263,8 @@ function toInput(values: FormValues): PromotionInput {
     tiers,
     giftId: null,
     thresholdAmountCents: null,
+    selectableProductIds: [],
+    maxSelectionQty: null,
   }
 }
 
@@ -292,7 +330,12 @@ export function AdminPromotionsPage() {
       name: p.name,
       code: p.code ?? '',
       kind: p.kind,
-      applyMode: p.kind === 'GIFT_WITH_THRESHOLD' ? 'AUTO' : p.kind === 'FREE_ITEMS' ? 'MANUAL' : p.applyMode,
+      applyMode:
+        p.kind === 'GIFT_WITH_THRESHOLD'
+          ? 'AUTO'
+          : p.kind === 'FREE_ITEMS' || p.kind === 'FREE_SELECTION'
+            ? 'MANUAL'
+            : p.applyMode,
       buyQty: p.buyQty,
       freeQty: p.freeQty,
       discountPercent: p.discountPercent,
@@ -302,7 +345,10 @@ export function AdminPromotionsPage() {
           : undefined,
       active: p.active,
       productIds:
-        p.kind === 'GIFT_WITH_THRESHOLD' || p.kind === 'FIXED_DISCOUNT' || p.kind === 'FREE_ITEMS'
+        p.kind === 'GIFT_WITH_THRESHOLD' ||
+        p.kind === 'FIXED_DISCOUNT' ||
+        p.kind === 'FREE_ITEMS' ||
+        p.kind === 'FREE_SELECTION'
           ? []
           : p.productIds,
       freeItemRows:
@@ -324,6 +370,8 @@ export function AdminPromotionsPage() {
         p.kind === 'GIFT_WITH_THRESHOLD' && p.thresholdAmountCents != null
           ? centsToDollars(p.thresholdAmountCents)
           : undefined,
+      selectablePoolIds: p.kind === 'FREE_SELECTION' ? p.selectableProductIds : undefined,
+      maxSelectionQty: p.kind === 'FREE_SELECTION' ? (p.maxSelectionQty ?? 1) : undefined,
     })
     setModalOpen(true)
   }
@@ -381,6 +429,17 @@ export function AdminPromotionsPage() {
           }
         }
       }
+      if (values.kind === 'FREE_SELECTION') {
+        const pool = values.selectablePoolIds ?? []
+        if (pool.length < 1) {
+          message.error(pr.selectablePoolError)
+          return
+        }
+        if (values.maxSelectionQty == null || Number(values.maxSelectionQty) < 1) {
+          message.error(pr.maxSelectionQtyError)
+          return
+        }
+      }
       let input: PromotionInput
       try {
         input = toInput(values)
@@ -392,9 +451,14 @@ export function AdminPromotionsPage() {
         input.kind !== 'GIFT_WITH_THRESHOLD' &&
         input.kind !== 'FIXED_DISCOUNT' &&
         input.kind !== 'FREE_ITEMS' &&
+        input.kind !== 'FREE_SELECTION' &&
         input.productIds.length === 0
       ) {
         message.error(pr.selectProductError)
+        return
+      }
+      if (input.kind === 'FREE_SELECTION' && input.selectableProductIds.length === 0) {
+        message.error(pr.selectablePoolError)
         return
       }
       if (input.kind === 'FREE_ITEMS' && input.freeItems.length === 0) {
@@ -491,7 +555,7 @@ export function AdminPromotionsPage() {
         <Tag color={row.applyMode === 'MANUAL' ? 'gold' : 'default'}>
           {row.kind === 'GIFT_WITH_THRESHOLD'
             ? pr.applyAuto
-            : row.kind === 'FREE_ITEMS'
+            : row.kind === 'FREE_ITEMS' || row.kind === 'FREE_SELECTION'
               ? pr.applyManual
               : row.applyMode === 'MANUAL'
                 ? pr.applyManual
@@ -521,7 +585,9 @@ export function AdminPromotionsPage() {
           ? common.dash
           : row.kind === 'FREE_ITEMS'
             ? row.freeItems.length
-            : row.productIds.length,
+            : row.kind === 'FREE_SELECTION'
+              ? row.selectableProductIds.length
+              : row.productIds.length,
     },
     {
       title: pr.colActive,
@@ -653,6 +719,20 @@ export function AdminPromotionsPage() {
                   freeQty: null,
                   freeItemRows: cur?.length ? cur : [{ product_id: '', qty: 1 }],
                 })
+              } else if (k === 'FREE_SELECTION') {
+                form.setFieldsValue({
+                  buyQty: null,
+                  freeQty: null,
+                  discountPercent: null,
+                  tiers: [],
+                  applyMode: 'MANUAL',
+                  productIds: [],
+                  freeItemRows: undefined,
+                  selectablePoolIds: form.getFieldValue('selectablePoolIds')?.length
+                    ? form.getFieldValue('selectablePoolIds')
+                    : [],
+                  maxSelectionQty: form.getFieldValue('maxSelectionQty') ?? 3,
+                })
               } else {
                 form.setFieldsValue({
                   buyQty: null,
@@ -678,7 +758,10 @@ export function AdminPromotionsPage() {
             />
           </Form.Item>
 
-          {kindWatch && kindWatch !== 'GIFT_WITH_THRESHOLD' && kindWatch !== 'FREE_ITEMS' ? (
+          {kindWatch &&
+          kindWatch !== 'GIFT_WITH_THRESHOLD' &&
+          kindWatch !== 'FREE_ITEMS' &&
+          kindWatch !== 'FREE_SELECTION' ? (
             <Form.Item name="applyMode" label={pr.labelApplyMode} rules={[{ required: true }]}>
               <Select
                 options={[
@@ -819,6 +902,30 @@ export function AdminPromotionsPage() {
             >
               <InputNumber min={0.01} step={1} style={{ width: '100%' }} placeholder={pr.fixedDiscountPh} />
             </Form.Item>
+          ) : kindWatch === 'FREE_SELECTION' ? (
+            <>
+              <Form.Item
+                name="selectablePoolIds"
+                label={pr.labelSelectablePool}
+                rules={[{ required: true, message: pr.selectablePoolError }]}
+              >
+                <Select
+                  mode="multiple"
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder={pr.productsPh}
+                  options={productOptions}
+                />
+              </Form.Item>
+              <Form.Item
+                name="maxSelectionQty"
+                label={pr.labelMaxSelectionQty}
+                rules={[{ required: true, type: 'number', min: 1 }]}
+              >
+                <InputNumber min={1} precision={0} style={{ width: '100%' }} placeholder={pr.maxSelectionQtyPh} />
+              </Form.Item>
+            </>
           ) : kindWatch === 'FREE_ITEMS' ? (
             <Form.Item label={pr.freeItemsSection} required>
               <Form.List name="freeItemRows">
@@ -866,7 +973,13 @@ export function AdminPromotionsPage() {
                 ({ getFieldValue }) => ({
                   validator: async (_, v: string[]) => {
                     const k = getFieldValue('kind') as PromotionKind
-                    if (k === 'GIFT_WITH_THRESHOLD' || k === 'FIXED_DISCOUNT' || k === 'FREE_ITEMS') return
+                    if (
+                      k === 'GIFT_WITH_THRESHOLD' ||
+                      k === 'FIXED_DISCOUNT' ||
+                      k === 'FREE_ITEMS' ||
+                      k === 'FREE_SELECTION'
+                    )
+                      return
                     if (!v?.length) throw new Error(pr.validatorProducts)
                   },
                 }),

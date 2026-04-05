@@ -4,7 +4,8 @@ export function isManualPromotionSelectableKind(p: Promotion): boolean {
   return (
     p.kind === 'BUY_X_GET_Y' ||
     p.kind === 'FIXED_DISCOUNT' ||
-    p.kind === 'FREE_ITEMS'
+    p.kind === 'FREE_ITEMS' ||
+    p.kind === 'FREE_SELECTION'
   )
 }
 
@@ -31,6 +32,15 @@ export function isManualPromotionEligible(
       const qty = Math.max(1, Math.trunc(fi.quantity))
       const prod = products.find((x) => x.id === fi.productId)
       return !!prod && prod.stock >= qty
+    })
+  }
+
+  if (p.kind === 'FREE_SELECTION') {
+    const max = p.maxSelectionQty ?? 0
+    if (!p.selectableProductIds.length || max < 1) return false
+    return p.selectableProductIds.some((pid) => {
+      const prod = products.find((x) => x.id === pid)
+      return prod != null && prod.stock >= 1
     })
   }
 

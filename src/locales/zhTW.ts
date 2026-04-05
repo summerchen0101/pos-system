@@ -67,6 +67,14 @@ export const zhtw = {
     removeManualPromo: (name: string) => `移除 ${name}`,
     manualPromoBogoLine: (x: number, y: number) => `買 ${x} 送 ${y}`,
     manualPromoFreeLine: (n: number) => `贈 ${n} 件`,
+    manualPromoFreeSelection: (poolSize: number, max: number) =>
+      `可選 ${poolSize} 種商品 · 最多共 ${max} 件`,
+    freeSelectionModalTitle: (name: string) => `${name} — 選擇贈送`,
+    freeSelectionHint: (max: number) => `請輸入各品數量，總件數不可超過 ${max}。`,
+    freeSelectionTotal: (cur: number, max: number) => `已選 ${cur} / ${max} 件`,
+    freeSelectionNeedQty: '請至少選擇 1 件',
+    freeSelectionOverMax: (max: number) => `總件數不可超過 ${max}`,
+    freeSelectionStock: (name: string) => `「${name}」庫存不足`,
   },
   admin: {
     layout: {
@@ -206,6 +214,13 @@ export const zhtw = {
       kindThreshold: '滿額贈禮',
       kindFixed: '固定折價',
       kindFreeItems: '贈送商品（手動，可多品項）',
+      kindFreeSelection: '任選贈品（手動）',
+      labelSelectablePool: '可選商品池',
+      labelMaxSelectionQty: '最多可選總件數',
+      maxSelectionQtyPh: '例：5',
+      maxSelectionQtyError: '請輸入有效的總件數上限（至少 1）',
+      selectablePoolError: '請至少選擇一個可選商品',
+      summaryFreeSelection: (pool: number, max: number) => `可選 ${pool} 品 · 最多 ${max} 件`,
       summaryFixed: (amount: string) => `折 ${amount}`,
       summaryFreeUnits: (n: number) => `贈 ${n} 件`,
       labelApplyMode: '套用方式',

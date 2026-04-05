@@ -17,6 +17,10 @@ type CartState = {
   removeLine: (lineId: string) => void
   mergeGiftLines: (giftLines: CartLine[]) => void
   replaceManualFreeLines: (manualLines: CartLine[]) => void
+  /** Replace lines for one FREE_SELECTION promo after staff picks pool qtys. */
+  applyFreeSelectionLines: (promotionId: string, newLines: CartLine[]) => void
+  /** Set qty or remove line when quantity is below 1 (e.g. FREE_SELECTION adjustments). */
+  updateLineQuantity: (lineId: string, quantity: number) => void
   addManualPromotion: (promotionId: string) => void
   removeManualPromotion: (promotionId: string) => void
   clearCart: () => void
@@ -95,6 +99,34 @@ export const useCartStore = create<CartState>((set) => ({
       ],
     })),
 
+  applyFreeSelectionLines: (promotionId, newLines) =>
+    set((state) => ({
+      manualPromotionIds: state.manualPromotionIds.includes(promotionId)
+        ? state.manualPromotionIds
+        : [...state.manualPromotionIds, promotionId],
+      lines: [
+        ...state.lines.filter((l) => !l.isGift && !l.isManualFree),
+        ...state.lines.filter(
+          (l) =>
+            !l.isManualFree ||
+            l.manualPromotionId !== promotionId ||
+            !l.lineId.startsWith(`freeselection:${promotionId}:`),
+        ),
+        ...newLines,
+        ...state.lines.filter((l) => l.isGift),
+      ],
+    })),
+
+  updateLineQuantity: (lineId, quantity) =>
+    set((state) => {
+      if (quantity < 1) {
+        return { lines: state.lines.filter((l) => l.lineId !== lineId) }
+      }
+      return {
+        lines: state.lines.map((l) => (l.lineId === lineId ? { ...l, quantity } : l)),
+      }
+    }),
+
   addManualPromotion: (promotionId) =>
     set((state) => {
       if (state.manualPromotionIds.includes(promotionId)) return state
@@ -104,6 +136,9 @@ export const useCartStore = create<CartState>((set) => ({
   removeManualPromotion: (promotionId) =>
     set((state) => ({
       manualPromotionIds: state.manualPromotionIds.filter((id) => id !== promotionId),
+      lines: state.lines.filter(
+        (l) => !l.manualPromotionId || l.manualPromotionId !== promotionId,
+      ),
     })),
 
   clearCart: () => set({ lines: [], manualPromotionIds: [] }),

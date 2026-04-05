@@ -29,6 +29,7 @@ type GiftNestedRow = {
 
 export type PromotionRowWithProducts = PromotionRow & {
   promotion_products?: { product_id: string; quantity?: number }[] | null
+  promotion_selectable_items?: { product_id: string }[] | null
   promotion_rules?: PromotionRuleNestedRow[] | null
   gifts?: GiftNestedRow | GiftNestedRow[] | null
 }
@@ -92,6 +93,9 @@ export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
         }))
       : []
 
+  const selectableRows = row.promotion_selectable_items ?? []
+  const selectableProductIds = selectableRows.map((x) => x.product_id)
+
   return {
     id: row.id,
     code: row.code,
@@ -109,5 +113,10 @@ export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
     thresholdAmountCents: row.threshold_amount ?? null,
     gift,
     freeItems,
+    selectableProductIds: kind === 'FREE_SELECTION' ? selectableProductIds : [],
+    maxSelectionQty:
+      kind === 'FREE_SELECTION' && row.max_selection_qty != null
+        ? Math.max(1, Math.trunc(row.max_selection_qty))
+        : null,
   }
 }

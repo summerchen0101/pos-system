@@ -29,6 +29,10 @@ export type PromotionInput = {
   productIds: string[]
   /** Populated for `FREE_ITEMS` — per-product gift quantities. */
   freeItems: PromotionProductQtyInput[]
+  /** `FREE_SELECTION` — product pool (no per-row qty here). */
+  selectableProductIds: string[]
+  /** `FREE_SELECTION` — max total units across chosen lines. */
+  maxSelectionQty: number | null
   tiers: PromotionTierInput[]
   giftId: string | null
   thresholdAmountCents: number | null
@@ -36,18 +40,25 @@ export type PromotionInput = {
 
 function resolvedApplyMode(input: PromotionInput): PromotionApplyMode {
   if (input.kind === 'GIFT_WITH_THRESHOLD') return 'AUTO'
-  if (input.kind === 'FREE_ITEMS') return 'MANUAL'
+  if (input.kind === 'FREE_ITEMS' || input.kind === 'FREE_SELECTION') return 'MANUAL'
   return input.applyMode
+}
+
+function maxSelectionColumn(input: PromotionInput): number | null {
+  if (input.kind !== 'FREE_SELECTION' || input.maxSelectionQty == null) return null
+  return Math.max(1, Math.trunc(input.maxSelectionQty))
 }
 
 function rowPayload(input: PromotionInput) {
   const apply_mode = resolvedApplyMode(input)
+  const max_selection_qty = maxSelectionColumn(input)
   const base = {
     code: input.code || null,
     name: input.name,
     kind: input.kind,
     active: input.active,
     apply_mode,
+    max_selection_qty,
   }
 
   if (input.kind === 'GIFT_WITH_THRESHOLD') {
@@ -94,6 +105,17 @@ function rowPayload(input: PromotionInput) {
       threshold_amount: null,
     }
   }
+  if (input.kind === 'FREE_SELECTION') {
+    return {
+      ...base,
+      buy_qty: null,
+      free_qty: null,
+      discount_percent: null,
+      fixed_discount_cents: null,
+      gift_id: null,
+      threshold_amount: null,
+    }
+  }
   return {
     ...base,
     buy_qty: input.buyQty,
@@ -126,6 +148,20 @@ async function replacePromotionProductEntries(
   if (insErr) throw insErr
 }
 
+async function replacePromotionSelectableItems(promotionId: string, productIds: string[]) {
+  const { error: delErr } = await supabase
+    .from('promotion_selectable_items')
+    .delete()
+    .eq('promotion_id', promotionId)
+  if (delErr) throw delErr
+
+  if (productIds.length === 0) return
+  const { error: insErr } = await supabase.from('promotion_selectable_items').insert(
+    productIds.map((product_id) => ({ promotion_id: promotionId, product_id })),
+  )
+  if (insErr) throw insErr
+}
+
 async function replacePromotionRules(promotionId: string, tiers: PromotionTierInput[]) {
   const { error: delErr } = await supabase.from('promotion_rules').delete().eq('promotion_id', promotionId)
   if (delErr) throw delErr
@@ -144,15 +180,21 @@ async function replacePromotionRules(promotionId: string, tiers: PromotionTierIn
 }
 
 async function syncPromotionRelations(id: string, input: PromotionInput) {
-  if (input.kind === 'GIFT_WITH_THRESHOLD' || input.kind === 'FIXED_DISCOUNT') {
+  if (input.kind === 'FREE_SELECTION') {
     await replacePromotionProductEntries(id, [])
-  } else if (input.kind === 'FREE_ITEMS') {
-    await replacePromotionProductEntries(id, input.freeItems)
+    await replacePromotionSelectableItems(id, input.selectableProductIds)
   } else {
-    await replacePromotionProductEntries(
-      id,
-      input.productIds.map((productId) => ({ productId, quantity: 1 })),
-    )
+    await replacePromotionSelectableItems(id, [])
+    if (input.kind === 'GIFT_WITH_THRESHOLD' || input.kind === 'FIXED_DISCOUNT') {
+      await replacePromotionProductEntries(id, [])
+    } else if (input.kind === 'FREE_ITEMS') {
+      await replacePromotionProductEntries(id, input.freeItems)
+    } else {
+      await replacePromotionProductEntries(
+        id,
+        input.productIds.map((productId) => ({ productId, quantity: 1 })),
+      )
+    }
   }
   if (input.kind === 'TIERED') {
     await replacePromotionRules(id, input.tiers)

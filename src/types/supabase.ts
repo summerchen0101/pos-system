@@ -33,6 +33,13 @@ export type PromotionRow = {
   fixed_discount_cents: number | null
   gift_id: string | null
   threshold_amount: number | null
+  /** `FREE_SELECTION` only. */
+  max_selection_qty: number | null
+}
+
+export type PromotionSelectableItemRow = {
+  promotion_id: string
+  product_id: string
 }
 
 export type GiftRow = {
@@ -166,6 +173,27 @@ export type Database = {
           },
           {
             foreignKeyName: 'promotion_products_product_id_fkey'
+            columns: ['product_id']
+            isOneToOne: false
+            referencedRelation: 'products'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      promotion_selectable_items: {
+        Row: PromotionSelectableItemRow
+        Insert: PromotionSelectableItemRow
+        Update: Partial<PromotionSelectableItemRow>
+        Relationships: [
+          {
+            foreignKeyName: 'promotion_selectable_items_promotion_id_fkey'
+            columns: ['promotion_id']
+            isOneToOne: false
+            referencedRelation: 'promotions'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'promotion_selectable_items_product_id_fkey'
             columns: ['product_id']
             isOneToOne: false
             referencedRelation: 'products'

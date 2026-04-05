@@ -12,8 +12,14 @@ export function useManualFreeLineSync(promotions: Promotion[], products: Product
   const productsById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
 
   useEffect(() => {
-    const desired = buildManualFreeProductLines(promotions, manualIds, productsById)
-    const current = lines.filter((l) => l.isManualFree)
+    const existingManual = lines.filter((l) => l.isManualFree)
+    const desired = buildManualFreeProductLines(
+      promotions,
+      manualIds,
+      productsById,
+      existingManual,
+    )
+    const current = existingManual
     if (manualFreeLinesSignature(desired) === manualFreeLinesSignature(current)) return
     replaceManualFreeLines(desired)
   }, [lines, promotions, manualIds, productsById, replaceManualFreeLines])
