@@ -50,10 +50,9 @@ const KIND_OPTIONS: { value: PromotionKind; label: string }[] = [
   { value: 'GIFT_WITH_THRESHOLD', label: pr.kindThreshold },
   { value: 'FIXED_DISCOUNT', label: pr.kindFixed },
   { value: 'FREE_ITEMS', label: pr.kindFreeItems },
-  { value: 'FREE_PRODUCT', label: pr.kindFreeProduct },
 ]
 
-function promotionSummary(p: Promotion): string {
+function promotionSummary(p: Promotion, products: Product[]): string {
   const dash = common.dash
   switch (p.kind) {
     case 'BUY_X_GET_Y':
@@ -68,9 +67,13 @@ function promotionSummary(p: Promotion): string {
       return pr.summaryThreshold(formatMoney(p.thresholdAmountCents ?? 0), p.gift?.displayName ?? dash)
     case 'FIXED_DISCOUNT':
       return pr.summaryFixed(formatMoney(p.fixedDiscountCents ?? 0))
-    case 'FREE_ITEMS':
-    case 'FREE_PRODUCT':
-      return pr.summaryFreeUnits(p.freeQty ?? 0)
+    case 'FREE_ITEMS': {
+      if (!p.freeItems.length) return dash
+      const byId = new Map(products.map((x) => [x.id, x]))
+      return p.freeItems
+        .map((f) => `${byId.get(f.productId)?.name ?? dash}×${f.quantity}`)
+        .join('、')
+    }
     default:
       return dash
   }
@@ -96,6 +99,8 @@ type FormValues = {
   tiers?: TierFormRow[]
   promotionGiftId?: string
   thresholdDollars?: number | null
+  /** `FREE_ITEMS` — one row per gift product + qty. */
+  freeItemRows?: { product_id: string; qty: number }[]
 }
 
 function buildTierInputs(rows: TierFormRow[]): PromotionTierInput[] {
@@ -134,6 +139,7 @@ function toInput(values: FormValues): PromotionInput {
       applyMode: 'AUTO',
       fixedDiscountCents: null,
       productIds: [],
+      freeItems: [],
       tiers: [],
       giftId: values.promotionGiftId ?? null,
       thresholdAmountCents: dollarsToCents(Number(values.thresholdDollars)),
@@ -154,24 +160,33 @@ function toInput(values: FormValues): PromotionInput {
       applyMode,
       fixedDiscountCents: dollarsToCents(Number(values.fixedDiscountDollars)),
       productIds: [],
+      freeItems: [],
       tiers: [],
       giftId: null,
       thresholdAmountCents: null,
     }
   }
 
-  if (values.kind === 'FREE_ITEMS' || values.kind === 'FREE_PRODUCT') {
+  if (values.kind === 'FREE_ITEMS') {
+    const rows = values.freeItemRows ?? []
+    const freeItems = rows
+      .filter((r) => r.product_id)
+      .map((r) => ({
+        productId: r.product_id,
+        quantity: Math.max(1, Math.trunc(Number(r.qty) || 1)),
+      }))
     return {
       code,
       name,
-      kind: values.kind,
+      kind: 'FREE_ITEMS',
       buyQty: null,
-      freeQty: values.freeQty ?? null,
+      freeQty: null,
       discountPercent: null,
       active: values.active,
-      applyMode,
+      applyMode: 'MANUAL',
       fixedDiscountCents: null,
-      productIds: values.productIds ?? [],
+      productIds: freeItems.map((x) => x.productId),
+      freeItems,
       tiers: [],
       giftId: null,
       thresholdAmountCents: null,
@@ -190,6 +205,7 @@ function toInput(values: FormValues): PromotionInput {
       applyMode,
       fixedDiscountCents: null,
       productIds: values.productIds ?? [],
+      freeItems: [],
       tiers,
       giftId: null,
       thresholdAmountCents: null,
@@ -207,6 +223,7 @@ function toInput(values: FormValues): PromotionInput {
     applyMode,
     fixedDiscountCents: null,
     productIds: values.productIds ?? [],
+    freeItems: [],
     tiers,
     giftId: null,
     thresholdAmountCents: null,
@@ -275,7 +292,7 @@ export function AdminPromotionsPage() {
       name: p.name,
       code: p.code ?? '',
       kind: p.kind,
-      applyMode: p.kind === 'GIFT_WITH_THRESHOLD' ? 'AUTO' : p.applyMode,
+      applyMode: p.kind === 'GIFT_WITH_THRESHOLD' ? 'AUTO' : p.kind === 'FREE_ITEMS' ? 'MANUAL' : p.applyMode,
       buyQty: p.buyQty,
       freeQty: p.freeQty,
       discountPercent: p.discountPercent,
@@ -284,7 +301,16 @@ export function AdminPromotionsPage() {
           ? centsToDollars(p.fixedDiscountCents)
           : undefined,
       active: p.active,
-      productIds: p.kind === 'GIFT_WITH_THRESHOLD' || p.kind === 'FIXED_DISCOUNT' ? [] : p.productIds,
+      productIds:
+        p.kind === 'GIFT_WITH_THRESHOLD' || p.kind === 'FIXED_DISCOUNT' || p.kind === 'FREE_ITEMS'
+          ? []
+          : p.productIds,
+      freeItemRows:
+        p.kind === 'FREE_ITEMS'
+          ? p.freeItems.length > 0
+            ? p.freeItems.map((x) => ({ product_id: x.productId, qty: x.quantity }))
+            : [{ product_id: '', qty: 1 }]
+          : undefined,
       tiers:
         p.kind === 'TIERED'
           ? p.rules.map((r) => ({
@@ -331,14 +357,28 @@ export function AdminPromotionsPage() {
           return
         }
       }
-      if (values.kind === 'FREE_ITEMS' || values.kind === 'FREE_PRODUCT') {
-        if (!values.productIds?.length) {
-          message.error(pr.selectProductError)
+      if (values.kind === 'FREE_ITEMS') {
+        const rows = values.freeItemRows ?? []
+        if (rows.length < 1) {
+          message.error(pr.freeItemsNeedRow)
           return
         }
-        if (values.freeQty == null || values.freeQty < 1) {
-          message.error(pr.freeQtyError)
-          return
+        const seen = new Set<string>()
+        for (let i = 0; i < rows.length; i++) {
+          const r = rows[i]!
+          if (!r.product_id) {
+            message.error(pr.freeItemsProductError(i + 1))
+            return
+          }
+          if (seen.has(r.product_id)) {
+            message.error(pr.freeItemsDupProduct)
+            return
+          }
+          seen.add(r.product_id)
+          if (r.qty == null || Number(r.qty) < 1) {
+            message.error(pr.freeItemsQtyError)
+            return
+          }
         }
       }
       let input: PromotionInput
@@ -351,9 +391,14 @@ export function AdminPromotionsPage() {
       if (
         input.kind !== 'GIFT_WITH_THRESHOLD' &&
         input.kind !== 'FIXED_DISCOUNT' &&
+        input.kind !== 'FREE_ITEMS' &&
         input.productIds.length === 0
       ) {
         message.error(pr.selectProductError)
+        return
+      }
+      if (input.kind === 'FREE_ITEMS' && input.freeItems.length === 0) {
+        message.error(pr.freeItemsNeedRow)
         return
       }
       if (
@@ -444,7 +489,13 @@ export function AdminPromotionsPage() {
       width: 88,
       render: (_, row) => (
         <Tag color={row.applyMode === 'MANUAL' ? 'gold' : 'default'}>
-          {row.kind === 'GIFT_WITH_THRESHOLD' ? pr.applyAuto : row.applyMode === 'MANUAL' ? pr.applyManual : pr.applyAuto}
+          {row.kind === 'GIFT_WITH_THRESHOLD'
+            ? pr.applyAuto
+            : row.kind === 'FREE_ITEMS'
+              ? pr.applyManual
+              : row.applyMode === 'MANUAL'
+                ? pr.applyManual
+                : pr.applyAuto}
         </Tag>
       ),
     },
@@ -458,7 +509,7 @@ export function AdminPromotionsPage() {
     {
       title: pr.colRule,
       key: 'rule',
-      render: (_, row) => promotionSummary(row),
+      render: (_, row) => promotionSummary(row, products),
     },
     {
       title: pr.colProducts,
@@ -468,7 +519,9 @@ export function AdminPromotionsPage() {
       render: (_, row) =>
         row.kind === 'GIFT_WITH_THRESHOLD' || row.kind === 'FIXED_DISCOUNT'
           ? common.dash
-          : row.productIds.length,
+          : row.kind === 'FREE_ITEMS'
+            ? row.freeItems.length
+            : row.productIds.length,
     },
     {
       title: pr.colActive,
@@ -526,7 +579,7 @@ export function AdminPromotionsPage() {
         onOk={() => void submit()}
         confirmLoading={saving}
         destroyOnClose
-        width={640}
+        width={720}
         okText={common.save}
       >
         <Form<FormValues>
@@ -590,20 +643,15 @@ export function AdminPromotionsPage() {
                   fixedDiscountDollars: form.getFieldValue('fixedDiscountDollars') ?? 50,
                 })
               } else if (k === 'FREE_ITEMS') {
+                const cur = form.getFieldValue('freeItemRows') as FormValues['freeItemRows'] | undefined
                 form.setFieldsValue({
                   buyQty: null,
                   discountPercent: null,
                   tiers: [],
                   applyMode: 'MANUAL',
-                  freeQty: form.getFieldValue('freeQty') ?? 20,
-                })
-              } else if (k === 'FREE_PRODUCT') {
-                form.setFieldsValue({
-                  buyQty: null,
-                  discountPercent: null,
-                  tiers: [],
-                  applyMode: 'MANUAL',
-                  freeQty: form.getFieldValue('freeQty') ?? 1,
+                  productIds: [],
+                  freeQty: null,
+                  freeItemRows: cur?.length ? cur : [{ product_id: '', qty: 1 }],
                 })
               } else {
                 form.setFieldsValue({
@@ -630,7 +678,7 @@ export function AdminPromotionsPage() {
             />
           </Form.Item>
 
-          {kindWatch && kindWatch !== 'GIFT_WITH_THRESHOLD' ? (
+          {kindWatch && kindWatch !== 'GIFT_WITH_THRESHOLD' && kindWatch !== 'FREE_ITEMS' ? (
             <Form.Item name="applyMode" label={pr.labelApplyMode} rules={[{ required: true }]}>
               <Select
                 options={[
@@ -771,40 +819,68 @@ export function AdminPromotionsPage() {
             >
               <InputNumber min={0.01} step={1} style={{ width: '100%' }} placeholder={pr.fixedDiscountPh} />
             </Form.Item>
+          ) : kindWatch === 'FREE_ITEMS' ? (
+            <Form.Item label={pr.freeItemsSection} required>
+              <Form.List name="freeItemRows">
+                {(fields, { add, remove }) => (
+                  <Space direction="vertical" style={{ width: '100%' }} size="small">
+                    {fields.map((field) => (
+                      <Space key={field.key} wrap style={{ width: '100%' }} align="baseline">
+                        <Form.Item
+                          name={[field.name, 'product_id']}
+                          rules={[{ required: true, message: pr.freeItemsSelectProduct }]}
+                          style={{ marginBottom: 0, flex: 1, minWidth: 220 }}
+                        >
+                          <Select
+                            showSearch
+                            optionFilterProp="label"
+                            placeholder={pr.productsPh}
+                            options={productOptions}
+                            allowClear
+                          />
+                        </Form.Item>
+                        <Form.Item
+                          name={[field.name, 'qty']}
+                          rules={[{ required: true, type: 'number', min: 1, message: pr.freeItemsQtyError }]}
+                          style={{ marginBottom: 0, width: 120 }}
+                        >
+                          <InputNumber min={1} precision={0} style={{ width: '100%' }} />
+                        </Form.Item>
+                        <Button type="text" danger onClick={() => remove(field.name)}>
+                          {pr.freeItemsRemoveRow}
+                        </Button>
+                      </Space>
+                    ))}
+                    <Button type="dashed" onClick={() => add({ product_id: '', qty: 1 })} block>
+                      {pr.freeItemsAddRow}
+                    </Button>
+                  </Space>
+                )}
+              </Form.List>
+            </Form.Item>
           ) : (
-            <>
-              {(kindWatch === 'FREE_ITEMS' || kindWatch === 'FREE_PRODUCT') && (
-                <Form.Item
-                  name="freeQty"
-                  label={kindWatch === 'FREE_ITEMS' ? pr.labelFreeQtyItems : pr.labelFreeQtyProduct}
-                  rules={[{ required: true, type: 'number', min: 1 }]}
-                >
-                  <InputNumber min={1} precision={0} style={{ width: '100%' }} />
-                </Form.Item>
-              )}
-              <Form.Item
-                name="productIds"
-                label={pr.labelProducts}
-                rules={[
-                  ({ getFieldValue }) => ({
-                    validator: async (_, v: string[]) => {
-                      const k = getFieldValue('kind') as PromotionKind
-                      if (k === 'GIFT_WITH_THRESHOLD' || k === 'FIXED_DISCOUNT') return
-                      if (!v?.length) throw new Error(pr.validatorProducts)
-                    },
-                  }),
-                ]}
-              >
-                <Select
-                  mode="multiple"
-                  allowClear
-                  showSearch
-                  optionFilterProp="label"
-                  placeholder={pr.productsPh}
-                  options={productOptions}
-                />
-              </Form.Item>
-            </>
+            <Form.Item
+              name="productIds"
+              label={pr.labelProducts}
+              rules={[
+                ({ getFieldValue }) => ({
+                  validator: async (_, v: string[]) => {
+                    const k = getFieldValue('kind') as PromotionKind
+                    if (k === 'GIFT_WITH_THRESHOLD' || k === 'FIXED_DISCOUNT' || k === 'FREE_ITEMS') return
+                    if (!v?.length) throw new Error(pr.validatorProducts)
+                  },
+                }),
+              ]}
+            >
+              <Select
+                mode="multiple"
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                placeholder={pr.productsPh}
+                options={productOptions}
+              />
+            </Form.Item>
           )}
 
           <Form.Item name="active" label={pr.colActive} valuePropName="checked">

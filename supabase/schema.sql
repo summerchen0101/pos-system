@@ -62,8 +62,7 @@ create table if not exists public.promotions (
       'TIERED',
       'GIFT_WITH_THRESHOLD',
       'FIXED_DISCOUNT',
-      'FREE_ITEMS',
-      'FREE_PRODUCT'
+      'FREE_ITEMS'
     )
   ),
   buy_qty integer,
@@ -85,12 +84,16 @@ create table if not exists public.promotions (
       and gift_id is null
       and threshold_amount is null
     )
+  ),
+  constraint promotions_free_items_manual_only check (
+    kind <> 'FREE_ITEMS' or apply_mode = 'MANUAL'
   )
 );
 
 create table if not exists public.promotion_products (
   promotion_id uuid not null references public.promotions (id) on delete cascade,
   product_id uuid not null references public.products (id) on delete cascade,
+  quantity integer not null default 1 check (quantity >= 1),
   primary key (promotion_id, product_id)
 );
 

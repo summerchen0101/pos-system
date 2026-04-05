@@ -50,6 +50,8 @@ export type GiftInventoryRow = {
 export type PromotionProductRow = {
   promotion_id: string
   product_id: string
+  /** Gift qty per product for `FREE_ITEMS`; other kinds use 1. */
+  quantity: number
 }
 
 export type PromotionRuleRow = {

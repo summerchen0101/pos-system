@@ -14,7 +14,7 @@ export function mapDbPromotionsToEngineRules(promotions: readonly Promotion[]): 
     if (!p.active || !isPromotionKindString(p.kind)) continue
     if (p.applyMode === 'MANUAL') continue
     if (p.kind === 'GIFT_WITH_THRESHOLD') continue
-    if (p.kind === 'FIXED_DISCOUNT' || p.kind === 'FREE_ITEMS' || p.kind === 'FREE_PRODUCT') continue
+    if (p.kind === 'FIXED_DISCOUNT' || p.kind === 'FREE_ITEMS') continue
 
     const ids = p.productIds
     if (ids.length === 0) continue

@@ -3,7 +3,7 @@ import { buildManualFreeProductLines, manualFreeLinesSignature } from '../promot
 import { useCartStore } from '../store/cartStore'
 import type { Product, Promotion } from '../types/pos'
 
-/** Syncs FREE_PRODUCT / FREE_ITEMS manual promos into $0 cart lines (before threshold gift sync). */
+/** Syncs FREE_ITEMS manual promos into $0 cart lines (before threshold gift sync). */
 export function useManualFreeLineSync(promotions: Promotion[], products: Product[]) {
   const lines = useCartStore((s) => s.lines)
   const manualIds = useCartStore((s) => s.manualPromotionIds)

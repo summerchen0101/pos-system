@@ -11,6 +11,11 @@ export type PromotionTierInput = {
   sortOrder: number
 }
 
+export type PromotionProductQtyInput = {
+  productId: string
+  quantity: number
+}
+
 export type PromotionInput = {
   code: string | null
   name: string
@@ -22,6 +27,8 @@ export type PromotionInput = {
   applyMode: PromotionApplyMode
   fixedDiscountCents: number | null
   productIds: string[]
+  /** Populated for `FREE_ITEMS` — per-product gift quantities. */
+  freeItems: PromotionProductQtyInput[]
   tiers: PromotionTierInput[]
   giftId: string | null
   thresholdAmountCents: number | null
@@ -29,6 +36,7 @@ export type PromotionInput = {
 
 function resolvedApplyMode(input: PromotionInput): PromotionApplyMode {
   if (input.kind === 'GIFT_WITH_THRESHOLD') return 'AUTO'
+  if (input.kind === 'FREE_ITEMS') return 'MANUAL'
   return input.applyMode
 }
 
@@ -75,11 +83,11 @@ function rowPayload(input: PromotionInput) {
       threshold_amount: null,
     }
   }
-  if (input.kind === 'FREE_ITEMS' || input.kind === 'FREE_PRODUCT') {
+  if (input.kind === 'FREE_ITEMS') {
     return {
       ...base,
       buy_qty: null,
-      free_qty: input.freeQty,
+      free_qty: null,
       discount_percent: null,
       fixed_discount_cents: null,
       gift_id: null,
@@ -97,16 +105,23 @@ function rowPayload(input: PromotionInput) {
   }
 }
 
-async function replacePromotionProducts(promotionId: string, productIds: string[]) {
+async function replacePromotionProductEntries(
+  promotionId: string,
+  entries: PromotionProductQtyInput[],
+) {
   const { error: delErr } = await supabase
     .from('promotion_products')
     .delete()
     .eq('promotion_id', promotionId)
   if (delErr) throw delErr
 
-  if (productIds.length === 0) return
+  if (entries.length === 0) return
   const { error: insErr } = await supabase.from('promotion_products').insert(
-    productIds.map((product_id) => ({ promotion_id: promotionId, product_id })),
+    entries.map((e) => ({
+      promotion_id: promotionId,
+      product_id: e.productId,
+      quantity: Math.max(1, Math.trunc(e.quantity)),
+    })),
   )
   if (insErr) throw insErr
 }
@@ -130,9 +145,14 @@ async function replacePromotionRules(promotionId: string, tiers: PromotionTierIn
 
 async function syncPromotionRelations(id: string, input: PromotionInput) {
   if (input.kind === 'GIFT_WITH_THRESHOLD' || input.kind === 'FIXED_DISCOUNT') {
-    await replacePromotionProducts(id, [])
+    await replacePromotionProductEntries(id, [])
+  } else if (input.kind === 'FREE_ITEMS') {
+    await replacePromotionProductEntries(id, input.freeItems)
   } else {
-    await replacePromotionProducts(id, input.productIds)
+    await replacePromotionProductEntries(
+      id,
+      input.productIds.map((productId) => ({ productId, quantity: 1 })),
+    )
   }
   if (input.kind === 'TIERED') {
     await replacePromotionRules(id, input.tiers)

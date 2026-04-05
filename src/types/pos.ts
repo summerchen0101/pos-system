@@ -32,7 +32,7 @@ export type CartLine = {
   promotionId?: string
   /** Snapshot from promotion payload; used for stock checks and sync. */
   giftStock?: number
-  /** Staff-applied FREE_PRODUCT / FREE_ITEMS (normal product stock at checkout). */
+  /** Staff-applied FREE_ITEMS (normal product stock at checkout). */
   isManualFree?: boolean
   manualPromotionId?: string
 }
@@ -45,7 +45,6 @@ export const PROMOTION_KINDS = [
   'GIFT_WITH_THRESHOLD',
   'FIXED_DISCOUNT',
   'FREE_ITEMS',
-  'FREE_PRODUCT',
 ] as const
 export type PromotionKind = (typeof PROMOTION_KINDS)[number]
 
@@ -96,4 +95,9 @@ export type Promotion = {
   thresholdAmountCents: number | null
   /** Joined gift + inventory + product when `gift_id` is set. */
   gift: PromotionGiftDetail | null
+  /**
+   * `FREE_ITEMS` only — from `promotion_products.quantity` (each product’s gift count).
+   * Always `[]` for other kinds.
+   */
+  freeItems: { productId: string; quantity: number }[]
 }

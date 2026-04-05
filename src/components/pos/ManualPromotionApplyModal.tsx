@@ -8,15 +8,22 @@ import type { Product, Promotion } from '../../types/pos'
 
 const { Text } = Typography
 
-function promoOneLine(p: Promotion): string {
+function manualFreePromoDescription(p: Promotion, products: readonly Product[]): string {
+  if (!p.freeItems.length) return zhtw.pos.manualPromoFreeLine(0)
+  const byId = new Map(products.map((x) => [x.id, x]))
+  return p.freeItems
+    .map((f) => `${byId.get(f.productId)?.name ?? '—'}×${f.quantity}`)
+    .join('、')
+}
+
+function promoOneLine(p: Promotion, products: readonly Product[]): string {
   switch (p.kind) {
     case 'FIXED_DISCOUNT':
       return formatMoney(p.fixedDiscountCents ?? 0)
     case 'BUY_X_GET_Y':
       return zhtw.pos.manualPromoBogoLine(p.buyQty ?? 0, p.freeQty ?? 0)
     case 'FREE_ITEMS':
-    case 'FREE_PRODUCT':
-      return zhtw.pos.manualPromoFreeLine(p.freeQty ?? 1)
+      return manualFreePromoDescription(p, products)
     default:
       return p.kind
   }
@@ -75,7 +82,7 @@ export function ManualPromotionApplyModal({ open, onClose, promotions, products 
                 </Button>,
               ]}
             >
-              <List.Item.Meta title={p.name} description={promoOneLine(p)} />
+              <List.Item.Meta title={p.name} description={promoOneLine(p, products)} />
             </List.Item>
           )}
         />

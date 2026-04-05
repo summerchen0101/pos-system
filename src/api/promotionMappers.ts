@@ -28,7 +28,7 @@ type GiftNestedRow = {
 }
 
 export type PromotionRowWithProducts = PromotionRow & {
-  promotion_products?: { product_id: string }[] | null
+  promotion_products?: { product_id: string; quantity?: number }[] | null
   promotion_rules?: PromotionRuleNestedRow[] | null
   gifts?: GiftNestedRow | GiftNestedRow[] | null
 }
@@ -74,7 +74,8 @@ function mapTierRows(rows: PromotionRuleNestedRow[] | null | undefined): Promoti
 }
 
 export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
-  const productIds = (row.promotion_products ?? []).map((x) => x.product_id)
+  const ppRows = row.promotion_products ?? []
+  const productIds = ppRows.map((x) => x.product_id)
   if (!isPromotionKindString(row.kind)) {
     throw new Error(`Invalid promotion kind: ${row.kind}`)
   }
@@ -82,6 +83,14 @@ export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
   const giftNested = unwrapOne(row.gifts)
   const gift = mapGiftDetail(giftNested)
   const applyMode: PromotionApplyMode = row.apply_mode === 'MANUAL' ? 'MANUAL' : 'AUTO'
+
+  const freeItems =
+    kind === 'FREE_ITEMS'
+      ? ppRows.map((x) => ({
+          productId: x.product_id,
+          quantity: Math.max(1, Math.trunc(x.quantity ?? 1)),
+        }))
+      : []
 
   return {
     id: row.id,
@@ -99,5 +108,6 @@ export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
     giftId: row.gift_id ?? null,
     thresholdAmountCents: row.threshold_amount ?? null,
     gift,
+    freeItems,
   }
 }
