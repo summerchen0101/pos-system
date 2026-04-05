@@ -74,3 +74,36 @@ export async function deleteProduct(id: string): Promise<void> {
   const { error } = await supabase.from('products').delete().eq('id', id)
   if (error) throw error
 }
+
+/** Only include fields the admin chose to change; omitted fields keep each product’s current value. */
+export type ProductBulkPatch = {
+  categoryId?: string | null
+  size?: string | null
+  priceCents?: number
+}
+
+function mergedProductInput(p: Product, patch: ProductBulkPatch): ProductInput {
+  return {
+    categoryId: patch.categoryId !== undefined ? patch.categoryId : p.categoryId,
+    name: p.name,
+    nameEn: p.nameEn,
+    description: p.description,
+    size: patch.size !== undefined ? patch.size : p.size,
+    sku: p.sku,
+    priceCents: patch.priceCents !== undefined ? patch.priceCents : p.price,
+    isActive: p.isActive,
+  }
+}
+
+export async function bulkPatchProducts(
+  productIds: string[],
+  currentProducts: Product[],
+  patch: ProductBulkPatch,
+): Promise<void> {
+  const byId = new Map(currentProducts.map((x) => [x.id, x]))
+  for (const id of productIds) {
+    const p = byId.get(id)
+    if (!p) continue
+    await updateProduct(id, mergedProductInput(p, patch))
+  }
+}

@@ -7,14 +7,16 @@ function mapCategoryRow(row: CategoryRow): Category {
     id: row.id,
     name: row.name,
     sortOrder: row.sort_order,
+    isActive: row.is_active,
   }
 }
 
-/** Categories for admin dropdowns (ordered for display). */
+/** Active categories for POS / product form dropdowns (ordered by sort_order). */
 export async function fetchCategories(): Promise<Category[]> {
   const { data, error } = await supabase
     .from('categories')
-    .select('id, name, sort_order')
+    .select('id, name, sort_order, is_active')
+    .eq('is_active', true)
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true })
 

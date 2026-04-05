@@ -8,7 +8,8 @@
 create table if not exists public.categories (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
-  sort_order integer not null default 0
+  sort_order integer not null default 0,
+  is_active boolean not null default true
 );
 
 create index if not exists categories_sort_order_idx on public.categories (sort_order, name);

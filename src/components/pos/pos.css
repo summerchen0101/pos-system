@@ -48,6 +48,18 @@
   color: var(--pos-text-muted);
 }
 
+.pos-category-tabs {
+  margin-bottom: 1rem;
+}
+
+.pos-category-tabs .ant-tabs-nav {
+  margin-bottom: 0.5rem;
+}
+
+.pos-category-tabs .ant-tabs-tab {
+  font-weight: 500;
+}
+
 .pos-product-grid__status {
   margin: 0;
   padding: 1rem;

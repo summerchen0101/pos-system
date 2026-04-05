@@ -1,5 +1,6 @@
 import {
   App,
+  AutoComplete,
   Button,
   Card,
   Form,
@@ -14,13 +15,15 @@ import {
   Typography,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { useCallback, useEffect, useState } from 'react'
-import { fetchCategories } from '../api/fetchCategories'
+import { useCallback, useEffect, useState, type Key } from 'react'
+import { listCategoriesAdmin } from '../api/categoriesAdmin'
 import {
+  bulkPatchProducts,
   createProduct,
   deleteProduct,
   listProductsAdmin,
   updateProduct,
+  type ProductBulkPatch,
   type ProductInput,
 } from '../api/productsAdmin'
 import { formatMoney } from '../lib/money'
@@ -37,6 +40,12 @@ type FormValues = {
   sku: string
   priceDollars: number
   isActive: boolean
+}
+
+type BulkFormValues = {
+  bulkCategoryId?: string | null
+  bulkSize?: string
+  bulkPriceDollars?: number | null
 }
 
 function dollarsToCents(d: number): number {
@@ -63,19 +72,31 @@ function toInput(values: FormValues): ProductInput {
 export function AdminProductsPage() {
   const { message, modal } = App.useApp()
   const [form] = Form.useForm<FormValues>()
+  const [bulkForm] = Form.useForm<BulkFormValues>()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
+  const [bulkModalOpen, setBulkModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [bulkSaving, setBulkSaving] = useState(false)
+  const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([])
 
   const categoryOptions = categories.map((c) => ({ label: c.name, value: c.id }))
+
+  const sizeSuggestions = Array.from(
+    new Set(
+      products.map((p) => p.size?.trim()).filter((s): s is string => Boolean(s)),
+    ),
+  )
+    .sort((a, b) => a.localeCompare(b))
+    .map((value) => ({ value }))
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [plist, cats] = await Promise.all([listProductsAdmin(), fetchCategories()])
+      const [plist, cats] = await Promise.all([listProductsAdmin(), listCategoriesAdmin()])
       setProducts(plist)
       setCategories(cats)
     } catch (e) {
@@ -145,6 +166,63 @@ export function AdminProductsPage() {
       message.error(e instanceof Error ? e.message : 'Save failed')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const openBulkEdit = () => {
+    bulkForm.resetFields()
+    setBulkModalOpen(true)
+  }
+
+  const closeBulkModal = () => {
+    setBulkModalOpen(false)
+    bulkForm.resetFields()
+  }
+
+  const submitBulk = async () => {
+    const ids = selectedRowKeys.map(String)
+    if (ids.length === 0) {
+      message.warning('Select at least one product')
+      return
+    }
+
+    const categoryTouched = bulkForm.isFieldTouched('bulkCategoryId')
+    const sizeTouched = bulkForm.isFieldTouched('bulkSize')
+    const priceTouched = bulkForm.isFieldTouched('bulkPriceDollars')
+
+    if (!categoryTouched && !sizeTouched && !priceTouched) {
+      message.warning('Change at least one field to apply')
+      return
+    }
+
+    try {
+      const values = await bulkForm.validateFields()
+      const patch: ProductBulkPatch = {}
+      if (categoryTouched) {
+        patch.categoryId = values.bulkCategoryId ?? null
+      }
+      if (sizeTouched) {
+        patch.size = values.bulkSize?.trim() ? values.bulkSize.trim() : null
+      }
+      if (priceTouched) {
+        if (values.bulkPriceDollars == null || Number.isNaN(values.bulkPriceDollars)) {
+          message.warning('Enter a price or leave that field unchanged')
+          return
+        }
+        patch.priceCents = dollarsToCents(values.bulkPriceDollars)
+      }
+
+      setBulkSaving(true)
+      await bulkPatchProducts(ids, products, patch)
+      message.success(`Updated ${ids.length} product(s)`)
+      closeBulkModal()
+      setSelectedRowKeys([])
+      await load()
+    } catch (e) {
+      if (e && typeof e === 'object' && 'errorFields' in e) return
+      message.error(e instanceof Error ? e.message : 'Bulk update failed')
+    } finally {
+      setBulkSaving(false)
     }
   }
 
@@ -228,9 +306,14 @@ export function AdminProductsPage() {
         <Title level={4} style={{ margin: 0 }}>
           Product Management
         </Title>
-        <Button type="primary" onClick={openCreate}>
-          New product
-        </Button>
+        <Space>
+          <Button disabled={selectedRowKeys.length === 0} onClick={openBulkEdit}>
+            Bulk edit
+          </Button>
+          <Button type="primary" onClick={openCreate}>
+            New product
+          </Button>
+        </Space>
       </Space>
 
       <Card>
@@ -241,6 +324,11 @@ export function AdminProductsPage() {
           dataSource={products}
           pagination={{ pageSize: 12 }}
           scroll={{ x: true }}
+          rowSelection={{
+            selectedRowKeys,
+            onChange: setSelectedRowKeys,
+            preserveSelectedRowKeys: true,
+          }}
         />
       </Card>
 
@@ -289,6 +377,43 @@ export function AdminProductsPage() {
           </Form.Item>
           <Form.Item name="isActive" label="Active" valuePropName="checked">
             <Switch />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={`Bulk edit (${selectedRowKeys.length} selected)`}
+        open={bulkModalOpen}
+        onCancel={closeBulkModal}
+        onOk={() => void submitBulk()}
+        confirmLoading={bulkSaving}
+        destroyOnClose
+        width={480}
+        okText="Apply to selected"
+      >
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 16 }}>
+          Only fields you change are applied. Leave a field untouched to keep each product’s current value.
+        </Typography.Paragraph>
+        <Form<BulkFormValues> form={bulkForm} layout="vertical">
+          <Form.Item name="bulkCategoryId" label="Category">
+            <Select
+              allowClear
+              placeholder="Leave unchanged"
+              options={categoryOptions}
+              showSearch
+              optionFilterProp="label"
+            />
+          </Form.Item>
+          <Form.Item name="bulkSize" label="Size">
+            <AutoComplete
+              allowClear
+              placeholder="Leave unchanged"
+              options={sizeSuggestions}
+              style={{ width: '100%' }}
+            />
+          </Form.Item>
+          <Form.Item name="bulkPriceDollars" label="Price (USD)" extra="Only applied if you edit this field.">
+            <InputNumber min={0} step={0.01} precision={2} style={{ width: '100%' }} placeholder="Leave unchanged" />
           </Form.Item>
         </Form>
       </Modal>

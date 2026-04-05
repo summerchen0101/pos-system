@@ -3,6 +3,7 @@ export type CategoryRow = {
   id: string
   name: string
   sort_order: number
+  is_active: boolean
 }
 
 export type ProductRow = {

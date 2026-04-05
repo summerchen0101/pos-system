@@ -6,9 +6,11 @@ type Props = {
   loading: boolean
   error: string | null
   onAddProduct: (product: Product) => void
+  /** Shown when there are no products (e.g. empty category tab). */
+  emptyMessage?: string
 }
 
-export function ProductGrid({ products, loading, error, onAddProduct }: Props) {
+export function ProductGrid({ products, loading, error, onAddProduct, emptyMessage }: Props) {
   if (loading) {
     return (
       <p className="pos-product-grid__status" role="status">
@@ -27,7 +29,9 @@ export function ProductGrid({ products, loading, error, onAddProduct }: Props) {
 
   if (products.length === 0) {
     return (
-      <p className="pos-product-grid__status">No products in Supabase yet. Add rows to the products table.</p>
+      <p className="pos-product-grid__status">
+        {emptyMessage ?? 'No products in Supabase yet. Add rows to the products table.'}
+      </p>
     )
   }
 

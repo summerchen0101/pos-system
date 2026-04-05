@@ -2,6 +2,7 @@ export type Category = {
   id: string
   name: string
   sortOrder: number
+  isActive: boolean
 }
 
 /** `price` is in minor units (e.g. cents). */
