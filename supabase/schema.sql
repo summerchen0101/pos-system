@@ -227,7 +227,8 @@ create table if not exists public.order_items (
   is_gift boolean not null default false,
   is_manual_free boolean not null default false,
   gift_id uuid references public.gifts (id) on delete set null,
-  sort_order integer not null default 0
+  sort_order integer not null default 0,
+  source text
 );
 
 create index if not exists order_items_order_id_idx on public.order_items (order_id);

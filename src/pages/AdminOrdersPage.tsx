@@ -17,6 +17,7 @@ function startEndOfDay(d: Dayjs): { start: Date; end: Date } {
 }
 
 function lineTags(item: OrderItem) {
+  if (item.source === 'FREE_SELECTION') return <Tag color="purple">{o.tagFreeSelection}</Tag>
   if (item.isGift) return <Tag color="blue">{o.tagGift}</Tag>
   if (item.isManualFree) return <Tag color="gold">{o.tagManualFree}</Tag>
   return null
@@ -137,8 +138,12 @@ export function AdminOrdersPage() {
   ]
 
   const snap = detail?.promotionSnapshot
-  const giftLines = detail?.items.filter((i) => i.isGift) ?? []
-  const manualFreeLines = detail?.items.filter((i) => i.isManualFree) ?? []
+  const freeSelectionSnap = snap?.promotions?.filter((p) => p.type === 'FREE_SELECTION') ?? []
+  const thresholdGiftLines =
+    detail?.items.filter((i) => i.isGift && i.giftId) ?? []
+  const freeSelectionLines = detail?.items.filter((i) => i.source === 'FREE_SELECTION') ?? []
+  const manualFreeLines =
+    detail?.items.filter((i) => i.isManualFree && i.source !== 'FREE_SELECTION') ?? []
 
   return (
     <div className="admin-page">
@@ -208,12 +213,15 @@ export function AdminOrdersPage() {
                   {snap?.autoPromotionName ?? '—'}
                 </Descriptions.Item>
                 <Descriptions.Item label={o.promoManual}>
-                  {snap?.manualPromotionDetails?.length ? (
+                  {snap?.manualPromotionDetails?.length || freeSelectionSnap.length ? (
                     <ul style={{ margin: 0, paddingLeft: 20 }}>
-                      {snap.manualPromotionDetails.map((m, i) => (
+                      {snap?.manualPromotionDetails?.map((m, i) => (
                         <li key={`${m.promotionId ?? i}-${m.name}`}>
                           {m.name}（{formatMoney(m.discountCents)}）
                         </li>
+                      ))}
+                      {freeSelectionSnap.map((p) => (
+                        <li key={p.promotionId ?? p.description}>{p.description}</li>
                       ))}
                     </ul>
                   ) : (
@@ -232,9 +240,23 @@ export function AdminOrdersPage() {
                   )}
                 </Descriptions.Item>
                 <Descriptions.Item label={o.promoGiftLines}>
-                  {giftLines.length ? (
+                  {thresholdGiftLines.length ? (
                     <ul style={{ margin: 0, paddingLeft: 20 }}>
-                      {giftLines.map((g) => (
+                      {thresholdGiftLines.map((g) => (
+                        <li key={g.id}>
+                          {g.productName}
+                          {g.size ? `（${g.size}）` : ''} × {g.quantity}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    '—'
+                  )}
+                </Descriptions.Item>
+                <Descriptions.Item label={o.promoFreeSelectionContent}>
+                  {freeSelectionLines.length ? (
+                    <ul style={{ margin: 0, paddingLeft: 20 }}>
+                      {freeSelectionLines.map((g) => (
                         <li key={g.id}>
                           {g.productName}
                           {g.size ? `（${g.size}）` : ''} × {g.quantity}

@@ -92,6 +92,7 @@ export type OrderItemRow = {
   is_manual_free: boolean
   gift_id: string | null
   sort_order: number
+  source: string | null
 }
 
 export type Database = {

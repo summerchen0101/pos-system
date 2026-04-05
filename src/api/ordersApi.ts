@@ -30,6 +30,7 @@ function mapOrderItemRow(row: OrderItemRow): OrderItem {
     isGift: row.is_gift,
     isManualFree: row.is_manual_free,
     giftId: row.gift_id,
+    source: row.source ?? null,
   }
 }
 
@@ -52,6 +53,18 @@ export function parsePromotionSnapshot(raw: unknown): OrderPromotionSnapshot | n
       : [],
     thresholdGiftSummaries: Array.isArray(o.thresholdGiftSummaries)
       ? o.thresholdGiftSummaries.filter((x): x is string => typeof x === 'string')
+      : [],
+    promotions: Array.isArray(o.promotions)
+      ? o.promotions
+          .filter((x): x is Record<string, unknown> => x != null && typeof x === 'object')
+          .map((x) => ({
+            type: typeof x.type === 'string' ? x.type : 'UNKNOWN',
+            promotionId: typeof x.promotionId === 'string' ? x.promotionId : undefined,
+            name: typeof x.name === 'string' ? x.name : '—',
+            description: typeof x.description === 'string' ? x.description : '',
+            selectedItemsSummary:
+              typeof x.selectedItemsSummary === 'string' ? x.selectedItemsSummary : '',
+          }))
       : [],
   }
 }
@@ -83,6 +96,7 @@ export type CheckoutLinePayload = {
   isGift: boolean
   isManualFree: boolean
   giftId?: string | null
+  source?: string | null
 }
 
 function lineToRpcJson(l: CheckoutLinePayload): Record<string, unknown> {
@@ -96,6 +110,7 @@ function lineToRpcJson(l: CheckoutLinePayload): Record<string, unknown> {
     is_manual_free: l.isManualFree,
   }
   if (l.giftId) row.gift_id = l.giftId
+  if (l.source) row.source = l.source
   return row
 }
 
@@ -172,7 +187,8 @@ export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | n
         is_gift,
         is_manual_free,
         gift_id,
-        sort_order
+        sort_order,
+        source
       )
     `,
     )

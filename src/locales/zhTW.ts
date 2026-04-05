@@ -199,10 +199,12 @@ export const zhtw = {
       promoAuto: '自動優惠',
       promoManual: '手動優惠',
       promoThreshold: '滿額贈說明',
-      promoGiftLines: '贈品（出貨）',
+      promoGiftLines: '滿額贈（出貨）',
       promoManualFreeLines: '手動贈送品項',
+      promoFreeSelectionContent: '贈品內容',
       tagGift: '贈品',
       tagManualFree: '手動贈',
+      tagFreeSelection: '任選贈',
     },
     promotions: {
       pageTitle: '優惠管理',

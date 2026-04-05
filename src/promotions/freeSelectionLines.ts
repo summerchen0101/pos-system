@@ -1,3 +1,4 @@
+import type { OrderSnapshotPromotionEntry } from '../types/order'
 import type { CartLine, Product, Promotion } from '../types/pos'
 
 export function freeSelectionLineId(promotionId: string, productId: string): string {
@@ -54,6 +55,36 @@ export function collectFreeSelectionLines(
       manualPromotionId: p.id,
     })
     remaining -= q
+  }
+  return out
+}
+
+/** Snapshot rows for `orders.promotion_snapshot.promotions` (FREE_SELECTION). */
+export function buildFreeSelectionPromotionsSnapshot(
+  lines: readonly CartLine[],
+  promotions: readonly Promotion[],
+  manualPromotionIds: readonly string[],
+): OrderSnapshotPromotionEntry[] {
+  const out: OrderSnapshotPromotionEntry[] = []
+  for (const mid of manualPromotionIds) {
+    const p = promotions.find((x) => x.id === mid)
+    if (!p || p.kind !== 'FREE_SELECTION') continue
+    const max = p.maxSelectionQty ?? 0
+    const prefix = `freeselection:${p.id}:`
+    const sel = lines.filter(
+      (l) => l.manualPromotionId === p.id && l.lineId.startsWith(prefix),
+    )
+    if (sel.length === 0) continue
+    const parts = [...sel]
+      .sort((a, b) => a.product.name.localeCompare(b.product.name, 'zh-Hant'))
+      .map((l) => `${l.product.name}×${l.quantity}`)
+    out.push({
+      type: 'FREE_SELECTION',
+      promotionId: p.id,
+      name: p.name,
+      description: `${p.name}（${max}件）`,
+      selectedItemsSummary: parts.join('、'),
+    })
   }
   return out
 }

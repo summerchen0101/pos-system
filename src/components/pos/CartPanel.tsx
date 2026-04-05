@@ -4,7 +4,10 @@ import { checkoutOrder, type CheckoutLinePayload } from '../../api/ordersApi'
 import { useCartPromotionTotals } from '../../hooks/useCartPromotionTotals'
 import { zhtw } from '../../locales/zhTW'
 import { formatMoney } from '../../lib/money'
-import { isFreeSelectionCartLine } from '../../promotions/freeSelectionLines'
+import {
+  buildFreeSelectionPromotionsSnapshot,
+  isFreeSelectionCartLine,
+} from '../../promotions/freeSelectionLines'
 import { useCartStore } from '../../store/cartStore'
 import type { Product, Promotion } from '../../types/pos'
 import { CartLineRow } from './CartLineRow'
@@ -89,16 +92,20 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
     if (!canCheckout) return
     void (async () => {
       try {
-        const checkoutLines: CheckoutLinePayload[] = lines.map((l) => ({
-          productId: l.product.id,
-          quantity: l.quantity,
-          unitPriceCents: l.isGift || l.isManualFree ? 0 : l.product.price,
-          productName: l.product.name,
-          size: l.product.size,
-          isGift: !!l.isGift,
-          isManualFree: !!l.isManualFree,
-          ...(l.isGift && l.giftId ? { giftId: l.giftId } : {}),
-        }))
+        const checkoutLines: CheckoutLinePayload[] = lines.map((l) => {
+          const isFs = isFreeSelectionCartLine(l, promotions)
+          return {
+            productId: l.product.id,
+            quantity: l.quantity,
+            unitPriceCents: l.isGift || l.isManualFree ? 0 : l.product.price,
+            productName: l.product.name,
+            size: l.product.size,
+            isGift: !!l.isGift || isFs,
+            isManualFree: !!l.isManualFree,
+            ...(l.isGift && l.giftId ? { giftId: l.giftId } : {}),
+            ...(isFs ? { source: 'FREE_SELECTION' as const } : {}),
+          }
+        })
         await checkoutOrder(
           {
             totalAmountCents: totals.subtotalCents,
@@ -114,6 +121,7 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
               discountCents: m.discountCents,
             })),
             thresholdGiftSummaries: totals.thresholdGiftSummaries,
+            promotions: buildFreeSelectionPromotionsSnapshot(lines, promotions, manualPromotionIds),
           },
         )
       } catch (e) {
