@@ -178,15 +178,39 @@ create table if not exists public.orders (
   created_at timestamptz not null default now(),
   total_amount integer not null check (total_amount >= 0),
   discount_amount integer not null check (discount_amount >= 0),
-  final_amount integer not null check (final_amount >= 0)
+  final_amount integer not null check (final_amount >= 0),
+  promotion_snapshot jsonb
 );
 
 create index if not exists orders_created_at_idx on public.orders (created_at desc);
 
+create table if not exists public.order_items (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references public.orders (id) on delete cascade,
+  product_id uuid not null references public.products (id) on delete restrict,
+  product_name text not null,
+  size text,
+  quantity integer not null check (quantity >= 1),
+  unit_price_cents integer not null check (unit_price_cents >= 0),
+  line_total_cents integer not null check (line_total_cents >= 0),
+  is_gift boolean not null default false,
+  is_manual_free boolean not null default false,
+  gift_id uuid references public.gifts (id) on delete set null,
+  sort_order integer not null default 0
+);
+
+create index if not exists order_items_order_id_idx on public.order_items (order_id);
+
 alter table public.orders enable row level security;
+alter table public.order_items enable row level security;
 
 drop policy if exists "orders_select_anon" on public.orders;
 create policy "orders_select_anon" on public.orders for select using (true);
 
 drop policy if exists "orders_insert_anon" on public.orders;
 create policy "orders_insert_anon" on public.orders for insert with check (true);
+
+drop policy if exists "order_items_select_anon" on public.order_items;
+create policy "order_items_select_anon" on public.order_items for select using (true);
+
+-- Checkout RPC: see migrate_order_items_snapshot.sql (stock deduction + line snapshot insert).

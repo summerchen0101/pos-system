@@ -1,6 +1,6 @@
 import { App, Button, Space, Tag } from 'antd'
 import { useMemo, useState } from 'react'
-import { checkoutOrder } from '../../api/ordersApi'
+import { checkoutOrder, type CheckoutLinePayload } from '../../api/ordersApi'
 import { useCartPromotionTotals } from '../../hooks/useCartPromotionTotals'
 import { zhtw } from '../../locales/zhTW'
 import { formatMoney } from '../../lib/money'
@@ -52,17 +52,32 @@ export function CartPanel({ promotions, products, promotionsError }: Props) {
     if (!canCheckout) return
     void (async () => {
       try {
+        const checkoutLines: CheckoutLinePayload[] = lines.map((l) => ({
+          productId: l.product.id,
+          quantity: l.quantity,
+          unitPriceCents: l.isGift || l.isManualFree ? 0 : l.product.price,
+          productName: l.product.name,
+          size: l.product.size,
+          isGift: !!l.isGift,
+          isManualFree: !!l.isManualFree,
+          ...(l.isGift && l.giftId ? { giftId: l.giftId } : {}),
+        }))
         await checkoutOrder(
           {
             totalAmountCents: totals.subtotalCents,
             discountAmountCents: totals.discountCents,
             finalAmountCents: totals.finalCents,
           },
-          lines.map((l) => ({
-            productId: l.product.id,
-            quantity: l.quantity,
-            ...(l.isGift && l.giftId ? { giftId: l.giftId } : {}),
-          })),
+          checkoutLines,
+          {
+            autoPromotionName: totals.appliedPromotionName,
+            manualPromotionDetails: totals.manualPromotionDetails.map((m) => ({
+              promotionId: m.promotionId,
+              name: m.name,
+              discountCents: m.discountCents,
+            })),
+            thresholdGiftSummaries: totals.thresholdGiftSummaries,
+          },
         )
       } catch (e) {
         console.error('Checkout failed', e)

@@ -67,6 +67,22 @@ export type OrderRow = {
   total_amount: number
   discount_amount: number
   final_amount: number
+  promotion_snapshot: unknown | null
+}
+
+export type OrderItemRow = {
+  id: string
+  order_id: string
+  product_id: string
+  product_name: string
+  size: string | null
+  quantity: number
+  unit_price_cents: number
+  line_total_cents: number
+  is_gift: boolean
+  is_manual_free: boolean
+  gift_id: string | null
+  sort_order: number
 }
 
 export type Database = {
@@ -173,7 +189,36 @@ export type Database = {
         Row: OrderRow
         Insert: Omit<OrderRow, 'id' | 'created_at'> & { id?: string; created_at?: string }
         Update: Partial<OrderRow>
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'order_items_order_id_fkey'
+            columns: ['id']
+            isOneToOne: false
+            referencedRelation: 'order_items'
+            referencedColumns: ['order_id']
+          },
+        ]
+      }
+      order_items: {
+        Row: OrderItemRow
+        Insert: Omit<OrderItemRow, 'id'> & { id?: string }
+        Update: Partial<OrderItemRow>
+        Relationships: [
+          {
+            foreignKeyName: 'order_items_order_id_fkey'
+            columns: ['order_id']
+            isOneToOne: false
+            referencedRelation: 'orders'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'order_items_product_id_fkey'
+            columns: ['product_id']
+            isOneToOne: false
+            referencedRelation: 'products'
+            referencedColumns: ['id']
+          },
+        ]
       }
     }
     Views: Record<string, never>
@@ -183,7 +228,8 @@ export type Database = {
           p_total_amount: number
           p_discount_amount: number
           p_final_amount: number
-          p_lines: { product_id: string; quantity: number; gift_id?: string | null }[]
+          p_lines: Record<string, unknown>[]
+          p_promotion_snapshot?: unknown | null
         }
         Returns: string
       }

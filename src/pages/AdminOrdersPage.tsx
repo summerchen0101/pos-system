@@ -1,13 +1,13 @@
-import { DatePicker, Table, Typography } from 'antd'
+import { Button, DatePicker, Descriptions, Modal, Space, Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs, { type Dayjs } from 'dayjs'
 import { useCallback, useEffect, useState } from 'react'
-import { fetchOrdersForDateRange } from '../api/ordersApi'
+import { fetchOrderDetail, fetchOrdersForDateRange } from '../api/ordersApi'
 import { zhtw } from '../locales/zhTW'
 import { formatMoney } from '../lib/money'
-import type { Order } from '../types/order'
+import type { OrderDetail, OrderItem, OrderListEntry } from '../types/order'
 
-const { Title } = Typography
+const { Title, Text } = Typography
 const o = zhtw.admin.orders
 
 function startEndOfDay(d: Dayjs): { start: Date; end: Date } {
@@ -16,10 +16,19 @@ function startEndOfDay(d: Dayjs): { start: Date; end: Date } {
   return { start, end }
 }
 
+function lineTags(item: OrderItem) {
+  if (item.isGift) return <Tag color="blue">{o.tagGift}</Tag>
+  if (item.isManualFree) return <Tag color="gold">{o.tagManualFree}</Tag>
+  return null
+}
+
 export function AdminOrdersPage() {
   const [selectedDay, setSelectedDay] = useState<Dayjs>(() => dayjs())
-  const [orders, setOrders] = useState<Order[]>([])
+  const [orders, setOrders] = useState<OrderListEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [detail, setDetail] = useState<OrderDetail | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -38,26 +47,28 @@ export function AdminOrdersPage() {
     void load()
   }, [load])
 
-  const columns: ColumnsType<Order> = [
+  const openDetail = (orderId: string) => {
+    setDetailOpen(true)
+    setDetail(null)
+    setDetailLoading(true)
+    void (async () => {
+      try {
+        const d = await fetchOrderDetail(orderId)
+        setDetail(d)
+      } catch {
+        setDetail(null)
+      } finally {
+        setDetailLoading(false)
+      }
+    })()
+  }
+
+  const columns: ColumnsType<OrderListEntry> = [
     {
       title: o.colDate,
       dataIndex: 'createdAt',
       key: 'createdAt',
       render: (iso: string) => dayjs(iso).format('YYYY-MM-DD HH:mm'),
-    },
-    {
-      title: o.colTotal,
-      dataIndex: 'totalAmountCents',
-      key: 'total',
-      align: 'right',
-      render: (cents: number) => formatMoney(cents),
-    },
-    {
-      title: o.colDiscount,
-      dataIndex: 'discountAmountCents',
-      key: 'discount',
-      align: 'right',
-      render: (cents: number) => formatMoney(cents),
     },
     {
       title: o.colFinal,
@@ -66,7 +77,68 @@ export function AdminOrdersPage() {
       align: 'right',
       render: (cents: number) => formatMoney(cents),
     },
+    {
+      title: o.colPreview,
+      dataIndex: 'itemsPreview',
+      key: 'preview',
+      ellipsis: true,
+    },
+    {
+      title: o.colActions,
+      key: 'actions',
+      width: 120,
+      render: (_, row) => (
+        <Button type="link" size="small" onClick={() => openDetail(row.id)}>
+          {o.viewDetails}
+        </Button>
+      ),
+    },
   ]
+
+  const itemColumns: ColumnsType<OrderItem> = [
+    {
+      title: o.colProduct,
+      key: 'name',
+      render: (_, item) => (
+        <Space size={4} wrap>
+          <span>{item.productName}</span>
+          {lineTags(item)}
+        </Space>
+      ),
+    },
+    {
+      title: o.colSize,
+      dataIndex: 'size',
+      key: 'size',
+      width: 100,
+      render: (s: string | null) => s || '—',
+    },
+    {
+      title: o.colQty,
+      dataIndex: 'quantity',
+      key: 'qty',
+      width: 72,
+      align: 'right',
+    },
+    {
+      title: o.colUnitPrice,
+      dataIndex: 'unitPriceCents',
+      key: 'unit',
+      align: 'right',
+      render: (c: number) => formatMoney(c),
+    },
+    {
+      title: o.colLineTotal,
+      dataIndex: 'lineTotalCents',
+      key: 'line',
+      align: 'right',
+      render: (c: number) => formatMoney(c),
+    },
+  ]
+
+  const snap = detail?.promotionSnapshot
+  const giftLines = detail?.items.filter((i) => i.isGift) ?? []
+  const manualFreeLines = detail?.items.filter((i) => i.isManualFree) ?? []
 
   return (
     <div className="admin-page">
@@ -77,13 +149,123 @@ export function AdminOrdersPage() {
         <span style={{ marginRight: 8 }}>{o.dateLabel}</span>
         <DatePicker value={selectedDay} onChange={(d) => d && setSelectedDay(d)} allowClear={false} />
       </div>
-      <Table<Order>
+      <Table<OrderListEntry>
         rowKey="id"
         loading={loading}
         columns={columns}
         dataSource={orders}
         pagination={{ pageSize: 15 }}
       />
+
+      <Modal
+        title={o.modalTitle}
+        open={detailOpen}
+        onCancel={() => setDetailOpen(false)}
+        footer={[
+          <Button key="close" type="primary" onClick={() => setDetailOpen(false)}>
+            {o.close}
+          </Button>,
+        ]}
+        width={720}
+        destroyOnClose
+      >
+        {detailLoading ? (
+          <Text type="secondary">{o.modalLoading}</Text>
+        ) : detail ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <Descriptions size="small" column={{ xs: 1, sm: 2 }} bordered>
+              <Descriptions.Item label={o.colDate}>
+                {dayjs(detail.createdAt).format('YYYY-MM-DD HH:mm:ss')}
+              </Descriptions.Item>
+              <Descriptions.Item label={o.colFinal}>{formatMoney(detail.finalAmountCents)}</Descriptions.Item>
+              <Descriptions.Item label={o.colTotal}>{formatMoney(detail.totalAmountCents)}</Descriptions.Item>
+              <Descriptions.Item label={o.colDiscount}>{formatMoney(detail.discountAmountCents)}</Descriptions.Item>
+            </Descriptions>
+
+            <div>
+              <Title level={5} style={{ marginTop: 0 }}>
+                {o.sectionItems}
+              </Title>
+              <Table<OrderItem>
+                size="small"
+                rowKey="id"
+                pagination={false}
+                columns={itemColumns}
+                dataSource={detail.items}
+                locale={{ emptyText: o.noItems }}
+              />
+            </div>
+
+            <div>
+              <Title level={5} style={{ marginTop: 0 }}>
+                {o.sectionPromotions}
+              </Title>
+              <Descriptions size="small" column={1} bordered>
+                <Descriptions.Item label={o.promoDiscount}>
+                  {formatMoney(detail.discountAmountCents)}
+                </Descriptions.Item>
+                <Descriptions.Item label={o.promoAuto}>
+                  {snap?.autoPromotionName ?? '—'}
+                </Descriptions.Item>
+                <Descriptions.Item label={o.promoManual}>
+                  {snap?.manualPromotionDetails?.length ? (
+                    <ul style={{ margin: 0, paddingLeft: 20 }}>
+                      {snap.manualPromotionDetails.map((m, i) => (
+                        <li key={`${m.promotionId ?? i}-${m.name}`}>
+                          {m.name}（{formatMoney(m.discountCents)}）
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    '—'
+                  )}
+                </Descriptions.Item>
+                <Descriptions.Item label={o.promoThreshold}>
+                  {snap?.thresholdGiftSummaries?.length ? (
+                    <ul style={{ margin: 0, paddingLeft: 20 }}>
+                      {snap.thresholdGiftSummaries.map((t, i) => (
+                        <li key={i}>{t}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    '—'
+                  )}
+                </Descriptions.Item>
+                <Descriptions.Item label={o.promoGiftLines}>
+                  {giftLines.length ? (
+                    <ul style={{ margin: 0, paddingLeft: 20 }}>
+                      {giftLines.map((g) => (
+                        <li key={g.id}>
+                          {g.productName}
+                          {g.size ? `（${g.size}）` : ''} × {g.quantity}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    '—'
+                  )}
+                </Descriptions.Item>
+                <Descriptions.Item label={o.promoManualFreeLines}>
+                  {manualFreeLines.length ? (
+                    <ul style={{ margin: 0, paddingLeft: 20 }}>
+                      {manualFreeLines.map((g) => (
+                        <li key={g.id}>
+                          {g.productName}
+                          {g.size ? `（${g.size}）` : ''} × {g.quantity}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    '—'
+                  )}
+                </Descriptions.Item>
+              </Descriptions>
+            </div>
+          </div>
+        ) : (
+          <Text type="danger">{o.modalError}</Text>
+        )}
+      </Modal>
     </div>
   )
 }
