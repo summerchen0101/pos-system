@@ -11,7 +11,8 @@ const promotionSelect = `
   free_qty,
   discount_percent,
   active,
-  promotion_products ( product_id )
+  promotion_products ( product_id ),
+  promotion_rules ( id, min_qty, free_qty, discount_percent, sort_order )
 `
 
 /** Active promotions for the register (with product scope). */

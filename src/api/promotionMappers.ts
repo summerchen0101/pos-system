@@ -1,9 +1,23 @@
-import type { Promotion, PromotionKind } from '../types/pos'
+import type { Promotion, PromotionKind, PromotionTierRule } from '../types/pos'
 import { isPromotionKindString } from '../types/pos'
-import type { PromotionRow } from '../types/supabase'
+import type { PromotionRow, PromotionRuleRow } from '../types/supabase'
 
 export type PromotionRowWithProducts = PromotionRow & {
   promotion_products?: { product_id: string }[] | null
+  promotion_rules?: PromotionRuleRow[] | null
+}
+
+function mapTierRows(rows: PromotionRuleRow[] | null | undefined): PromotionTierRule[] {
+  if (!rows?.length) return []
+  return [...rows]
+    .sort((a, b) => a.sort_order - b.sort_order || a.min_qty - b.min_qty)
+    .map((r) => ({
+      id: r.id,
+      minQty: r.min_qty,
+      freeQty: r.free_qty,
+      discountPercent: r.discount_percent,
+      sortOrder: r.sort_order,
+    }))
 }
 
 export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
@@ -22,5 +36,6 @@ export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
     discountPercent: row.discount_percent,
     active: row.active,
     productIds,
+    rules: mapTierRows(row.promotion_rules ?? undefined),
   }
 }

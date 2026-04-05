@@ -2,16 +2,34 @@ import type { PromotionContext, PromotionRule } from './types'
 import { evaluateBuyXGetYFree } from './evaluators/buyXGetYFree'
 import { evaluateBulkDiscount } from './evaluators/bulkDiscount'
 import { evaluateSingleProductDiscount } from './evaluators/singleProductDiscount'
+import { evaluateTieredPromotion } from './evaluators/tieredPromotion'
+
+export type RuleEvaluation = {
+  discountCents: number
+  /** Identifier for receipts / UI (may be composite, e.g. `promoId~t~tierRowId`). */
+  appliedRuleId: string
+}
 
 /** Discount in cents if the rule applies in isolation (no stacking). */
-export function evaluatePromotionRule(rule: PromotionRule, ctx: PromotionContext): number {
+export function evaluatePromotionRule(rule: PromotionRule, ctx: PromotionContext): RuleEvaluation {
   switch (rule.kind) {
     case 'buy_x_get_y_free':
-      return evaluateBuyXGetYFree(rule, ctx)
+      return {
+        discountCents: evaluateBuyXGetYFree(rule, ctx),
+        appliedRuleId: rule.id,
+      }
     case 'bulk_discount':
-      return evaluateBulkDiscount(rule, ctx)
+      return {
+        discountCents: evaluateBulkDiscount(rule, ctx),
+        appliedRuleId: rule.id,
+      }
     case 'single_product_discount':
-      return evaluateSingleProductDiscount(rule, ctx)
+      return {
+        discountCents: evaluateSingleProductDiscount(rule, ctx),
+        appliedRuleId: rule.id,
+      }
+    case 'tiered_promotion':
+      return evaluateTieredPromotion(rule, ctx)
     default: {
       const _exhaustive: never = rule
       return _exhaustive

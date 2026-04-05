@@ -15,11 +15,25 @@ export type CartLine = {
   quantity: number
 }
 
-export const PROMOTION_KINDS = ['BUY_X_GET_Y', 'BULK_DISCOUNT', 'SINGLE_DISCOUNT'] as const
+export const PROMOTION_KINDS = [
+  'BUY_X_GET_Y',
+  'BULK_DISCOUNT',
+  'SINGLE_DISCOUNT',
+  'TIERED',
+] as const
 export type PromotionKind = (typeof PROMOTION_KINDS)[number]
 
 export function isPromotionKindString(value: string): value is PromotionKind {
   return (PROMOTION_KINDS as readonly string[]).includes(value)
+}
+
+/** Row from `promotion_rules` (tiers). */
+export type PromotionTierRule = {
+  id: string
+  minQty: number
+  freeQty: number | null
+  discountPercent: number | null
+  sortOrder: number
 }
 
 export type Promotion = {
@@ -32,4 +46,6 @@ export type Promotion = {
   discountPercent: number | null
   active: boolean
   productIds: string[]
+  /** Populated when `kind === 'TIERED'`. */
+  rules: PromotionTierRule[]
 }

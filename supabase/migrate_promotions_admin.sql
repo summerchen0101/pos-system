@@ -21,7 +21,7 @@ alter table public.promotions
   drop constraint if exists promotions_kind_check;
 
 alter table public.promotions
-  add constraint promotions_kind_check check (kind in ('BUY_X_GET_Y', 'BULK_DISCOUNT', 'SINGLE_DISCOUNT'));
+  add constraint promotions_kind_check check (kind in ('BUY_X_GET_Y', 'BULK_DISCOUNT', 'SINGLE_DISCOUNT', 'TIERED'));
 
 -- Junction table
 create table if not exists public.promotion_products (

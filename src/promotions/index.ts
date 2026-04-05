@@ -8,6 +8,13 @@ export { evaluatePromotionRule } from './registry'
 export { cartLineInputsFromPos } from './posAdapter'
 export { mapDbPromotionsToEngineRules } from './mapDbPromotionsToRules'
 export { resolveAppliedPromotionName } from './resolveAppliedPromotion'
+export { computeBestTieredDiscount } from './tiered/computeBestTieredDiscount'
+export type {
+  TieredDiscountResult,
+  TieredEligibleLine,
+  TieredRuleLine,
+} from './tiered/types'
+export type { RuleEvaluation } from './registry'
 export type {
   AggregatedLine,
   BulkDiscountRule,
@@ -16,7 +23,8 @@ export type {
   PromotionContext,
   PromotionEngineResult,
   PromotionEvaluation,
-  PromotionKind,
+  PromotionRuleKind,
   PromotionRule,
+  TieredPromotionRule,
   SingleProductDiscountRule,
 } from './types'

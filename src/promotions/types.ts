@@ -47,12 +47,28 @@ export type SingleProductDiscountRule = {
   percentOff: number
 }
 
+/** One promotion row with multiple DB tiers; `id` is the promotion id for engine scoring. */
+export type TieredPromotionRule = {
+  id: string
+  kind: 'tiered_promotion'
+  promotionId: string
+  productIds: string[]
+  tiers: {
+    id: string
+    minQty: number
+    freeQty: number | null
+    discountPercent: number | null
+    sortOrder: number
+  }[]
+}
+
 export type PromotionRule =
   | BuyXGetYFreeRule
   | BulkDiscountRule
   | SingleProductDiscountRule
+  | TieredPromotionRule
 
-export type PromotionKind = PromotionRule['kind']
+export type PromotionRuleKind = PromotionRule['kind']
 
 export type PromotionContext = {
   originalTotalCents: number

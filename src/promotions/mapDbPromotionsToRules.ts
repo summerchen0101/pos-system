@@ -57,6 +57,24 @@ export function mapDbPromotionsToEngineRules(promotions: Promotion[]): Promotion
         }
         break
       }
+      case 'TIERED': {
+        const tierRows = p.rules ?? []
+        if (tierRows.length === 0) break
+        rules.push({
+          id: p.id,
+          kind: 'tiered_promotion',
+          promotionId: p.id,
+          productIds: ids,
+          tiers: tierRows.map((r) => ({
+            id: r.id,
+            minQty: r.minQty,
+            freeQty: r.freeQty,
+            discountPercent: r.discountPercent,
+            sortOrder: r.sortOrder,
+          })),
+        })
+        break
+      }
       default:
         break
     }

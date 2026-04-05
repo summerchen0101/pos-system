@@ -24,6 +24,7 @@ import {
   setPromotionActive,
   updatePromotion,
   type PromotionInput,
+  type PromotionTierInput,
 } from '../api/promotionsAdmin'
 import type { Product, Promotion, PromotionKind } from '../types/pos'
 
@@ -33,6 +34,7 @@ const KIND_OPTIONS: { value: PromotionKind; label: string }[] = [
   { value: 'BUY_X_GET_Y', label: 'Buy X get Y free' },
   { value: 'BULK_DISCOUNT', label: 'Bulk discount' },
   { value: 'SINGLE_DISCOUNT', label: 'Single product discount' },
+  { value: 'TIERED', label: 'Tiered (multiple rules)' },
 ]
 
 function promotionSummary(p: Promotion): string {
@@ -43,9 +45,17 @@ function promotionSummary(p: Promotion): string {
       return `≥${p.buyQty ?? '—'} units → ${p.discountPercent ?? 0}% off`
     case 'SINGLE_DISCOUNT':
       return `${p.discountPercent ?? 0}% off selected SKU(s)`
+    case 'TIERED':
+      return `${p.rules.length} tier(s) — best match applies`
     default:
       return '—'
   }
+}
+
+type TierFormRow = {
+  min_qty: number
+  free_qty?: number | null
+  discount_percent?: number | null
 }
 
 type FormValues = {
@@ -57,9 +67,30 @@ type FormValues = {
   discountPercent?: number | null
   active: boolean
   productIds: string[]
+  tiers?: TierFormRow[]
+}
+
+function buildTierInputs(rows: TierFormRow[]): PromotionTierInput[] {
+  return rows.map((t, i) => {
+    const minQty = t.min_qty
+    const fq = t.free_qty
+    const dp = t.discount_percent
+    const hasFree = fq != null && fq >= 1
+    const hasPct = dp != null && dp >= 1 && dp <= 100
+    if (minQty < 1) throw new Error(`Tier ${i + 1}: min qty must be ≥ 1`)
+    if (hasFree === hasPct) {
+      throw new Error(`Tier ${i + 1}: set either free qty OR discount %`)
+    }
+    if (hasFree) {
+      return { minQty, freeQty: fq!, discountPercent: null, sortOrder: i }
+    }
+    return { minQty, freeQty: null, discountPercent: dp!, sortOrder: i }
+  })
 }
 
 function toInput(values: FormValues): PromotionInput {
+  const tiers: PromotionTierInput[] =
+    values.kind === 'TIERED' ? buildTierInputs(values.tiers ?? []) : []
   return {
     code: values.code?.trim() ? values.code.trim() : null,
     name: values.name.trim(),
@@ -69,6 +100,7 @@ function toInput(values: FormValues): PromotionInput {
     discountPercent: values.discountPercent ?? null,
     active: values.active,
     productIds: values.productIds ?? [],
+    tiers,
   }
 }
 
@@ -113,6 +145,7 @@ export function AdminPromotionsPage() {
       discountPercent: 15,
       active: true,
       productIds: [],
+      tiers: [],
     })
     setModalOpen(true)
   }
@@ -128,6 +161,14 @@ export function AdminPromotionsPage() {
       discountPercent: p.discountPercent,
       active: p.active,
       productIds: p.productIds,
+      tiers:
+        p.kind === 'TIERED'
+          ? p.rules.map((r) => ({
+              min_qty: r.minQty,
+              free_qty: r.freeQty ?? undefined,
+              discount_percent: r.discountPercent ?? undefined,
+            }))
+          : [],
     })
     setModalOpen(true)
   }
@@ -141,7 +182,17 @@ export function AdminPromotionsPage() {
   const submit = async () => {
     try {
       const values = await form.validateFields()
-      const input = toInput(values)
+      if (values.kind === 'TIERED' && (!values.tiers || values.tiers.length === 0)) {
+        message.error('Add at least one tier')
+        return
+      }
+      let input: PromotionInput
+      try {
+        input = toInput(values)
+      } catch (err) {
+        message.error(err instanceof Error ? err.message : 'Invalid tiers')
+        return
+      }
       if (input.productIds.length === 0) {
         message.error('Select at least one product')
         return
@@ -287,7 +338,7 @@ export function AdminPromotionsPage() {
         onOk={() => void submit()}
         confirmLoading={saving}
         destroyOnClose
-        width={560}
+        width={640}
         okText="Save"
       >
         <Form<FormValues>
@@ -302,18 +353,40 @@ export function AdminPromotionsPage() {
                   buyQty: form.getFieldValue('buyQty') ?? 2,
                   freeQty: form.getFieldValue('freeQty') ?? 1,
                   discountPercent: null,
+                  tiers: [],
                 })
               } else if (k === 'BULK_DISCOUNT') {
                 form.setFieldsValue({
                   buyQty: form.getFieldValue('buyQty') ?? 2,
                   freeQty: null,
                   discountPercent: form.getFieldValue('discountPercent') ?? 15,
+                  tiers: [],
                 })
+              } else if (k === 'TIERED') {
+                const cur = form.getFieldValue('tiers') as TierFormRow[] | undefined
+                if (!cur?.length) {
+                  form.setFieldsValue({
+                    buyQty: null,
+                    freeQty: null,
+                    discountPercent: null,
+                    tiers: [
+                      { min_qty: 6, free_qty: 1 },
+                      { min_qty: 10, free_qty: 2 },
+                    ],
+                  })
+                } else {
+                  form.setFieldsValue({
+                    buyQty: null,
+                    freeQty: null,
+                    discountPercent: null,
+                  })
+                }
               } else {
                 form.setFieldsValue({
                   buyQty: null,
                   freeQty: null,
                   discountPercent: form.getFieldValue('discountPercent') ?? 10,
+                  tiers: [],
                 })
               }
             }
@@ -382,6 +455,52 @@ export function AdminPromotionsPage() {
               rules={[{ required: true, type: 'number', min: 1, max: 100 }]}
             >
               <InputNumber min={1} max={100} style={{ width: '100%' }} />
+            </Form.Item>
+          )}
+
+          {kindWatch === 'TIERED' && (
+            <Form.Item label="Tiers (best matching rule wins)">
+              <Form.List name="tiers">
+                {(fields, { add, remove }) => (
+                  <Space direction="vertical" style={{ width: '100%' }} size="small">
+                    {fields.map((field) => (
+                      <Space key={field.key} wrap style={{ width: '100%' }}>
+                        <Form.Item
+                          name={[field.name, 'min_qty']}
+                          rules={[{ required: true, type: 'number', min: 1 }]}
+                          style={{ marginBottom: 0, width: 120 }}
+                        >
+                          <InputNumber min={1} placeholder="Min qty" style={{ width: '100%' }} />
+                        </Form.Item>
+                        <Form.Item
+                          name={[field.name, 'free_qty']}
+                          style={{ marginBottom: 0, width: 120 }}
+                        >
+                          <InputNumber min={1} placeholder="Free qty" style={{ width: '100%' }} />
+                        </Form.Item>
+                        <Text type="secondary">or</Text>
+                        <Form.Item
+                          name={[field.name, 'discount_percent']}
+                          style={{ marginBottom: 0, width: 120 }}
+                        >
+                          <InputNumber
+                            min={1}
+                            max={100}
+                            placeholder="% off"
+                            style={{ width: '100%' }}
+                          />
+                        </Form.Item>
+                        <Button type="text" danger onClick={() => remove(field.name)}>
+                          Remove
+                        </Button>
+                      </Space>
+                    ))}
+                    <Button type="dashed" onClick={() => add({ min_qty: 1 })} block>
+                      Add tier
+                    </Button>
+                  </Space>
+                )}
+              </Form.List>
             </Form.Item>
           )}
 

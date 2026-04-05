@@ -41,10 +41,10 @@ export function evaluatePromotionEngine(
   let appliedPromotionId: string | null = null
 
   for (const rule of rules) {
-    const discountCents = evaluatePromotionRule(rule, ctx)
+    const { discountCents, appliedRuleId } = evaluatePromotionRule(rule, ctx)
     if (discountCents > bestDiscount) {
       bestDiscount = discountCents
-      appliedPromotionId = rule.id
+      appliedPromotionId = appliedRuleId
     }
   }
 
@@ -79,6 +79,6 @@ export function scorePromotions(
 
   return rules.map((rule) => ({
     promotionId: rule.id,
-    discountCents: evaluatePromotionRule(rule, ctx),
+    discountCents: evaluatePromotionRule(rule, ctx).discountCents,
   }))
 }

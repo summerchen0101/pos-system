@@ -1,7 +1,6 @@
 import { supabase } from '../supabase'
 import { mapPromotionFromRow } from './promotionMappers'
-import type { Promotion } from '../types/pos'
-import type { PromotionKind } from '../types/pos'
+import type { Promotion, PromotionKind } from '../types/pos'
 
 const promotionSelect = `
   id,
@@ -12,8 +11,16 @@ const promotionSelect = `
   free_qty,
   discount_percent,
   active,
-  promotion_products ( product_id )
+  promotion_products ( product_id ),
+  promotion_rules ( id, min_qty, free_qty, discount_percent, sort_order )
 `
+
+export type PromotionTierInput = {
+  minQty: number
+  freeQty: number | null
+  discountPercent: number | null
+  sortOrder: number
+}
 
 export type PromotionInput = {
   code: string | null
@@ -24,17 +31,30 @@ export type PromotionInput = {
   discountPercent: number | null
   active: boolean
   productIds: string[]
+  /** Required when kind is TIERED (at least one row). */
+  tiers: PromotionTierInput[]
 }
 
 function rowPayload(input: PromotionInput) {
-  return {
+  const base = {
     code: input.code || null,
     name: input.name,
     kind: input.kind,
+    active: input.active,
+  }
+  if (input.kind === 'TIERED') {
+    return {
+      ...base,
+      buy_qty: null,
+      free_qty: null,
+      discount_percent: null,
+    }
+  }
+  return {
+    ...base,
     buy_qty: input.buyQty,
     free_qty: input.freeQty,
     discount_percent: input.discountPercent,
-    active: input.active,
   }
 }
 
@@ -50,6 +70,32 @@ async function replacePromotionProducts(promotionId: string, productIds: string[
     productIds.map((product_id) => ({ promotion_id: promotionId, product_id })),
   )
   if (insErr) throw insErr
+}
+
+async function replacePromotionRules(promotionId: string, tiers: PromotionTierInput[]) {
+  const { error: delErr } = await supabase.from('promotion_rules').delete().eq('promotion_id', promotionId)
+  if (delErr) throw delErr
+
+  if (tiers.length === 0) return
+  const { error: insErr } = await supabase.from('promotion_rules').insert(
+    tiers.map((t) => ({
+      promotion_id: promotionId,
+      min_qty: t.minQty,
+      free_qty: t.freeQty,
+      discount_percent: t.discountPercent,
+      sort_order: t.sortOrder,
+    })),
+  )
+  if (insErr) throw insErr
+}
+
+async function syncPromotionRelations(id: string, input: PromotionInput) {
+  await replacePromotionProducts(id, input.productIds)
+  if (input.kind === 'TIERED') {
+    await replacePromotionRules(id, input.tiers)
+  } else {
+    await replacePromotionRules(id, [])
+  }
 }
 
 export async function listPromotionsAdmin(): Promise<Promotion[]> {
@@ -72,7 +118,7 @@ export async function createPromotion(input: PromotionInput): Promise<Promotion>
   if (error) throw error
   if (!data?.id) throw new Error('No id returned')
 
-  await replacePromotionProducts(data.id, input.productIds)
+  await syncPromotionRelations(data.id, input)
 
   const { data: full, error: fetchErr } = await supabase
     .from('promotions')
@@ -88,7 +134,7 @@ export async function updatePromotion(id: string, input: PromotionInput): Promis
   const { error } = await supabase.from('promotions').update(rowPayload(input)).eq('id', id)
   if (error) throw error
 
-  await replacePromotionProducts(id, input.productIds)
+  await syncPromotionRelations(id, input)
 
   const { data: full, error: fetchErr } = await supabase
     .from('promotions')

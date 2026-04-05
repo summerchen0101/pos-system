@@ -27,6 +27,15 @@ export type PromotionProductRow = {
   product_id: string
 }
 
+export type PromotionRuleRow = {
+  id: string
+  promotion_id: string
+  min_qty: number
+  free_qty: number | null
+  discount_percent: number | null
+  sort_order: number
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -46,6 +55,12 @@ export type Database = {
         Row: PromotionProductRow
         Insert: PromotionProductRow
         Update: Partial<PromotionProductRow>
+        Relationships: []
+      }
+      promotion_rules: {
+        Row: PromotionRuleRow
+        Insert: Omit<PromotionRuleRow, 'id'> & { id?: string }
+        Update: Partial<PromotionRuleRow>
         Relationships: []
       }
     }
