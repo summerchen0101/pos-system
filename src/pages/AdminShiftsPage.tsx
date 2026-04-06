@@ -2,6 +2,7 @@ import {
   CalendarOutlined,
   ExclamationCircleOutlined,
   LeftOutlined,
+  PlusOutlined,
   RightOutlined,
   UploadOutlined,
 } from "@ant-design/icons";
@@ -20,6 +21,7 @@ import {
   Select,
   Space,
   Table,
+  Tabs,
   Tag,
   TimePicker,
   Typography,
@@ -227,19 +229,23 @@ function adminShiftClockDots(
   );
 }
 
+type BoothTabState = {
+  weekAnchor: Dayjs;
+  staffSearch: string;
+};
+
+function defaultBoothTabState(): BoothTabState {
+  return { weekAnchor: dayjs(), staffSearch: "" };
+}
+
 export function AdminShiftsPage() {
   const { message } = App.useApp();
   const { profile } = useAuth();
   const [form] = Form.useForm<ShiftFormValues>();
 
-  const [weekAnchor, setWeekAnchor] = useState(() => dayjs());
-  const { start: weekStart, end: weekEnd, days } = useMemo(
-    () => weekRangeIso(weekAnchor),
-    [weekAnchor],
-  );
-
-  const [boothFilter, setBoothFilter] = useState<string | null>(null);
   const [booths, setBooths] = useState<AdminBooth[]>([]);
+  const [activeBoothId, setActiveBoothId] = useState<string | null>(null);
+  const [tabStates, setTabStates] = useState<Record<string, BoothTabState>>({});
   const [users, setUsers] = useState<AdminUserListEntry[]>([]);
   const [shifts, setShifts] = useState<ShiftWithNames[]>([]);
   const [logs, setLogs] = useState<
@@ -264,6 +270,7 @@ export function AdminShiftsPage() {
   const [importOverrideDup, setImportOverrideDup] = useState(false);
   const [importUploadKey, setImportUploadKey] = useState(0);
   const [importBusy, setImportBusy] = useState(false);
+  const [importContextBoothId, setImportContextBoothId] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(0);
 
   useEffect(() => {
@@ -276,19 +283,66 @@ export function AdminShiftsPage() {
     return dayjs().tz("Asia/Taipei");
   }, [nowTick]);
 
+  const accessibleBooths = useMemo(() => {
+    if (!profile) return [];
+    if (isAdminRole(profile.role)) return booths;
+    if (isManagerRole(profile.role)) {
+      const allowed = new Set(profile.boothIds);
+      return booths.filter((b) => allowed.has(b.id));
+    }
+    return [];
+  }, [booths, profile]);
+
+  useEffect(() => {
+    setTabStates((prev) => {
+      const next: Record<string, BoothTabState> = {};
+      for (const b of accessibleBooths) {
+        next[b.id] = prev[b.id] ?? defaultBoothTabState();
+      }
+      return next;
+    });
+  }, [accessibleBooths]);
+
+  useEffect(() => {
+    if (accessibleBooths.length === 0) {
+      setActiveBoothId(null);
+      return;
+    }
+    setActiveBoothId((cur) => {
+      if (cur && accessibleBooths.some((b) => b.id === cur)) return cur;
+      return accessibleBooths[0]!.id;
+    });
+  }, [accessibleBooths]);
+
+  const activeTabState = activeBoothId ? tabStates[activeBoothId] : undefined;
+  const weekAnchor = activeTabState?.weekAnchor ?? dayjs();
+  const staffSearch = activeTabState?.staffSearch ?? "";
+
+  const { start: weekStart, end: weekEnd, days } = useMemo(
+    () => weekRangeIso(weekAnchor),
+    [weekAnchor],
+  );
+
+  const patchActiveTab = useCallback(
+    (patch: Partial<BoothTabState>) => {
+      if (!activeBoothId) return;
+      setTabStates((prev) => ({
+        ...prev,
+        [activeBoothId]: { ...(prev[activeBoothId] ?? defaultBoothTabState()), ...patch },
+      }));
+    },
+    [activeBoothId],
+  );
+
   const loadCore = useCallback(async () => {
-    const [b, u, sh, sw] = await Promise.all([
+    const [b, u, sw] = await Promise.all([
       listBoothsAdmin(),
       listUsersAdmin(),
-      listShiftsInRange(boothFilter, weekStart, weekEnd),
       listSwapRequestsForAdmin(),
     ]);
     setBooths(b);
     setUsers(u);
-    setShifts(sh);
     setSwaps(sw);
-    const logRows = await listClockLogsForShiftIds(sh.map((x) => x.id));
-    setLogs(logRows);
 
     const ids = new Set<string>();
     for (const r of sw) {
@@ -301,7 +355,18 @@ export function AdminShiftsPage() {
     } else {
       setSwapShiftMap(new Map());
     }
-  }, [boothFilter, weekEnd, weekStart]);
+
+    if (!activeBoothId) {
+      setShifts([]);
+      setLogs([]);
+      return;
+    }
+
+    const sh = await listShiftsInRange(activeBoothId, weekStart, weekEnd);
+    setShifts(sh);
+    const logRows = await listClockLogsForShiftIds(sh.map((x) => x.id));
+    setLogs(logRows);
+  }, [activeBoothId, weekEnd, weekStart]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -341,11 +406,11 @@ export function AdminShiftsPage() {
   );
 
   const openCreate = () => {
+    if (!activeBoothId) return;
     setEditingShift(null);
     form.resetFields();
-    const b0 = boothFilter ?? booths[0]?.id;
     form.setFieldsValue({
-      booth_id: b0,
+      booth_id: activeBoothId,
       user_id: undefined,
       shift_date: dayjs(),
       times: [dayjs().hour(9).minute(0), dayjs().hour(18).minute(0)],
@@ -518,6 +583,7 @@ export function AdminShiftsPage() {
   ];
 
   const openImportModal = () => {
+    setImportContextBoothId(activeBoothId);
     setImportOverrideDup(false);
     setImportPreview([]);
     setImportUploadKey((k) => k + 1);
@@ -526,6 +592,7 @@ export function AdminShiftsPage() {
 
   const closeImportModal = () => {
     setImportOpen(false);
+    setImportContextBoothId(null);
     setImportPreview([]);
     setImportOverrideDup(false);
     setImportUploadKey((k) => k + 1);
@@ -689,6 +756,15 @@ export function AdminShiftsPage() {
     [importPreview],
   );
 
+  const importContextBoothName = useMemo(() => {
+    if (!importContextBoothId) return null;
+    return boothNameById.get(importContextBoothId) ?? null;
+  }, [boothNameById, importContextBoothId]);
+
+  const searchQ = staffSearch.trim().toLowerCase();
+  const shiftMatchesSearch = (sh: ShiftWithNames) =>
+    !searchQ || (sh.user_name ?? sh.user_id).toLowerCase().includes(searchQ);
+
   const onExportCsv = async () => {
     try {
       const from = exportRange[0].format("YYYY-MM-DD");
@@ -723,104 +799,131 @@ export function AdminShiftsPage() {
 
   return (
     <div style={{ padding: 24 }}>
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          gap: 16,
-        }}>
-        <div>
-          <Title level={3} style={{ marginTop: 0 }}>
-            <CalendarOutlined style={{ marginRight: 8 }} />
-            {s.pageTitle}
-          </Title>
-          <Text type="secondary">{s.hint}</Text>
-        </div>
-        <Button type="default" icon={<UploadOutlined />} onClick={openImportModal}>
-          {s.importShifts}
-        </Button>
-      </div>
+      <Title level={3} style={{ marginTop: 0 }}>
+        <CalendarOutlined style={{ marginRight: 8 }} />
+        {s.pageTitle}
+      </Title>
+      <Text type="secondary">{s.hint}</Text>
 
-      <Card style={{ marginTop: 16 }} loading={loading}>
-        <Space wrap style={{ marginBottom: 16 }}>
-          <Button icon={<LeftOutlined />} onClick={() => setWeekAnchor((w) => w.subtract(1, "week"))} />
-          <Button icon={<RightOutlined />} onClick={() => setWeekAnchor((w) => w.add(1, "week"))} />
-          <DatePicker
-            picker="week"
-            value={weekAnchor}
-            onChange={(d) => d && setWeekAnchor(d.startOf("isoWeek"))}
-          />
-          <Text type="secondary">
-            {weekStart} — {weekEnd}
-          </Text>
-          <Select
+      {accessibleBooths.length === 0 ? (
+        <Alert type="info" showIcon style={{ marginTop: 16 }} message={s.noAccessibleBooths} />
+      ) : (
+        <Tabs
+          style={{ marginTop: 16 }}
+          activeKey={activeBoothId ?? undefined}
+          onChange={(k) => setActiveBoothId(k)}
+          items={accessibleBooths.map((b) => ({ key: b.id, label: b.name }))}
+        />
+      )}
+
+      {accessibleBooths.length > 0 ? (
+        <Card style={{ marginTop: 8 }} loading={loading && !!activeBoothId}>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 12,
+            }}>
+            <Space wrap align="center">
+              <Button
+                icon={<LeftOutlined />}
+                onClick={() => patchActiveTab({ weekAnchor: weekAnchor.subtract(1, "week") })}
+              />
+              <Button
+                icon={<RightOutlined />}
+                onClick={() => patchActiveTab({ weekAnchor: weekAnchor.add(1, "week") })}
+              />
+              <Button onClick={() => patchActiveTab({ weekAnchor: dayjs().startOf("isoWeek") })}>
+                {s.weekToday}
+              </Button>
+              <DatePicker
+                picker="week"
+                value={weekAnchor}
+                onChange={(d) => d && patchActiveTab({ weekAnchor: d.startOf("isoWeek") })}
+              />
+              <Text type="secondary">
+                {weekStart} — {weekEnd}
+              </Text>
+            </Space>
+            <Space wrap>
+              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                {s.newShift}
+              </Button>
+              <Button icon={<UploadOutlined />} onClick={openImportModal}>
+                {s.uploadScheduleBtn}
+              </Button>
+            </Space>
+          </div>
+
+          <Input
             allowClear
-            placeholder={s.filterBooth}
-            style={{ minWidth: 200 }}
-            value={boothFilter ?? undefined}
-            onChange={(v) => setBoothFilter(v ?? null)}
-            options={booths.map((b) => ({ value: b.id, label: b.name }))}
+            placeholder={s.staffSearchPlaceholder}
+            value={staffSearch}
+            onChange={(e) => patchActiveTab({ staffSearch: e.target.value })}
+            style={{ maxWidth: 320, marginBottom: 12 }}
           />
-          <Button type="primary" onClick={openCreate}>
-            {s.newShift}
-          </Button>
-        </Space>
 
-        <Space direction="vertical" size={4} style={{ marginBottom: 8, display: "flex" }}>
-          <Text type="secondary">{s.consecutiveLegend}</Text>
-          <Text type="secondary">{s.clockDotsLegend}</Text>
-        </Space>
+          <Space direction="vertical" size={4} style={{ marginBottom: 8, display: "flex" }}>
+            <Text type="secondary">{s.consecutiveLegend}</Text>
+            <Text type="secondary">{s.clockDotsLegend}</Text>
+          </Space>
 
-        <Row gutter={[12, 12]}>
-          {days.map((d) => {
-            const key = d.format("YYYY-MM-DD");
-            const list = byDate.get(key) ?? [];
-            const consecMeta = consecutiveMetaByShiftId(list);
-            return (
-              <Col xs={24} sm={12} md={8} lg={6} xl={4} key={key}>
-                <Card size="small" title={d.format("ddd MM/DD")}>
-                  {list.length === 0 ? (
-                    <Text type="secondary">{s.emptyDay}</Text>
-                  ) : (
-                    <Space direction="vertical" style={{ width: "100%" }} size={8}>
-                      {list.map((sh) => {
-                        const cm = consecMeta.get(sh.id)!;
-                        const consecBg =
-                          cm.chainLength > 1 ? { background: "rgba(124, 58, 237, 0.1)" } : undefined;
-                        return (
-                          <Card key={sh.id} size="small" styles={{ body: { padding: 8 } }} style={consecBg}>
-                            <div style={{ fontWeight: 600 }}>{sh.user_name ?? sh.user_id}</div>
-                            <div style={{ fontSize: 12, opacity: 0.85 }}>
-                              {sh.booth_name ?? boothNameById.get(sh.booth_id)}
-                            </div>
-                            <div style={{ fontSize: 13 }}>
-                              {formatShiftTime(sh.start_time)} – {formatShiftTime(sh.end_time)}
-                            </div>
-                            {adminShiftClockDots(sh, consecMeta, list, logs, nowTaipei)}
-                            {sh.note ? (
-                              <div style={{ fontSize: 12, marginTop: 4 }}>{sh.note}</div>
-                            ) : null}
-                            <Space style={{ marginTop: 8 }}>
-                              <Button size="small" onClick={() => openEdit(sh)}>
-                                {common.edit}
-                              </Button>
-                              <Button size="small" danger onClick={() => onDelete(sh)}>
-                                {common.delete}
-                              </Button>
-                            </Space>
-                          </Card>
-                        );
-                      })}
-                    </Space>
-                  )}
-                </Card>
-              </Col>
-            );
-          })}
-        </Row>
-      </Card>
+          <Row gutter={[12, 12]}>
+            {days.map((d) => {
+              const key = d.format("YYYY-MM-DD");
+              const list = byDate.get(key) ?? [];
+              const visibleList = searchQ ? list.filter(shiftMatchesSearch) : list;
+              const consecMeta = consecutiveMetaByShiftId(list);
+              return (
+                <Col xs={24} sm={12} md={8} lg={6} xl={4} key={key}>
+                  <Card size="small" title={d.format("ddd MM/DD")}>
+                    {list.length === 0 ? (
+                      <Text type="secondary">{s.emptyDay}</Text>
+                    ) : visibleList.length === 0 ? (
+                      <Text type="secondary">{s.noSearchMatches}</Text>
+                    ) : (
+                      <Space direction="vertical" style={{ width: "100%" }} size={8}>
+                        {list.map((sh) => {
+                          if (!shiftMatchesSearch(sh)) return null;
+                          const cm = consecMeta.get(sh.id)!;
+                          const consecBg =
+                            cm.chainLength > 1 ? { background: "rgba(124, 58, 237, 0.1)" } : undefined;
+                          return (
+                            <Card key={sh.id} size="small" styles={{ body: { padding: 8 } }} style={consecBg}>
+                              <div style={{ fontWeight: 600 }}>{sh.user_name ?? sh.user_id}</div>
+                              <div style={{ fontSize: 12, opacity: 0.85 }}>
+                                {sh.booth_name ?? boothNameById.get(sh.booth_id)}
+                              </div>
+                              <div style={{ fontSize: 13 }}>
+                                {formatShiftTime(sh.start_time)} – {formatShiftTime(sh.end_time)}
+                              </div>
+                              {adminShiftClockDots(sh, consecMeta, list, logs, nowTaipei)}
+                              {sh.note ? (
+                                <div style={{ fontSize: 12, marginTop: 4 }}>{sh.note}</div>
+                              ) : null}
+                              <Space style={{ marginTop: 8 }}>
+                                <Button size="small" onClick={() => openEdit(sh)}>
+                                  {common.edit}
+                                </Button>
+                                <Button size="small" danger onClick={() => onDelete(sh)}>
+                                  {common.delete}
+                                </Button>
+                              </Space>
+                            </Card>
+                          );
+                        })}
+                      </Space>
+                    )}
+                  </Card>
+                </Col>
+              );
+            })}
+          </Row>
+        </Card>
+      ) : null}
 
       <Card title={s.swapSectionTitle} style={{ marginTop: 24 }}>
         <Table
@@ -847,7 +950,7 @@ export function AdminShiftsPage() {
             style={{ minWidth: 200 }}
             value={exportBoothId ?? undefined}
             onChange={(v) => setExportBoothId(v ?? null)}
-            options={booths.map((b) => ({ value: b.id, label: b.name }))}
+            options={accessibleBooths.map((b) => ({ value: b.id, label: b.name }))}
           />
           <Button onClick={() => void onExportCsv()}>{s.exportCsv}</Button>
         </Space>
@@ -865,12 +968,23 @@ export function AdminShiftsPage() {
           {shiftBoothActivityWarn ? (
             <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={shiftBoothActivityWarn} />
           ) : null}
-          <Form.Item name="booth_id" label={s.labelBooth} rules={[{ required: true }]}>
-            <Select
-              options={booths.map((b) => ({ value: b.id, label: b.name }))}
-              onChange={() => form.setFieldValue("user_id", undefined)}
-            />
-          </Form.Item>
+          {editingShift ? (
+            <Form.Item name="booth_id" label={s.labelBooth} rules={[{ required: true }]}>
+              <Select
+                options={accessibleBooths.map((b) => ({ value: b.id, label: b.name }))}
+                onChange={() => form.setFieldValue("user_id", undefined)}
+              />
+            </Form.Item>
+          ) : (
+            <>
+              <Form.Item label={s.labelBooth}>
+                <Text>{boothNameById.get(activeBoothId ?? "") ?? "—"}</Text>
+              </Form.Item>
+              <Form.Item name="booth_id" hidden rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+            </>
+          )}
           <Form.Item
             noStyle
             shouldUpdate={(p, c) => p.booth_id !== c.booth_id}>
@@ -922,6 +1036,9 @@ export function AdminShiftsPage() {
           </Space>
         }>
         <Space direction="vertical" style={{ width: "100%" }} size="middle">
+          {importContextBoothName ? (
+            <Alert type="info" showIcon message={s.importContextBoothHint(importContextBoothName)} />
+          ) : null}
           <Space wrap>
             <Upload
               key={importUploadKey}
