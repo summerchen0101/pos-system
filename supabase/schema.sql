@@ -106,6 +106,7 @@ create table if not exists public.promotions (
   gift_id uuid references public.gifts (id) on delete set null,
   threshold_amount integer check (threshold_amount is null or threshold_amount >= 1),
   max_selection_qty integer,
+  bogo_single_deal_only boolean not null default false,
   constraint promotions_gift_threshold_kind check (
     (
       kind = 'GIFT_WITH_THRESHOLD'

@@ -90,6 +90,7 @@ export const zhtw = {
     manualFreeBadge: "贈送",
     removeManualPromo: (name: string) => `移除 ${name}`,
     manualPromoBogoLine: (x: number, y: number) => `買 ${x} 送 ${y}`,
+    manualPromoBogoSingleSuffix: "（限一組）",
     manualPromoFreeLine: (n: number) => `贈 ${n} 件`,
     manualPromoFreeSelection: (poolSize: number, max: number) =>
       `可選 ${poolSize} 種商品 · 須選滿 ${max} 件`,
@@ -586,6 +587,10 @@ export const zhtw = {
       pageTitle: "優惠管理",
       newPromotion: "新增優惠",
       kindBogo: "買 X 送 Y",
+      labelBogoSingleDeal: "限一組，不疊加",
+      bogoSingleDealHint:
+        "勾選後整筆訂單最多折抵一次「買 X 送 Y」組數（多件累計不套用多組）。未勾選則可依數量重複套用。",
+      bogoSingleDealShort: "限一組",
       kindBulk: "滿量折扣",
       kindSingle: "單品折扣",
       kindTiered: "階梯式（多規則）",

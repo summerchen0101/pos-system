@@ -31,6 +31,7 @@ export function mapDbPromotionsToEngineRules(promotions: readonly Promotion[]): 
           buyQuantity: x,
           freeQuantity: y,
           poolProductIds: [...ids],
+          singleDealOnly: p.bogoSingleDealOnly,
         })
         break
       }

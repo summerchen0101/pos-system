@@ -118,6 +118,11 @@ export type Promotion = {
   kind: PromotionKind
   buyQty: number | null
   freeQty: number | null
+  /**
+   * `BUY_X_GET_Y` only — when true, at most one free bundle applies (no multi-stack).
+   * Other kinds: always false in UI/API.
+   */
+  bogoSingleDealOnly: boolean
   discountPercent: number | null
   active: boolean
   applyMode: PromotionApplyMode

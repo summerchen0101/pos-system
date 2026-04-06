@@ -2,6 +2,7 @@ import {
   App,
   Button,
   Card,
+  Checkbox,
   Form,
   Input,
   InputNumber,
@@ -74,9 +75,9 @@ function promotionSummary(p: Promotion, products: Product[]): string {
   const dash = common.dash;
   switch (p.kind) {
     case "BUY_X_GET_Y":
-      return pr.summaryBogo(
-        String(p.buyQty ?? dash),
-        String(p.freeQty ?? dash),
+      return (
+        pr.summaryBogo(String(p.buyQty ?? dash), String(p.freeQty ?? dash)) +
+        (p.bogoSingleDealOnly ? `（${pr.bogoSingleDealShort}）` : "")
       );
     case "BULK_DISCOUNT":
       return pr.summaryBulk(String(p.buyQty ?? dash), p.discountPercent ?? 0);
@@ -142,6 +143,8 @@ type FormValues = {
   /** `FREE_SELECTION` — multi-select pool. */
   selectablePoolIds?: string[];
   maxSelectionQty?: number;
+  /** `BUY_X_GET_Y` — limit to one bundle (no stacked groups). */
+  bogoSingleDealOnly?: boolean;
 };
 
 function buildQtyDiscountTierInputs(
@@ -200,6 +203,8 @@ function buildTierInputs(rows: TierFormRow[]): PromotionTierInput[] {
 
 function toInput(values: FormValues): PromotionInput {
   const boothIds = [...new Set((values.boothIds ?? []).filter(Boolean))];
+  const bogoSingleDealOnly =
+    values.kind === "BUY_X_GET_Y" && !!values.bogoSingleDealOnly;
   const tiers: PromotionTierInput[] =
     values.kind === "TIERED" ? buildTierInputs(values.tiers ?? []) : [];
   const quantityTiers: PromotionQuantityTierInput[] =
@@ -229,6 +234,7 @@ function toInput(values: FormValues): PromotionInput {
       thresholdAmountCents: dollarsToCents(Number(values.thresholdDollars)),
       selectableProductIds: [],
       maxSelectionQty: null,
+      bogoSingleDealOnly,
     };
   }
 
@@ -254,6 +260,7 @@ function toInput(values: FormValues): PromotionInput {
       thresholdAmountCents: null,
       selectableProductIds: [],
       maxSelectionQty: null,
+      bogoSingleDealOnly,
     };
   }
 
@@ -284,6 +291,7 @@ function toInput(values: FormValues): PromotionInput {
       thresholdAmountCents: null,
       selectableProductIds: [],
       maxSelectionQty: null,
+      bogoSingleDealOnly,
     };
   }
 
@@ -311,6 +319,7 @@ function toInput(values: FormValues): PromotionInput {
       quantityTiers: [],
       giftId: null,
       thresholdAmountCents: null,
+      bogoSingleDealOnly,
     };
   }
 
@@ -334,6 +343,7 @@ function toInput(values: FormValues): PromotionInput {
       thresholdAmountCents: null,
       selectableProductIds: [],
       maxSelectionQty: null,
+      bogoSingleDealOnly,
     };
   }
 
@@ -357,6 +367,7 @@ function toInput(values: FormValues): PromotionInput {
       thresholdAmountCents: null,
       selectableProductIds: [],
       maxSelectionQty: null,
+      bogoSingleDealOnly,
     };
   }
 
@@ -379,6 +390,7 @@ function toInput(values: FormValues): PromotionInput {
     thresholdAmountCents: null,
     selectableProductIds: [],
     maxSelectionQty: null,
+    bogoSingleDealOnly,
   };
 }
 
@@ -435,6 +447,7 @@ export function AdminPromotionsPage() {
       buyQty: 2,
       freeQty: null,
       discountPercent: 15,
+      bogoSingleDealOnly: false,
       fixedDiscountDollars: undefined,
       active: true,
       productIds: [],
@@ -507,6 +520,8 @@ export function AdminPromotionsPage() {
         p.kind === "FREE_SELECTION" ? p.selectableProductIds : undefined,
       maxSelectionQty:
         p.kind === "FREE_SELECTION" ? (p.maxSelectionQty ?? 1) : undefined,
+      bogoSingleDealOnly:
+        p.kind === "BUY_X_GET_Y" ? p.bogoSingleDealOnly : false,
     });
     setModalOpen(true);
   };
@@ -865,6 +880,7 @@ export function AdminPromotionsPage() {
                   buyQty: form.getFieldValue("buyQty") ?? 2,
                   freeQty: form.getFieldValue("freeQty") ?? 1,
                   discountPercent: null,
+                  bogoSingleDealOnly: false,
                   tiers: [],
                   qtyDiscountTiers: [],
                 });
@@ -1066,6 +1082,19 @@ export function AdminPromotionsPage() {
               </Form.Item>
             </Space>
           )}
+
+          {kindWatch === "BUY_X_GET_Y" ? (
+            <Form.Item
+              name="bogoSingleDealOnly"
+              valuePropName="checked"
+              extra={
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {pr.bogoSingleDealHint}
+                </Text>
+              }>
+              <Checkbox>{pr.labelBogoSingleDeal}</Checkbox>
+            </Form.Item>
+          ) : null}
 
           {kindWatch === "BULK_DISCOUNT" && (
             <Space size="middle" style={{ display: "flex" }}>

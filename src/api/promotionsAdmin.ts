@@ -44,6 +44,8 @@ export type PromotionInput = {
   quantityTiers: PromotionQuantityTierInput[]
   giftId: string | null
   thresholdAmountCents: number | null
+  /** `BUY_X_GET_Y` only — one bundle, no stacked repeats. */
+  bogoSingleDealOnly?: boolean
 }
 
 function resolvedApplyMode(input: PromotionInput): PromotionApplyMode {
@@ -60,6 +62,8 @@ function maxSelectionColumn(input: PromotionInput): number | null {
 function rowPayload(input: PromotionInput) {
   const apply_mode = resolvedApplyMode(input)
   const max_selection_qty = maxSelectionColumn(input)
+  const bogo_single_deal_only =
+    input.kind === 'BUY_X_GET_Y' ? !!input.bogoSingleDealOnly : false
   const base = {
     code: input.code || null,
     name: input.name,
@@ -67,6 +71,7 @@ function rowPayload(input: PromotionInput) {
     active: input.active,
     apply_mode,
     max_selection_qty,
+    bogo_single_deal_only,
   }
 
   if (input.kind === 'GIFT_WITH_THRESHOLD') {

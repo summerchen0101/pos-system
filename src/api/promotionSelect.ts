@@ -15,6 +15,7 @@ export const PROMOTION_LIST_SELECT = `
   kind,
   buy_qty,
   free_qty,
+  bogo_single_deal_only,
   discount_percent,
   active,
   apply_mode,

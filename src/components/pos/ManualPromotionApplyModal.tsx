@@ -22,7 +22,10 @@ function promoOneLine(p: Promotion, products: readonly Product[]): string {
     case 'FIXED_DISCOUNT':
       return formatMoney(p.fixedDiscountCents ?? 0)
     case 'BUY_X_GET_Y':
-      return zhtw.pos.manualPromoBogoLine(p.buyQty ?? 0, p.freeQty ?? 0)
+      return (
+        zhtw.pos.manualPromoBogoLine(p.buyQty ?? 0, p.freeQty ?? 0) +
+        (p.bogoSingleDealOnly ? zhtw.pos.manualPromoBogoSingleSuffix : '')
+      )
     case 'FREE_ITEMS':
       return manualFreePromoDescription(p, products)
     case 'FREE_SELECTION':

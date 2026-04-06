@@ -30,6 +30,11 @@ export type BuyXGetYFreeRule = {
    * valued at the cheapest unit prices in the pool (sorted ascending).
    */
   poolProductIds?: string[]
+  /**
+   * When true, only one BOGO bundle applies (free units capped at `freeQuantity` even if
+   * the cart would qualify for multiple stacked groups).
+   */
+  singleDealOnly?: boolean
 }
 
 /**

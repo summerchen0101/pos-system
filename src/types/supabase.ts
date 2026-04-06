@@ -57,6 +57,8 @@ export type PromotionRow = {
   threshold_amount: number | null
   /** `FREE_SELECTION` only. */
   max_selection_qty: number | null
+  /** BUY_X_GET_Y: limit to one (X+Y) group; no stacked bundles. */
+  bogo_single_deal_only: boolean
 }
 
 export type PromotionBoothRow = {

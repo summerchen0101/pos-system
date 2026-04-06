@@ -143,6 +143,7 @@ export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
     kind,
     buyQty: row.buy_qty,
     freeQty: row.free_qty,
+    bogoSingleDealOnly: row.bogo_single_deal_only ?? false,
     discountPercent: row.discount_percent,
     active: row.active,
     applyMode,

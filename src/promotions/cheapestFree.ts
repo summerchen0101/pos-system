@@ -36,13 +36,17 @@ export function discountBuyXGetYCheapestFromLines(
   lines: readonly LineForCheapestFree[],
   buyX: number,
   freeY: number,
+  opts?: { singleDealOnly?: boolean },
 ): number {
   if (buyX <= 0 || freeY <= 0) return 0
   const sorted = expandLinesToSortedUnitPrices(lines)
   const Q = sorted.length
   if (Q === 0) return 0
 
-  const freeUnits = bundleFreeUnitCount(Q, buyX, freeY)
+  let freeUnits = bundleFreeUnitCount(Q, buyX, freeY)
+  if (opts?.singleDealOnly) {
+    freeUnits = Math.min(freeY, freeUnits)
+  }
   if (freeUnits <= 0) return 0
 
   let discountCents = 0

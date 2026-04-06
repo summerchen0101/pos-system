@@ -70,6 +70,7 @@ function buyXGetYRuleFromPromotion(p: Promotion): PromotionRule | null {
     buyQuantity: x,
     freeQuantity: y,
     poolProductIds: [...ids],
+    singleDealOnly: p.bogoSingleDealOnly,
   }
 }
 

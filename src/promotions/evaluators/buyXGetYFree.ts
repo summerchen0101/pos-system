@@ -19,7 +19,9 @@ export function evaluateBuyXGetYFree(rule: BuyXGetYFreeRule, ctx: PromotionConte
         lines.push({ quantity: line.quantity, unitPriceCents: line.unitPriceCents })
       }
     }
-    return discountBuyXGetYCheapestFromLines(lines, x, y)
+    return discountBuyXGetYCheapestFromLines(lines, x, y, {
+      singleDealOnly: rule.singleDealOnly,
+    })
   }
 
   const trigger = ctx.linesByProductId.get(rule.triggerProductId)
@@ -34,10 +36,12 @@ export function evaluateBuyXGetYFree(rule: BuyXGetYFreeRule, ctx: PromotionConte
       [{ quantity: trigger.quantity, unitPriceCents: trigger.unitPriceCents }],
       x,
       y,
+      { singleDealOnly: rule.singleDealOnly },
     )
   }
 
-  const deals = Math.floor(trigger.quantity / x)
+  const dealsRaw = Math.floor(trigger.quantity / x)
+  const deals = rule.singleDealOnly ? Math.min(1, dealsRaw) : dealsRaw
   const freeEarned = deals * y
   const freeApplied = Math.min(freeEarned, reward.quantity)
   return freeApplied * reward.unitPriceCents
