@@ -14,7 +14,7 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { isAdminRole, type AppRole } from "../api/authProfile";
+import { isAdminRole, isManagerRole, type AppRole } from "../api/authProfile";
 import { listBoothsAdmin, type AdminBooth } from "../api/boothsAdmin";
 import {
   ManageUsersError,
@@ -173,7 +173,8 @@ export function AdminUsersPage() {
         name: v.name,
         password: v.password,
         role: v.role,
-        boothIds: v.role === "STAFF" ? (v.boothIds ?? []) : [],
+        boothIds:
+          v.role === "STAFF" || v.role === "MANAGER" ? (v.boothIds ?? []) : [],
       });
       message.success(u.created);
       closeModal();
@@ -190,17 +191,24 @@ export function AdminUsersPage() {
   };
 
   const submitEdit = async () => {
-    if (!token || !editing) return;
+    if (!token || !editing || !profile) return;
     try {
-      const v = await editForm.validateFields();
+      const manager = isManagerRole(profile.role);
+      const v = manager
+        ? await editForm.validateFields(["username", "name", "phone", "newPassword"])
+        : await editForm.validateFields();
       setSaving(true);
       await updateManagedUser(token, {
         userId: editing.id,
         username: v.username.trim().toLowerCase(),
         phone: v.phone?.trim(),
         name: v.name,
-        role: v.role,
-        boothIds: v.role === "STAFF" ? (v.boothIds ?? []) : [],
+        role: manager ? editing.role : v.role,
+        boothIds: manager
+          ? editing.boothIds
+          : v.role === "STAFF" || v.role === "MANAGER"
+            ? (v.boothIds ?? [])
+            : [],
         password: v.newPassword?.trim() ? v.newPassword.trim() : undefined,
       });
       message.success(u.updated);
@@ -260,6 +268,8 @@ export function AdminUsersPage() {
     },
   ];
 
+  const fullUserAdmin = profile ? isAdminRole(profile.role) : false;
+
   const columns: ColumnsType<ManagedUserRow> = [
     {
       title: u.colNameDisplay,
@@ -294,6 +304,8 @@ export function AdminUsersPage() {
       render: (r: AppRole) =>
         r === "ADMIN" ? (
           <Tag color="blue">{u.roleAdmin}</Tag>
+        ) : r === "MANAGER" ? (
+          <Tag color="purple">{u.roleManager}</Tag>
         ) : (
           <Tag>{u.roleStaff}</Tag>
         ),
@@ -319,9 +331,11 @@ export function AdminUsersPage() {
           <Button type="link" size="small" onClick={() => openEdit(row)}>
             {common.edit}
           </Button>
-          <Button type="link" size="small" danger onClick={() => onDelete(row)}>
-            {common.delete}
-          </Button>
+          {fullUserAdmin ? (
+            <Button type="link" size="small" danger onClick={() => onDelete(row)}>
+              {common.delete}
+            </Button>
+          ) : null}
         </Space>
       ),
     },
@@ -335,8 +349,8 @@ export function AdminUsersPage() {
     );
   }
 
-  if (!isAdminRole(profile.role)) {
-    return <Navigate to="/admin/dashboard" replace />;
+  if (!isAdminRole(profile.role) && !isManagerRole(profile.role)) {
+    return <Navigate to="/admin/orders" replace />;
   }
 
   return (
@@ -349,9 +363,11 @@ export function AdminUsersPage() {
       </Text>
       <Card
         extra={
-          <Button type="primary" onClick={openCreate}>
-            {u.newUser}
-          </Button>
+          fullUserAdmin ? (
+            <Button type="primary" onClick={openCreate}>
+              {u.newUser}
+            </Button>
+          ) : null
         }>
         <Table<ManagedUserRow>
           rowKey="id"
@@ -414,6 +430,7 @@ export function AdminUsersPage() {
             <Select
               options={[
                 { value: "ADMIN", label: u.roleAdmin },
+                { value: "MANAGER", label: u.roleManager },
                 { value: "STAFF", label: u.roleStaff },
               ]}
             />
@@ -422,7 +439,8 @@ export function AdminUsersPage() {
             shouldUpdate={(prev, cur) => prev.role !== cur.role}
             noStyle>
             {() =>
-              createForm.getFieldValue("role") === "STAFF" ? (
+              createForm.getFieldValue("role") === "STAFF" ||
+              createForm.getFieldValue("role") === "MANAGER" ? (
                 <Form.Item name="boothIds" label={u.labelBooths}>
                   <Select
                     mode="multiple"
@@ -454,6 +472,7 @@ export function AdminUsersPage() {
           layout="vertical"
           style={{ marginTop: 8 }}
           onValuesChange={(changed) => {
+            if (!fullUserAdmin) return;
             if ("role" in changed && changed.role === "ADMIN") {
               editForm.setFieldsValue({ boothIds: [] });
             }
@@ -473,36 +492,57 @@ export function AdminUsersPage() {
             rules={[{ required: true, message: common.required }]}>
             <Input placeholder={u.namePh} autoComplete="off" />
           </Form.Item>
-          <Form.Item
-            name="role"
-            label={u.labelRole}
-            rules={[{ required: true }]}>
-            <Select
-              options={[
-                { value: "ADMIN", label: u.roleAdmin },
-                { value: "STAFF", label: u.roleStaff },
-              ]}
-            />
-          </Form.Item>
-          <Form.Item
-            shouldUpdate={(prev, cur) => prev.role !== cur.role}
-            noStyle>
-            {() =>
-              editForm.getFieldValue("role") === "STAFF" ? (
-                <Form.Item name="boothIds" label={u.labelBooths}>
-                  <Select
-                    mode="multiple"
-                    allowClear
-                    placeholder={u.boothSelectPh}
-                    options={boothOptions}
-                    optionFilterProp="label"
-                  />
-                </Form.Item>
-              ) : (
-                <Text type="secondary">{u.adminBoothsHint}</Text>
-              )
-            }
-          </Form.Item>
+          {fullUserAdmin ? (
+            <>
+              <Form.Item
+                name="role"
+                label={u.labelRole}
+                rules={[{ required: true }]}>
+                <Select
+                  options={[
+                    { value: "ADMIN", label: u.roleAdmin },
+                    { value: "MANAGER", label: u.roleManager },
+                    { value: "STAFF", label: u.roleStaff },
+                  ]}
+                />
+              </Form.Item>
+              <Form.Item
+                shouldUpdate={(prev, cur) => prev.role !== cur.role}
+                noStyle>
+                {() =>
+                  editForm.getFieldValue("role") === "STAFF" ||
+                  editForm.getFieldValue("role") === "MANAGER" ? (
+                    <Form.Item name="boothIds" label={u.labelBooths}>
+                      <Select
+                        mode="multiple"
+                        allowClear
+                        placeholder={u.boothSelectPh}
+                        options={boothOptions}
+                        optionFilterProp="label"
+                      />
+                    </Form.Item>
+                  ) : (
+                    <Text type="secondary">{u.adminBoothsHint}</Text>
+                  )
+                }
+              </Form.Item>
+            </>
+          ) : (
+            <>
+              <Form.Item label={u.labelRole}>
+                <Text type="secondary">{u.roleStaff}</Text>
+              </Form.Item>
+              <Form.Item label={u.labelBooths}>
+                <Text type="secondary">
+                  {editing && editing.boothIds.length > 0
+                    ? editing.boothIds
+                        .map((id) => booths.find((b) => b.id === id)?.name ?? id.slice(0, 8))
+                        .join("、")
+                    : common.dash}
+                </Text>
+              </Form.Item>
+            </>
+          )}
           <Form.Item
             name="newPassword"
             label={u.labelResetPassword}

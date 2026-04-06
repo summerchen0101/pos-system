@@ -1,7 +1,7 @@
 import { Button, Card, Spin, Typography } from 'antd'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { isAdminRole } from '../api/authProfile'
+import { isAdminRole, isManagerRole } from '../api/authProfile'
 import { listBoothsAdmin } from '../api/boothsAdmin'
 import { useAuth } from '../auth/AuthContext'
 import { zhtw } from '../locales/zhTW'
@@ -52,7 +52,7 @@ export function PosBoothPickerPage() {
     <div className="pos-layout" style={{ gridTemplateColumns: '1fr', placeItems: 'center', padding: '2rem' }}>
       <div style={{ maxWidth: 520, width: '100%' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-          {profile && isAdminRole(profile.role) ? (
+          {profile && (isAdminRole(profile.role) || isManagerRole(profile.role)) ? (
             <Link className="pos-admin-link" to="/admin">
               {zhtw.pos.adminLink}
             </Link>

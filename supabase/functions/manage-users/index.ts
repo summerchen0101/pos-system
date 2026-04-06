@@ -27,12 +27,14 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-async function requireAdmin(
+type ActorRole = "ADMIN" | "MANAGER";
+
+async function requireManageUsersActor(
   req: Request,
   supabaseUrl: string,
   serviceKey: string,
 ): Promise<
-  | { ok: true; adminClient: SupabaseClient; actorId: string }
+  | { ok: true; adminClient: SupabaseClient; actorId: string; actorRole: ActorRole }
   | { ok: false; response: Response }
 > {
   const authHeader = req.headers.get("Authorization") ?? "";
@@ -57,11 +59,12 @@ async function requireAdmin(
     .eq("id", actorId)
     .single();
 
-  if (profile?.role !== "ADMIN") {
+  const r = profile?.role ?? "";
+  if (r !== "ADMIN" && r !== "MANAGER") {
     return { ok: false, response: json({ ok: false, code: "FORBIDDEN" }) };
   }
 
-  return { ok: true, adminClient, actorId };
+  return { ok: true, adminClient, actorId, actorRole: r as ActorRole };
 }
 
 async function fetchAllAuthUsers(adminClient: SupabaseClient) {
@@ -120,11 +123,36 @@ async function syncUserBooths(
 ) {
   const { error: derr } = await adminClient.from("user_booths").delete().eq("user_id", userId);
   if (derr) throw derr;
-  if (role !== "STAFF" || boothIds.length === 0) return;
+  if ((role !== "STAFF" && role !== "MANAGER") || boothIds.length === 0) return;
   const { error: ierr } = await adminClient.from("user_booths").insert(
     boothIds.map((booth_id) => ({ user_id: userId, booth_id })),
   );
   if (ierr) throw ierr;
+}
+
+async function managerAssignedBoothIds(
+  adminClient: SupabaseClient,
+  managerId: string,
+): Promise<string[]> {
+  const { data, error } = await adminClient.from("user_booths").select("booth_id").eq("user_id", managerId);
+  if (error) throw error;
+  return (data ?? []).map((r: { booth_id: string }) => r.booth_id);
+}
+
+async function managerSharesBoothWithStaff(
+  adminClient: SupabaseClient,
+  managerId: string,
+  staffUserId: string,
+): Promise<boolean> {
+  const mgrBooths = await managerAssignedBoothIds(adminClient, managerId);
+  if (mgrBooths.length === 0) return false;
+  const mset = new Set(mgrBooths);
+  const { data: ub, error } = await adminClient.from("user_booths").select("booth_id").eq(
+    "user_id",
+    staffUserId,
+  );
+  if (error) throw error;
+  return (ub ?? []).some((r: { booth_id: string }) => mset.has(r.booth_id));
 }
 
 Deno.serve(async (req) => {
@@ -142,9 +170,9 @@ Deno.serve(async (req) => {
     return json({ ok: false, code: "SERVER_MISCONFIGURED" });
   }
 
-  const gate = await requireAdmin(req, supabaseUrl, serviceKey);
+  const gate = await requireManageUsersActor(req, supabaseUrl, serviceKey);
   if (!gate.ok) return gate.response;
-  const { adminClient, actorId } = gate;
+  const { adminClient, actorId, actorRole } = gate;
 
   let body: Record<string, unknown>;
   try {
@@ -163,7 +191,7 @@ Deno.serve(async (req) => {
         .order("name");
       if (pErr) throw pErr;
 
-      const users = (profiles ?? []).map((p: {
+      let users = (profiles ?? []).map((p: {
         id: string;
         name: string;
         role: string;
@@ -179,10 +207,19 @@ Deno.serve(async (req) => {
         boothIds: (p.user_booths ?? []).map((x) => x.booth_id),
       }));
 
+      if (actorRole === "MANAGER") {
+        const mb = await managerAssignedBoothIds(adminClient, actorId);
+        const mset = new Set(mb);
+        users = users.filter((u) => u.role === "STAFF" && u.boothIds.some((b) => mset.has(b)));
+      }
+
       return json({ ok: true, users });
     }
 
     if (action === "create") {
+      if (actorRole !== "ADMIN") {
+        return json({ ok: false, code: "FORBIDDEN" });
+      }
       const usernameRaw = String(body.username ?? "").trim().toLowerCase();
       const password = String(body.password ?? "");
       const name = String(body.name ?? "").trim();
@@ -198,7 +235,9 @@ Deno.serve(async (req) => {
       if (!name) return json({ ok: false, code: "VALIDATION", message: "name" });
       if (!USERNAME_RE.test(usernameRaw)) return json({ ok: false, code: "INVALID_USERNAME" });
       if (password.length < 6) return json({ ok: false, code: "PASSWORD_SHORT" });
-      if (role !== "ADMIN" && role !== "STAFF") return json({ ok: false, code: "VALIDATION", message: "role" });
+      if (role !== "ADMIN" && role !== "MANAGER" && role !== "STAFF") {
+        return json({ ok: false, code: "VALIDATION", message: "role" });
+      }
 
       if (!(await verifyBoothIds(adminClient, boothIds))) {
         return json({ ok: false, code: "INVALID_BOOTHS" });
@@ -259,8 +298,8 @@ Deno.serve(async (req) => {
         body.phone == null || String(body.phone).trim() === ""
           ? null
           : String(body.phone).trim();
-      const role = body.role as string;
-      const boothIds = Array.isArray(body.boothIds)
+      let role = body.role as string;
+      let boothIds = Array.isArray(body.boothIds)
         ? (body.boothIds as unknown[]).map((x) => String(x))
         : [];
       const passwordRaw = body.password;
@@ -272,13 +311,38 @@ Deno.serve(async (req) => {
       if (!UUID_RE.test(userId)) return json({ ok: false, code: "VALIDATION", message: "userId" });
       if (!name) return json({ ok: false, code: "VALIDATION", message: "name" });
       if (!USERNAME_RE.test(usernameRaw)) return json({ ok: false, code: "INVALID_USERNAME" });
-      if (role !== "ADMIN" && role !== "STAFF") return json({ ok: false, code: "VALIDATION", message: "role" });
       if (password.length > 0 && password.length < 6) {
         return json({ ok: false, code: "PASSWORD_SHORT" });
       }
 
-      if (!(await verifyBoothIds(adminClient, boothIds))) {
-        return json({ ok: false, code: "INVALID_BOOTHS" });
+      const { data: targetProfile, error: tpErr } = await adminClient
+        .from("users")
+        .select("role")
+        .eq("id", userId)
+        .single();
+      if (tpErr || !targetProfile) return json({ ok: false, code: "VALIDATION", message: "user" });
+
+      if (actorRole === "MANAGER") {
+        if ((targetProfile as { role: string }).role !== "STAFF") {
+          return json({ ok: false, code: "FORBIDDEN" });
+        }
+        if (!(await managerSharesBoothWithStaff(adminClient, actorId, userId))) {
+          return json({ ok: false, code: "FORBIDDEN" });
+        }
+        role = "STAFF";
+        const { data: ubCur, error: ubErr } = await adminClient
+          .from("user_booths")
+          .select("booth_id")
+          .eq("user_id", userId);
+        if (ubErr) throw ubErr;
+        boothIds = (ubCur ?? []).map((r: { booth_id: string }) => r.booth_id);
+      } else {
+        if (role !== "ADMIN" && role !== "MANAGER" && role !== "STAFF") {
+          return json({ ok: false, code: "VALIDATION", message: "role" });
+        }
+        if (!(await verifyBoothIds(adminClient, boothIds))) {
+          return json({ ok: false, code: "INVALID_BOOTHS" });
+        }
       }
 
       const { data: cur, error: curErr } = await adminClient
@@ -335,13 +399,16 @@ Deno.serve(async (req) => {
         .eq("id", userId);
       if (uErr) throw uErr;
 
-      const effectiveBooths = role === "STAFF" ? boothIds : [];
+      const effectiveBooths = role === "STAFF" || role === "MANAGER" ? boothIds : [];
       await syncUserBooths(adminClient, userId, role, effectiveBooths);
 
       return json({ ok: true });
     }
 
     if (action === "delete") {
+      if (actorRole !== "ADMIN") {
+        return json({ ok: false, code: "FORBIDDEN" });
+      }
       const userId = String(body.userId ?? "");
       if (!UUID_RE.test(userId)) return json({ ok: false, code: "VALIDATION", message: "userId" });
 

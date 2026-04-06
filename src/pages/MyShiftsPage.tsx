@@ -42,6 +42,8 @@ import {
 import { consecutiveMetaByShiftId, logForShiftSegment } from "../lib/shiftConsecutive";
 import { zhtw } from "../locales/zhTW";
 import { useAuth } from "../auth/AuthContext";
+import { isAdminRole } from "../api/authProfile";
+import { Navigate } from "react-router-dom";
 import type { ShiftRow } from "../types/supabase";
 
 const { Title, Text } = Typography;
@@ -90,7 +92,7 @@ export function MyShiftsPage() {
     setLoading(true);
     try {
       const [sh, urows, sw] = await Promise.all([
-        listShiftsInRange(null, weekStart, weekEnd),
+        listShiftsInRange(null, weekStart, weekEnd, { userId }),
         listUsersAdmin(),
         listSwapRequestsForUser(userId),
       ]);
@@ -270,6 +272,10 @@ export function MyShiftsPage() {
         <Text type="secondary">{common.loading}</Text>
       </div>
     );
+  }
+
+  if (isAdminRole(profile.role)) {
+    return <Navigate to="/admin/dashboard" replace />;
   }
 
   return (

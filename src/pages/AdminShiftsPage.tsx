@@ -66,7 +66,7 @@ import {
   type ShiftImportValidateMessages,
 } from "../lib/shiftXlsxImport";
 import { zhtw } from "../locales/zhTW";
-import { isAdminRole } from "../api/authProfile";
+import { isAdminRole, isManagerRole } from "../api/authProfile";
 import { useAuth } from "../auth/AuthContext";
 
 dayjs.extend(utc);
@@ -335,7 +335,9 @@ export function AdminShiftsPage() {
     (boothId: string) => {
       return users.filter(
         (u) =>
-          u.role === "ADMIN" || (u.boothIds && u.boothIds.includes(boothId)),
+          u.role === "ADMIN" ||
+          u.role === "MANAGER" ||
+          (u.boothIds && u.boothIds.includes(boothId)),
       );
     },
     [users],
@@ -718,8 +720,8 @@ export function AdminShiftsPage() {
     );
   }
 
-  if (!isAdminRole(profile.role)) {
-    return <Navigate to="/admin/dashboard" replace />;
+  if (!isAdminRole(profile.role) && !isManagerRole(profile.role)) {
+    return <Navigate to="/admin/orders" replace />;
   }
 
   return (

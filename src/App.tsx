@@ -1,7 +1,8 @@
 import { App as AntdApp, ConfigProvider, theme } from "antd";
 import zhTW from "antd/locale/zh_TW";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { AuthProvider } from "./auth/AuthContext";
+import { defaultAdminHomePath } from "./api/authProfile";
+import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { RequireAuth } from "./auth/RequireAuth";
 import { PosLayout } from "./components/pos/PosLayout";
 import { AdminLayout } from "./layouts/AdminLayout";
@@ -59,6 +60,14 @@ const appTheme = {
   },
 };
 
+function AdminIndexRedirect() {
+  const { profile } = useAuth();
+  if (!profile) {
+    return <Navigate to="/login" replace />;
+  }
+  return <Navigate to={defaultAdminHomePath(profile.role)} replace />;
+}
+
 export default function App() {
   return (
     <ConfigProvider locale={zhTW} theme={appTheme}>
@@ -90,10 +99,7 @@ export default function App() {
                     <AdminLayout />
                   </RequireAuth>
                 }>
-                <Route
-                  index
-                  element={<Navigate to="/admin/dashboard" replace />}
-                />
+                <Route index element={<AdminIndexRedirect />} />
                 <Route path="dashboard" element={<AdminDashboardPage />} />
                 <Route path="users" element={<AdminUsersPage />} />
                 <Route path="booths" element={<AdminBoothsPage />} />

@@ -25,7 +25,7 @@ const p = zhtw.pos;
 
 function canUseClock(profile: UserProfile | null, boothId: string): boolean {
   if (!profile) return false;
-  if (isAdminRole(profile.role)) return true;
+  if (isAdminRole(profile.role)) return false;
   return profile.boothIds.includes(boothId);
 }
 

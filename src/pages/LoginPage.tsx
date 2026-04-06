@@ -1,7 +1,7 @@
 import { App, Button, Card, Form, Input, Spin, Typography } from "antd";
 import { useEffect } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { isAdminRole } from "../api/authProfile";
+import { prefersAdminDashboardLanding } from "../api/authProfile";
 import { useAuth } from "../auth/AuthContext";
 import { zhtw } from "../locales/zhTW";
 import "../components/pos/pos.css";
@@ -22,7 +22,7 @@ export function LoginPage() {
       const target =
         from && from !== "/login"
           ? from
-          : isAdminRole(profile.role)
+          : prefersAdminDashboardLanding(profile.role)
             ? "/admin/dashboard"
             : "/";
       navigate(target, { replace: true });

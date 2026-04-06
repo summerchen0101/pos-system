@@ -1,6 +1,6 @@
 import { supabase } from '../supabase'
 
-export type AppRole = 'ADMIN' | 'STAFF'
+export type AppRole = 'ADMIN' | 'MANAGER' | 'STAFF'
 
 export type UserProfile = {
   id: string
@@ -13,6 +13,20 @@ export type UserProfile = {
 
 export function isAdminRole(role: AppRole): boolean {
   return role === 'ADMIN'
+}
+
+export function isManagerRole(role: AppRole): boolean {
+  return role === 'MANAGER'
+}
+
+/** Post-login: ADMIN and MANAGER land on admin dashboard. */
+export function prefersAdminDashboardLanding(role: AppRole): boolean {
+  return isAdminRole(role) || isManagerRole(role)
+}
+
+/** Default `/admin` index: STAFF goes to orders (no dashboard). */
+export function defaultAdminHomePath(role: AppRole): string {
+  return prefersAdminDashboardLanding(role) ? '/admin/dashboard' : '/admin/orders'
 }
 
 export async function fetchUserProfile(): Promise<UserProfile | null> {

@@ -67,7 +67,6 @@ export type ClockLogsReportVariant = "admin" | "staff";
 
 export function ClockLogsReportPage({ variant }: { variant: ClockLogsReportVariant }) {
   const { profile } = useAuth();
-  const isAdmin = profile ? isAdminRole(profile.role) : false;
 
   const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>(() => [
     dayjs().tz("Asia/Taipei").startOf("day"),
@@ -197,7 +196,7 @@ export function ClockLogsReportPage({ variant }: { variant: ClockLogsReportVaria
     );
   }
 
-  if (variant === "admin" && !isAdmin) {
+  if (variant === "staff" && isAdminRole(profile.role)) {
     return <Navigate to="/admin/dashboard" replace />;
   }
 

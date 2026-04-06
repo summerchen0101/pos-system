@@ -69,7 +69,7 @@ export async function createManagedUser(
       password: input.password,
       name: input.name.trim(),
       role: input.role,
-      boothIds: input.role === 'STAFF' ? input.boothIds : [],
+      boothIds: input.role === 'STAFF' || input.role === 'MANAGER' ? input.boothIds : [],
       phone: input.phone?.trim() ?? '',
     },
     accessToken,
@@ -94,7 +94,7 @@ export async function updateManagedUser(
     username: input.username.trim().toLowerCase(),
     name: input.name.trim(),
     role: input.role,
-    boothIds: input.role === 'STAFF' ? input.boothIds : [],
+    boothIds: input.role === 'STAFF' || input.role === 'MANAGER' ? input.boothIds : [],
     phone: input.phone?.trim() ?? '',
   }
   if (input.password && input.password.length > 0) {

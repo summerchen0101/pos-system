@@ -138,7 +138,7 @@ export type OrderItemRow = {
 export type AppUserRow = {
   id: string
   name: string
-  role: 'ADMIN' | 'STAFF'
+  role: 'ADMIN' | 'MANAGER' | 'STAFF'
   username: string
   phone: string | null
 }

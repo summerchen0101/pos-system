@@ -21,19 +21,59 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { isAdminRole } from "../api/authProfile";
+import {
+  defaultAdminHomePath,
+  isAdminRole,
+  isManagerRole,
+  type AppRole,
+} from "../api/authProfile";
 import { useAuth } from "../auth/AuthContext";
 import { zhtw } from "../locales/zhTW";
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 
-const STAFF_MENU_KEYS = new Set([
+/** Sidebar paths in display order (ADMIN). */
+const ADMIN_MENU_KEYS = new Set([
   "/admin/dashboard",
   "/admin/orders",
+  "/admin/clock-logs",
+  "/admin/categories",
+  "/admin/products",
+  "/admin/booths",
+  "/admin/promotions",
+  "/admin/gifts",
+  "/admin/shifts",
+  "/admin/users",
+]);
+
+const MANAGER_MENU_KEYS = new Set([
+  "/admin/dashboard",
+  "/admin/orders",
+  "/admin/clock-logs",
+  "/admin/shifts",
+  "/admin/my-shifts",
+  "/admin/my-clock-logs",
+  "/admin/users",
+]);
+
+const STAFF_MENU_KEYS = new Set([
+  "/admin/orders",
+  "/admin/clock-logs",
   "/admin/my-shifts",
   "/admin/my-clock-logs",
 ]);
+
+function menuKeysForRole(role: AppRole): Set<string> {
+  if (isAdminRole(role)) return ADMIN_MENU_KEYS;
+  if (isManagerRole(role)) return MANAGER_MENU_KEYS;
+  return STAFF_MENU_KEYS;
+}
+
+function pathAllowedForRole(pathname: string, role: AppRole): boolean {
+  const allowed = menuKeysForRole(role);
+  return [...allowed].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
 
 type MenuDef = { key: string; icon: ReactNode; label: string };
 
@@ -51,14 +91,14 @@ export function AdminLayout() {
         label: zhtw.admin.layout.menuDashboard,
       },
       {
-        key: "/admin/users",
-        icon: <UserOutlined />,
-        label: zhtw.admin.layout.menuUsers,
+        key: "/admin/orders",
+        icon: <HistoryOutlined />,
+        label: zhtw.admin.layout.menuOrders,
       },
       {
-        key: "/admin/booths",
-        icon: <ShopOutlined />,
-        label: zhtw.admin.layout.menuBooths,
+        key: "/admin/clock-logs",
+        icon: <ClockCircleOutlined />,
+        label: zhtw.admin.layout.menuClockLogs,
       },
       {
         key: "/admin/categories",
@@ -71,14 +111,29 @@ export function AdminLayout() {
         label: zhtw.admin.layout.menuProducts,
       },
       {
-        key: "/admin/gifts",
-        icon: <SkinOutlined />,
-        label: zhtw.admin.layout.menuGifts,
+        key: "/admin/booths",
+        icon: <ShopOutlined />,
+        label: zhtw.admin.layout.menuBooths,
       },
       {
         key: "/admin/promotions",
         icon: <GiftOutlined />,
         label: zhtw.admin.layout.menuPromotions,
+      },
+      {
+        key: "/admin/gifts",
+        icon: <SkinOutlined />,
+        label: zhtw.admin.layout.menuGifts,
+      },
+      {
+        key: "/admin/shifts",
+        icon: <ScheduleOutlined />,
+        label: zhtw.admin.layout.menuShifts,
+      },
+      {
+        key: "/admin/users",
+        icon: <UserOutlined />,
+        label: zhtw.admin.layout.menuUsers,
       },
       {
         key: "/admin/my-shifts",
@@ -90,45 +145,32 @@ export function AdminLayout() {
         icon: <ClockCircleOutlined />,
         label: zhtw.admin.layout.menuMyClockLogs,
       },
-      {
-        key: "/admin/shifts",
-        icon: <ScheduleOutlined />,
-        label: zhtw.admin.layout.menuShifts,
-      },
-      {
-        key: "/admin/clock-logs",
-        icon: <ClockCircleOutlined />,
-        label: zhtw.admin.layout.menuClockLogs,
-      },
-      {
-        key: "/admin/orders",
-        icon: <HistoryOutlined />,
-        label: zhtw.admin.layout.menuOrders,
-      },
     ],
     [],
   );
 
   const menuItems = useMemo(() => {
-    if (profile && isAdminRole(profile.role)) {
-      return fullMenuItems.filter((m) => m.key !== "/admin/my-clock-logs");
-    }
-    return fullMenuItems.filter((m) => STAFF_MENU_KEYS.has(m.key));
+    if (!profile) return [];
+    const allowed = menuKeysForRole(profile.role);
+    return fullMenuItems.filter((m) => allowed.has(m.key));
   }, [fullMenuItems, profile]);
 
   const selectedKeys = useMemo(() => {
     const match = menuItems.find((m) => location.pathname.startsWith(m.key));
-    return match ? [match.key] : ["/admin/dashboard"];
+    return match
+      ? [match.key]
+      : menuItems.length > 0
+        ? [menuItems[0].key]
+        : ["/admin/dashboard"];
   }, [location.pathname, menuItems]);
 
-  const staffBlocked =
+  const blocked =
     profile &&
-    !isAdminRole(profile.role) &&
     location.pathname.startsWith("/admin") &&
-    !STAFF_MENU_KEYS.has(location.pathname);
+    !pathAllowedForRole(location.pathname, profile.role);
 
-  if (staffBlocked) {
-    return <Navigate to="/admin/dashboard" replace />;
+  if (blocked) {
+    return <Navigate to={defaultAdminHomePath(profile.role)} replace />;
   }
 
   return (
@@ -173,7 +215,9 @@ export function AdminLayout() {
                 {profile.name} ·{" "}
                 {isAdminRole(profile.role)
                   ? zhtw.admin.layout.roleAdmin
-                  : zhtw.admin.layout.roleStaff}
+                  : isManagerRole(profile.role)
+                    ? zhtw.admin.layout.roleManager
+                    : zhtw.admin.layout.roleStaff}
               </Text>
             ) : null}
             <Link to="/" style={{ color: token.colorLink, fontWeight: 500 }}>
