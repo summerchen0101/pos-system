@@ -20,6 +20,10 @@ export type ProductBundleGroup = {
 /** `price` is in TWD minor units (1 = NT$0.01). */
 export type Product = {
   id: string
+  /** Within-category order for POS / admin (global). */
+  sortOrder: number
+  /** From `categories.sort_order` for POS tab ordering; large value when uncategorized. */
+  categorySortOrder: number
   name: string
   nameEn: string | null
   description: string | null

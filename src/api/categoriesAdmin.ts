@@ -37,10 +37,25 @@ export async function listCategoriesAdmin(): Promise<Category[]> {
   return (data ?? []).map((r) => mapRow(r as CategoryRow))
 }
 
+/** Batch-assign `sort_order` from array index (`1..n`) for the given category ids. */
+export async function updateCategoriesOrder(ids: string[]): Promise<void> {
+  const unique = [...new Set(ids)].filter(Boolean)
+  for (let i = 0; i < unique.length; i++) {
+    const { error } = await supabase.from('categories').update({ sort_order: i + 1 }).eq('id', unique[i])
+    if (error) throw error
+  }
+}
+
 export async function createCategory(input: CategoryInput): Promise<Category> {
+  const { data: maxRows } = await supabase
+    .from('categories')
+    .select('sort_order')
+    .order('sort_order', { ascending: false })
+    .limit(1)
+  const nextOrder = Math.trunc(Number(maxRows?.[0]?.sort_order) || 0) + 1
   const { data, error } = await supabase
     .from('categories')
-    .insert(rowPayload(input))
+    .insert(rowPayload({ ...input, sortOrder: nextOrder }))
     .select('id, name, sort_order, is_active')
     .single()
 

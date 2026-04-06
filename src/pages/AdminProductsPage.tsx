@@ -1,4 +1,21 @@
-import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
+import {
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { HolderOutlined, MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   App,
   AutoComplete,
@@ -14,11 +31,12 @@ import {
   Space,
   Switch,
   Table,
+  Tabs,
   Tag,
   Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useCallback, useEffect, useMemo, useState, type Key } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type Key } from "react";
 import { listCategoriesAdmin } from "../api/categoriesAdmin";
 import {
   bulkPatchProducts,
@@ -27,6 +45,7 @@ import {
   listDistinctProductSizes,
   listProductsAdmin,
   updateProduct,
+  updateProductsOrder,
   type BundleGroupInput,
   type ProductBulkPatch,
   type ProductInput,
@@ -35,6 +54,8 @@ import {
 import { zhtw } from "../locales/zhTW";
 import { formatMoney } from "../lib/money";
 import type { Category, Product, ProductKind } from "../types/pos";
+
+const UNCATEGORIZED_SORT_KEY = "__uncategorized__";
 
 const { Title, Text } = Typography;
 const p = zhtw.admin.products;
@@ -99,6 +120,73 @@ function toBundleGroupsInput(rows: BundleGroupFormRow[] | undefined): BundleGrou
   });
 }
 
+function buildProductOrderMap(
+  plist: Product[],
+  categoryIdsOrdered: string[],
+): Record<string, string[]> {
+  const orderMap: Record<string, string[]> = {};
+  for (const id of categoryIdsOrdered) orderMap[id] = [];
+  const unc: string[] = [];
+  for (const p of plist) {
+    if (!p.categoryId) {
+      unc.push(p.id);
+      continue;
+    }
+    if (!orderMap[p.categoryId]) orderMap[p.categoryId] = [];
+    orderMap[p.categoryId].push(p.id);
+  }
+  if (unc.length > 0) orderMap[UNCATEGORIZED_SORT_KEY] = unc;
+  return orderMap;
+}
+
+function SortableProductOrderRow(props: { product: Product; categoryKey: string }) {
+  const { product: p, categoryKey } = props;
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: p.id,
+    data: { dndType: "product" as const, categoryKey },
+  });
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    boxShadow: isDragging ? "0 6px 20px rgba(0,0,0,0.2)" : undefined,
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "8px 12px",
+    marginBottom: 6,
+    borderRadius: 8,
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.02)",
+  };
+  const catLabel = p.categoryName?.trim() || "";
+  return (
+    <div ref={setNodeRef} style={style}>
+      <button
+        type="button"
+        aria-label="排序"
+        className="admin-catalog-sort__handle"
+        {...attributes}
+        {...listeners}>
+        <HolderOutlined />
+      </button>
+      <div>
+        <Text>{p.name}</Text>
+        {catLabel ? (
+          <Text type="secondary" style={{ marginLeft: 8 }}>
+            （{catLabel}）
+          </Text>
+        ) : null}
+        <div>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {p.sku}
+            {p.size?.trim() ? ` · ${p.size}` : ""}
+          </Text>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function toInput(values: FormValues): ProductInput {
   const kind = values.productKind ?? "STANDARD";
   return {
@@ -121,6 +209,12 @@ export function AdminProductsPage() {
   const [form] = Form.useForm<FormValues>();
   const [bulkForm] = Form.useForm<BulkFormValues>();
   const [filterForm] = Form.useForm<FilterFormValues>();
+  const [adminTab, setAdminTab] = useState<string>("list");
+  const [sortLoading, setSortLoading] = useState(false);
+  /** Category id order for grouping product sort blocks (from server; not draggable here). */
+  const [sortTabCategoryIds, setSortTabCategoryIds] = useState<string[]>([]);
+  const [sortProductIdsByCategory, setSortProductIdsByCategory] = useState<Record<string, string[]>>({});
+  const [sortSnapshotProducts, setSortSnapshotProducts] = useState<Product[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [sizeOptions, setSizeOptions] = useState<string[]>([]);
@@ -156,6 +250,74 @@ export function AdminProductsPage() {
   const productKindWatch = Form.useWatch("productKind", form) as
     | ProductKind
     | undefined;
+
+  const sortProductsById = useMemo(
+    () => new Map(sortSnapshotProducts.map((p) => [p.id, p])),
+    [sortSnapshotProducts],
+  );
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const loadSortSnapshot = useCallback(async () => {
+    setSortLoading(true);
+    try {
+      const [plist, clist] = await Promise.all([listProductsAdmin(), listCategoriesAdmin()]);
+      setSortSnapshotProducts(plist);
+      setCategories(clist);
+      const catIdSet = new Set(clist.map((c) => c.id));
+      const extraIds = [
+        ...new Set(
+          plist.map((p) => p.categoryId).filter((id): id is string => Boolean(id && !catIdSet.has(id))),
+        ),
+      ];
+      const orderedCatIds = [
+        ...[...clist].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "zh-Hant")).map(
+          (c) => c.id,
+        ),
+        ...extraIds,
+      ];
+      setSortTabCategoryIds(orderedCatIds);
+      setSortProductIdsByCategory(buildProductOrderMap(plist, orderedCatIds));
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : p.sortLoadError);
+      setSortTabCategoryIds([]);
+      setSortProductIdsByCategory({});
+      setSortSnapshotProducts([]);
+    } finally {
+      setSortLoading(false);
+    }
+  }, [message]);
+
+  const onSortDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over) return;
+      const aType = active.data.current?.dndType as string | undefined;
+      if (aType === "product") {
+        const catKey = active.data.current?.categoryKey as string;
+        const overType = over.data.current?.dndType;
+        const overCat = over.data.current?.categoryKey as string;
+        if (overType !== "product" || catKey !== overCat) return;
+        const ids = [...(sortProductIdsByCategory[catKey] ?? [])];
+        const oldIndex = ids.indexOf(String(active.id));
+        const newIndex = ids.indexOf(String(over.id));
+        if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
+        const prevMap = { ...sortProductIdsByCategory };
+        const nextIds = arrayMove(ids, oldIndex, newIndex);
+        setSortProductIdsByCategory({ ...prevMap, [catKey]: nextIds });
+        try {
+          await updateProductsOrder(nextIds);
+        } catch (e) {
+          message.error(e instanceof Error ? e.message : p.sortProductSaveError);
+          setSortProductIdsByCategory(prevMap);
+        }
+      }
+    },
+    [message, sortProductIdsByCategory],
+  );
 
   const componentProductOptions = useMemo(() => {
     return products
@@ -530,6 +692,64 @@ export function AdminProductsPage() {
     },
   ];
 
+  const sortTabContent = (
+    <Card loading={sortLoading}>
+      <Text type="secondary" style={{ display: "block", marginBottom: 16 }}>
+        {p.sortIntro}
+      </Text>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={(e) => void onSortDragEnd(e)}>
+        <Title level={5} style={{ marginTop: 0 }}>
+          {p.sortSectionProducts}
+        </Title>
+        {sortTabCategoryIds.map((catId) => {
+          const pids = sortProductIdsByCategory[catId] ?? [];
+          if (pids.length === 0) return null;
+          const cat = categories.find((c) => c.id === catId);
+          const label = cat?.name ?? sortProductsById.get(pids[0])?.categoryName ?? catId;
+          return (
+            <div key={`grp-${catId}`} style={{ marginBottom: 20 }}>
+              <Text strong style={{ display: "block", marginBottom: 8 }}>
+                {label}
+              </Text>
+              <SortableContext items={pids} strategy={verticalListSortingStrategy}>
+                {pids.map((pid) => {
+                  const pr = sortProductsById.get(pid);
+                  if (!pr) return null;
+                  return <SortableProductOrderRow key={pid} product={pr} categoryKey={catId} />;
+                })}
+              </SortableContext>
+            </div>
+          );
+        })}
+        {(sortProductIdsByCategory[UNCATEGORIZED_SORT_KEY] ?? []).length > 0 ? (
+          <div style={{ marginBottom: 20 }}>
+            <Text strong style={{ display: "block", marginBottom: 8 }}>
+              {p.sortUncategorized}
+            </Text>
+            <SortableContext
+              items={sortProductIdsByCategory[UNCATEGORIZED_SORT_KEY] ?? []}
+              strategy={verticalListSortingStrategy}>
+              {(sortProductIdsByCategory[UNCATEGORIZED_SORT_KEY] ?? []).map((pid) => {
+                const pr = sortProductsById.get(pid);
+                if (!pr) return null;
+                return (
+                  <SortableProductOrderRow
+                    key={pid}
+                    product={pr}
+                    categoryKey={UNCATEGORIZED_SORT_KEY}
+                  />
+                );
+              })}
+            </SortableContext>
+          </div>
+        ) : null}
+      </DndContext>
+    </Card>
+  );
+
   return (
     <div className="admin-page">
       <Space
@@ -542,77 +762,101 @@ export function AdminProductsPage() {
         <Title level={4} style={{ margin: 0 }}>
           {p.pageTitle}
         </Title>
-        <Space>
-          <Button
-            disabled={selectedRowKeys.length === 0}
-            onClick={openBulkEdit}>
-            {p.bulkEdit}
-          </Button>
-          <Button type="primary" onClick={openCreate}>
-            {p.newProduct}
-          </Button>
-        </Space>
+        {adminTab === "list" ? (
+          <Space>
+            <Button
+              disabled={selectedRowKeys.length === 0}
+              onClick={openBulkEdit}>
+              {p.bulkEdit}
+            </Button>
+            <Button type="primary" onClick={openCreate}>
+              {p.newProduct}
+            </Button>
+          </Space>
+        ) : (
+          <span />
+        )}
       </Space>
 
-      <Card>
-        <Form<FilterFormValues>
-          form={filterForm}
-          layout="inline"
-          style={{ marginBottom: 16, rowGap: 8 }}>
-          <Form.Item name="filterName" label={p.filterName}>
-            <Input
-              allowClear
-              placeholder={p.filterNamePh}
-              style={{ width: 168 }}
-            />
-          </Form.Item>
-          <Form.Item name="filterSku" label={p.filterSku}>
-            <Input
-              allowClear
-              placeholder={p.filterSkuPh}
-              style={{ width: 140 }}
-            />
-          </Form.Item>
-          <Form.Item name="filterSize" label={p.filterSize}>
-            <Select
-              allowClear
-              placeholder={p.filterSizeAll}
-              style={{ width: 140 }}
-              options={sizeFilterOptions}
-              showSearch
-              optionFilterProp="label"
-            />
-          </Form.Item>
-          <Form.Item name="filterCategoryId" label={p.filterCategory}>
-            <Select
-              allowClear
-              placeholder={p.filterCategoryAll}
-              style={{ width: 180 }}
-              options={categoryOptions}
-              showSearch
-              optionFilterProp="label"
-            />
-          </Form.Item>
-          <Form.Item>
-            <Button htmlType="button" onClick={resetFilters}>
-              {common.reset}
-            </Button>
-          </Form.Item>
-        </Form>
-        <Table<Product>
-          rowKey="id"
-          loading={loading}
-          columns={columns}
-          dataSource={products}
-          pagination={{ pageSize: 12 }}
-          scroll={{ x: true }}
-          rowSelection={{
-            selectedRowKeys,
-            onChange: setSelectedRowKeys,
-            preserveSelectedRowKeys: true,
-          }}
-        />
-      </Card>
+      <Tabs
+        activeKey={adminTab}
+        onChange={(k) => {
+          setAdminTab(k);
+          if (k === "sort") void loadSortSnapshot();
+        }}
+        items={[
+          {
+            key: "list",
+            label: p.tabList,
+            children: (
+              <Card>
+                <Form<FilterFormValues>
+                  form={filterForm}
+                  layout="inline"
+                  style={{ marginBottom: 16, rowGap: 8 }}>
+                  <Form.Item name="filterName" label={p.filterName}>
+                    <Input
+                      allowClear
+                      placeholder={p.filterNamePh}
+                      style={{ width: 168 }}
+                    />
+                  </Form.Item>
+                  <Form.Item name="filterSku" label={p.filterSku}>
+                    <Input
+                      allowClear
+                      placeholder={p.filterSkuPh}
+                      style={{ width: 140 }}
+                    />
+                  </Form.Item>
+                  <Form.Item name="filterSize" label={p.filterSize}>
+                    <Select
+                      allowClear
+                      placeholder={p.filterSizeAll}
+                      style={{ width: 140 }}
+                      options={sizeFilterOptions}
+                      showSearch
+                      optionFilterProp="label"
+                    />
+                  </Form.Item>
+                  <Form.Item name="filterCategoryId" label={p.filterCategory}>
+                    <Select
+                      allowClear
+                      placeholder={p.filterCategoryAll}
+                      style={{ width: 180 }}
+                      options={categoryOptions}
+                      showSearch
+                      optionFilterProp="label"
+                    />
+                  </Form.Item>
+                  <Form.Item>
+                    <Button htmlType="button" onClick={resetFilters}>
+                      {common.reset}
+                    </Button>
+                  </Form.Item>
+                </Form>
+                <Table<Product>
+                  rowKey="id"
+                  loading={loading}
+                  columns={columns}
+                  dataSource={products}
+                  pagination={{ pageSize: 12 }}
+                  scroll={{ x: true }}
+                  rowSelection={{
+                    selectedRowKeys,
+                    onChange: setSelectedRowKeys,
+                    preserveSelectedRowKeys: true,
+                  }}
+                />
+              </Card>
+            ),
+          },
+          {
+            key: "sort",
+            label: p.tabSort,
+            children: sortTabContent,
+          },
+        ]}
+      />
 
       <Modal
         title={editingId ? p.modalEdit : p.modalCreate}

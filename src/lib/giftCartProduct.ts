@@ -8,6 +8,8 @@ export function syntheticProductForThresholdGift(g: {
 }): Product {
   return {
     id: `gift-product:${g.giftId}`,
+    sortOrder: 0,
+    categorySortOrder: 999999,
     name: g.displayName,
     nameEn: null,
     description: null,

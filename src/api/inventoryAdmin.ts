@@ -91,19 +91,32 @@ export type ProductWithCategory = {
 export async function listProductsForInventory(): Promise<ProductWithCategory[]> {
   const { data, error } = await supabase
     .from('products')
-    .select('id, name, categories(name)')
+    .select('id, name, sort_order, categories(name, sort_order)')
     .eq('is_active', true)
     .in('kind', ['STANDARD', 'CUSTOM_BUNDLE'])
-    .order('name')
   if (error) throw error
-  return (data ?? []).map((r: Record<string, unknown>) => {
-    const c = r.categories as { name: string } | null
+  const rows = (data ?? []).map((r: Record<string, unknown>) => {
+    const c = r.categories as { name: string; sort_order: number } | null
+    const catSo = c?.sort_order
     return {
       id: r.id as string,
       name: r.name as string,
       categoryName: c?.name ?? null,
+      _catSort: catSo !== undefined && catSo !== null ? Math.trunc(Number(catSo) || 0) : 999999,
+      _prodSort: Math.trunc(Number(r.sort_order) || 0),
     }
   })
+  rows.sort(
+    (a, b) =>
+      a._catSort - b._catSort ||
+      a._prodSort - b._prodSort ||
+      a.name.localeCompare(b.name, 'zh-Hant'),
+  )
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    categoryName: r.categoryName,
+  }))
 }
 
 export async function fetchInventoryMatrix(): Promise<{

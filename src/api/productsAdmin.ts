@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import { mapProductRow, productSelectWithCategory, type ProductRowWithCategory } from './productMapper'
+import { mapProductRow, productSelectWithCategory, sortCatalogProducts, type ProductRowWithCategory } from './productMapper'
 import type { Product, ProductBundleGroup, ProductKind } from '../types/pos'
 
 export type BundleGroupInput = {
@@ -23,6 +23,14 @@ export type ProductInput = {
   bundleGroups: BundleGroupInput[]
 }
 
+async function nextProductSortOrder(categoryId: string | null): Promise<number> {
+  let q = supabase.from('products').select('sort_order').order('sort_order', { ascending: false }).limit(1)
+  if (categoryId) q = q.eq('category_id', categoryId)
+  else q = q.is('category_id', null)
+  const { data } = await q.maybeSingle()
+  return Math.trunc(Number((data as { sort_order?: number } | null)?.sort_order) || 0) + 1
+}
+
 function rowPayload(input: ProductInput) {
   return {
     category_id: input.categoryId,
@@ -35,6 +43,15 @@ function rowPayload(input: ProductInput) {
     stock: input.stock,
     is_active: input.isActive,
     kind: input.kind,
+  }
+}
+
+/** Batch-assign `sort_order` from array index (`1..n`) for the given product ids. */
+export async function updateProductsOrder(ids: string[]): Promise<void> {
+  const unique = [...new Set(ids)].filter(Boolean)
+  for (let i = 0; i < unique.length; i++) {
+    const { error } = await supabase.from('products').update({ sort_order: i + 1 }).eq('id', unique[i])
+    if (error) throw error
   }
 }
 
@@ -108,10 +125,13 @@ export async function listProductsAdmin(filters?: ProductListFilters): Promise<P
     q = q.eq('category_id', f.categoryId)
   }
 
-  const { data, error } = await q.order('name', { ascending: true })
+  const { data, error } = await q
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true })
 
   if (error) throw error
-  return (data ?? []).map((row) => mapProductRow(row as ProductRowWithCategory))
+  const list = (data ?? []).map((row) => mapProductRow(row as ProductRowWithCategory))
+  return sortCatalogProducts(list)
 }
 
 /** Distinct non-empty sizes for admin filter / bulk autocomplete options. */
@@ -127,7 +147,12 @@ export async function listDistinctProductSizes(): Promise<string[]> {
 }
 
 export async function createProduct(input: ProductInput): Promise<Product> {
-  const { data, error } = await supabase.from('products').insert(rowPayload(input)).select('id').single()
+  const sortOrder = await nextProductSortOrder(input.categoryId)
+  const { data, error } = await supabase
+    .from('products')
+    .insert({ ...rowPayload(input), sort_order: sortOrder })
+    .select('id')
+    .single()
 
   if (error) throw error
   if (!data?.id) throw new Error('No id returned')
@@ -147,7 +172,19 @@ export async function createProduct(input: ProductInput): Promise<Product> {
 }
 
 export async function updateProduct(id: string, input: ProductInput): Promise<Product> {
-  const { error } = await supabase.from('products').update(rowPayload(input)).eq('id', id)
+  const { data: cur, error: curErr } = await supabase
+    .from('products')
+    .select('category_id')
+    .eq('id', id)
+    .single()
+  if (curErr) throw curErr
+
+  const payload: Record<string, unknown> = rowPayload(input)
+  if ((cur as { category_id: string | null }).category_id !== input.categoryId) {
+    payload.sort_order = await nextProductSortOrder(input.categoryId)
+  }
+
+  const { error } = await supabase.from('products').update(payload).eq('id', id)
   if (error) throw error
 
   if (input.kind === 'CUSTOM_BUNDLE') {

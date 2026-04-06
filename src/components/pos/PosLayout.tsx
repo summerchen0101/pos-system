@@ -30,25 +30,29 @@ function categoryTabLabel(p: Product, uncategorized: string): string {
   return n || uncategorized;
 }
 
-/** Unique categories from catalog; stable key, sorted label (uncategorized last). */
+/** Unique categories from catalog; stable key, sorted by admin `categories.sort_order` (uncategorized last). */
 function categoryTabsFromProducts(
   products: Product[],
   uncategorizedLabel: string,
 ): { key: string; label: string }[] {
-  const byKey = new Map<string, string>();
+  const byKey = new Map<string, { label: string; sort: number }>();
   for (const p of products) {
     const key = categoryTabKey(p);
     if (!byKey.has(key)) {
-      byKey.set(key, categoryTabLabel(p, uncategorizedLabel));
+      byKey.set(key, {
+        label: categoryTabLabel(p, uncategorizedLabel),
+        sort: p.categorySortOrder,
+      });
     }
   }
   return [...byKey.entries()]
-    .sort(([ka, la], [kb, lb]) => {
+    .sort(([ka, a], [kb, b]) => {
       if (ka === UNCATEGORIZED_TAB_KEY) return 1;
       if (kb === UNCATEGORIZED_TAB_KEY) return -1;
-      return la.localeCompare(lb, "zh-Hant");
+      if (a.sort !== b.sort) return a.sort - b.sort;
+      return a.label.localeCompare(b.label, "zh-Hant");
     })
-    .map(([key, label]) => ({ key, label }));
+    .map(([key, v]) => ({ key, label: v.label }));
 }
 
 export function PosLayout() {
@@ -119,7 +123,11 @@ function PosLayoutInner() {
 
   const gridProducts = useMemo(() => {
     if (!displayTab) return [];
-    return products.filter((p) => categoryTabKey(p) === displayTab);
+    const list = products.filter((p) => categoryTabKey(p) === displayTab);
+    return [...list].sort(
+      (a, b) =>
+        a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "zh-Hant"),
+    );
   }, [products, displayTab]);
 
   const standardProductsForBundle = useMemo(

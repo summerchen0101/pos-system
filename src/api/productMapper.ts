@@ -1,4 +1,13 @@
 import type { Product, ProductBundleGroup, ProductKind } from '../types/pos'
+
+/** POS / admin: category order first, then product order within category. */
+export function sortCatalogProducts(products: readonly Product[]): Product[] {
+  return [...products].sort((a, b) => {
+    if (a.categorySortOrder !== b.categorySortOrder) return a.categorySortOrder - b.categorySortOrder
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+    return a.name.localeCompare(b.name, 'zh-Hant')
+  })
+}
 import { PRODUCT_KINDS } from '../types/pos'
 import type { ProductRow } from '../types/supabase'
 
@@ -15,7 +24,7 @@ export type BundleGroupNested = {
 }
 
 export type ProductRowWithCategory = ProductRow & {
-  categories?: { name: string } | null
+  categories?: { name: string; sort_order: number } | null
   bundle_groups?: BundleGroupNested[] | null
 }
 
@@ -48,8 +57,12 @@ function mapBundleGroups(raw: BundleGroupNested[] | null | undefined): ProductBu
 }
 
 export function mapProductRow(row: ProductRowWithCategory): Product {
+  const catSo = row.categories?.sort_order
   return {
     id: row.id,
+    sortOrder: Math.trunc(Number(row.sort_order) || 0),
+    categorySortOrder:
+      catSo !== undefined && catSo !== null ? Math.trunc(Number(catSo) || 0) : 999999,
     name: row.name,
     nameEn: row.name_en,
     description: row.description,
@@ -68,6 +81,7 @@ export function mapProductRow(row: ProductRowWithCategory): Product {
 export const productSelectWithCategory = `
   id,
   category_id,
+  sort_order,
   name,
   name_en,
   description,
@@ -77,7 +91,7 @@ export const productSelectWithCategory = `
   stock,
   is_active,
   kind,
-  categories ( name ),
+  categories ( name, sort_order ),
   bundle_groups!bundle_groups_bundle_product_id_fkey (
     id,
     name,

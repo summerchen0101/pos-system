@@ -485,6 +485,9 @@ export const zhtw = {
       created: "已建立分類",
       updated: "已更新分類",
       deleted: "已刪除",
+      sortIntro:
+        "拖曳列左側圖示調整分類順序；放開後自動儲存。此順序會影響 POS 分類分頁與商品管理中的分組顯示。",
+      sortSaveError: "無法儲存分類順序",
     },
     products: {
       pageTitle: "商品管理",
@@ -573,6 +576,13 @@ export const zhtw = {
       bulkError: "批次更新失敗",
       deleted: "已刪除",
       deleteError: "刪除失敗",
+      tabList: "列表與篩選",
+      tabSort: "拖拉排序",
+      sortIntro: "拖曳列左側圖示調整同分類內商品順序；放開後自動儲存。分類順序請至「分類管理」調整。",
+      sortLoadError: "無法載入排序用資料",
+      sortProductSaveError: "無法儲存商品順序",
+      sortSectionProducts: "商品排序（依分類）",
+      sortUncategorized: "未分類",
     },
     orders: {
       pageTitle: "訂單紀錄",

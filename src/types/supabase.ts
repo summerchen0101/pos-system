@@ -9,6 +9,8 @@ export type CategoryRow = {
 export type ProductRow = {
   id: string
   category_id: string | null
+  /** Display order within the same `category_id` (global across booths). */
+  sort_order: number
   name: string
   name_en: string | null
   description: string | null
@@ -333,7 +335,7 @@ export type Database = {
       }
       products: {
         Row: ProductRow
-        Insert: Omit<ProductRow, 'id'> & { id?: string }
+        Insert: Omit<ProductRow, 'id' | 'sort_order'> & { id?: string; sort_order?: number }
         Update: Partial<ProductRow>
         Relationships: [
           {

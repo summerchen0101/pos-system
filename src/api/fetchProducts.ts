@@ -1,6 +1,6 @@
 import { supabase } from '../supabase'
 import { fetchBoothVisibilityForPos } from './boothVisibilityAdmin'
-import { mapProductRow, productSelectWithCategory, type ProductRowWithCategory } from './productMapper'
+import { mapProductRow, productSelectWithCategory, sortCatalogProducts, type ProductRowWithCategory } from './productMapper'
 import type { Product } from '../types/pos'
 
 export async function fetchProducts(): Promise<Product[]> {
@@ -9,10 +9,11 @@ export async function fetchProducts(): Promise<Product[]> {
     .select(productSelectWithCategory)
     .eq('is_active', true)
     .in('kind', ['STANDARD', 'CUSTOM_BUNDLE'])
+    .order('sort_order', { ascending: true })
     .order('name', { ascending: true })
 
   if (error) throw error
-  return (data ?? []).map((row) => mapProductRow(row as ProductRowWithCategory))
+  return sortCatalogProducts((data ?? []).map((row) => mapProductRow(row as ProductRowWithCategory)))
 }
 
 /** POS: merge per-booth warehouse stock (or legacy products.stock). */
@@ -23,6 +24,7 @@ export async function fetchProductsForPosBooth(boothId: string): Promise<Product
       .select(productSelectWithCategory)
       .eq('is_active', true)
       .in('kind', ['STANDARD', 'CUSTOM_BUNDLE'])
+      .order('sort_order', { ascending: true })
       .order('name', { ascending: true }),
     supabase.rpc('pos_inventory_stocks_for_booth', { p_booth_id: boothId }),
     fetchBoothVisibilityForPos(boothId),
@@ -41,9 +43,11 @@ export async function fetchProductsForPosBooth(boothId: string): Promise<Product
     if (st !== undefined) return { ...p, stock: st }
     return p
   })
-  return mapped.filter((p) => {
-    if (p.categoryId && hiddenCategoryIds.has(p.categoryId)) return false
-    if (hiddenProductIds.has(p.id)) return false
-    return true
-  })
+  return sortCatalogProducts(
+    mapped.filter((p) => {
+      if (p.categoryId && hiddenCategoryIds.has(p.categoryId)) return false
+      if (hiddenProductIds.has(p.id)) return false
+      return true
+    }),
+  )
 }

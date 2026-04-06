@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import { mapProductRow, productSelectWithCategory, type ProductRowWithCategory } from './productMapper'
+import { mapProductRow, productSelectWithCategory, sortCatalogProducts, type ProductRowWithCategory } from './productMapper'
 import type { Product, ProductKind } from '../types/pos'
 
 export type FetchAllProductsOptions = {
@@ -15,8 +15,9 @@ export async function fetchAllProducts(options?: FetchAllProductsOptions): Promi
     .from('products')
     .select(productSelectWithCategory)
     .in('kind', kinds)
+    .order('sort_order', { ascending: true })
     .order('name', { ascending: true })
 
   if (error) throw error
-  return (data ?? []).map((row) => mapProductRow(row as ProductRowWithCategory))
+  return sortCatalogProducts((data ?? []).map((row) => mapProductRow(row as ProductRowWithCategory)))
 }
