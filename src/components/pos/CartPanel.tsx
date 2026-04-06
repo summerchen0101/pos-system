@@ -1,5 +1,6 @@
 import { App, Space, Tag } from 'antd'
 import { useMemo, useState } from 'react'
+import { usePosCashier } from '../../context/PosCashierContext'
 import { checkoutOrder, type CheckoutLinePayload } from '../../api/ordersApi'
 import { useCartPromotionTotals } from '../../hooks/useCartPromotionTotals'
 import { zhtw } from '../../locales/zhTW'
@@ -28,6 +29,7 @@ type Props = {
 
 export function CartPanel({ boothId, promotions, products, promotionsError }: Props) {
   const { message } = App.useApp()
+  const { cashier } = usePosCashier()
   const lines = useCartStore((s) => s.lines)
   const manualPromotionIds = useCartStore((s) => s.manualPromotionIds)
   const increment = useCartStore((s) => s.increment)
@@ -149,6 +151,7 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
             discountAmountCents: totals.discountCents,
             finalAmountCents: totals.finalCents,
             boothId,
+            cashierUserId: cashier?.userId ?? null,
           },
           checkoutLines,
           {
@@ -168,14 +171,10 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
         const raw = e && typeof e === 'object' && 'message' in e ? String((e as { message: string }).message) : ''
         const msg = raw.includes('insufficient_stock')
           ? zhtw.pos.checkoutInsufficient
-          : raw.includes('not_authenticated')
-            ? zhtw.pos.checkoutNeedLogin
-            : raw.includes('booth_forbidden')
-              ? zhtw.pos.checkoutBoothForbidden
-              : raw.includes('promotion_not_allowed_for_booth') ||
-                  raw.includes('invalid_promotion_id')
-                ? zhtw.pos.checkoutPromotionInvalid
-                : zhtw.pos.checkoutFailed
+          : raw.includes('promotion_not_allowed_for_booth') ||
+              raw.includes('invalid_promotion_id')
+            ? zhtw.pos.checkoutPromotionInvalid
+            : zhtw.pos.checkoutFailed
         message.error(msg)
         return
       }

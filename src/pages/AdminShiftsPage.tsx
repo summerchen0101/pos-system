@@ -178,11 +178,13 @@ function adminShiftClockDots(
   sh: ShiftWithNames,
   meta: ReturnType<typeof consecutiveMetaByShiftId>,
   dayList: ShiftWithNames[],
-  logs: { shift_id: string; clock_in_at: string | null; clock_out_at: string | null }[],
+  logs: { shift_id: string | null; clock_in_at: string | null; clock_out_at: string | null }[],
   nowTaipei: dayjs.Dayjs,
 ) {
   const m = meta.get(sh.id)!;
-  const logMap = new Map(logs.map((l) => [l.shift_id, l]));
+  const logMap = new Map(
+    logs.filter((l): l is typeof l & { shift_id: string } => l.shift_id != null).map((l) => [l.shift_id, l]),
+  );
   const log = logForShiftSegment(sh.id, meta, logMap);
   const head = dayList.find((x) => x.id === m.headId) ?? sh;
   const tail = m.tail;
@@ -241,7 +243,7 @@ export function AdminShiftsPage() {
   const [users, setUsers] = useState<AdminUserListEntry[]>([]);
   const [shifts, setShifts] = useState<ShiftWithNames[]>([]);
   const [logs, setLogs] = useState<
-    { shift_id: string; clock_in_at: string | null; clock_out_at: string | null }[]
+    { shift_id: string | null; clock_in_at: string | null; clock_out_at: string | null }[]
   >([]);
   const [swaps, setSwaps] = useState<SwapRequestListEntry[]>([]);
   const [swapShiftMap, setSwapShiftMap] = useState<Map<string, ShiftWithNames>>(new Map());

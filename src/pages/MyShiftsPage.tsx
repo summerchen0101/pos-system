@@ -63,9 +63,11 @@ const posCopy = zhtw.pos;
 function clockLabel(
   shiftId: string,
   meta: ReturnType<typeof consecutiveMetaByShiftId>,
-  logs: { shift_id: string; clock_in_at: string | null; clock_out_at: string | null }[],
+  logs: { shift_id: string | null; clock_in_at: string | null; clock_out_at: string | null }[],
 ): string {
-  const logMap = new Map(logs.map((x) => [x.shift_id, x]));
+  const logMap = new Map(
+    logs.filter((x): x is typeof x & { shift_id: string } => x.shift_id != null).map((x) => [x.shift_id, x]),
+  );
   const l = logForShiftSegment(shiftId, meta, logMap);
   if (!l || !l.clock_in_at) return m.clockNone;
   if (!l.clock_out_at) return m.clockInAt(l.clock_in_at);
@@ -85,7 +87,7 @@ export function MyShiftsPage() {
 
   const [shifts, setShifts] = useState<ShiftWithNames[]>([]);
   const [logs, setLogs] = useState<
-    { shift_id: string; clock_in_at: string | null; clock_out_at: string | null }[]
+    { shift_id: string | null; clock_in_at: string | null; clock_out_at: string | null }[]
   >([]);
   const [swaps, setSwaps] = useState<SwapRequestListEntry[]>([]);
   const [userNameById, setUserNameById] = useState<Map<string, string>>(new Map());
@@ -318,7 +320,11 @@ export function MyShiftsPage() {
             const key = d.format("YYYY-MM-DD");
             const list = byDate.get(key) ?? [];
             const consecMeta = consecutiveMetaByShiftId(list);
-            const logMap = new Map(logs.map((l) => [l.shift_id, l]));
+            const logMap = new Map(
+              logs
+                .filter((l): l is typeof l & { shift_id: string } => l.shift_id != null)
+                .map((l) => [l.shift_id, l]),
+            );
             return (
               <Col xs={24} sm={12} md={8} lg={6} xl={4} key={key}>
                 <Card size="small" title={d.format("ddd MM/DD")}>

@@ -147,6 +147,15 @@ export const zhtw = {
     earlyClockOutTitle: "提早下班打卡？",
     earlyClockOutWarn: (m: number) =>
       `⚠️ 距離下班時間還有 ${m} 分鐘，確定要提早下班打卡？`,
+    tabletClockInModalTitle: "上班打卡",
+    tabletClockOutModalTitle: "下班打卡",
+    tabletAlreadyClockedIn: (name: string, at: string) =>
+      at ? `${name} 今日已於 ${at} 完成上班打卡` : `${name} 今日已完成上班打卡`,
+    tabletClockInOk: (name: string, time: string) => `${name} 上班打卡成功 ${time}`,
+    tabletClockOutOk: (name: string, time: string) => `${name} 下班打卡成功 ${time}`,
+    tabletNoClockInForOut: "尚未上班打卡，無法下班打卡",
+    tabletBadCredentials: "帳號或密碼錯誤",
+    tabletEarlyClockOutToast: "⚠️ 提早下班打卡",
   },
   admin: {
     layout: {

@@ -39,7 +39,9 @@ export function interpretPosClockState(
   if (shifts.length === 0) return { kind: "no_shift" };
   const sorted = [...shifts].sort((a, b) => a.start_time.localeCompare(b.start_time));
   const chains = buildConsecutiveChains(sorted);
-  const logByShift = new Map(logs.map((l) => [l.shift_id, l]));
+  const logByShift = new Map(
+    logs.filter((l): l is typeof l & { shift_id: string } => l.shift_id != null).map((l) => [l.shift_id, l]),
+  );
 
   for (const chain of chains) {
     const head = chain[0]!;

@@ -76,22 +76,8 @@ export default function App() {
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
-              <Route
-                path="/"
-                element={
-                  <RequireAuth>
-                    <PosBoothPickerPage />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/pos/:boothId"
-                element={
-                  <RequireAuth>
-                    <PosLayout />
-                  </RequireAuth>
-                }
-              />
+              <Route path="/" element={<PosBoothPickerPage />} />
+              <Route path="/pos/:boothId" element={<PosLayout />} />
               <Route
                 path="/admin"
                 element={

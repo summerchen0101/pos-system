@@ -104,6 +104,8 @@ export type OrderInsert = {
   discountAmountCents: number
   finalAmountCents: number
   boothId: string
+  /** POS: optional cashier (after 上班打卡); falls back to auth.uid() for logged-in admin. */
+  cashierUserId?: string | null
 }
 
 /** Payload for `checkout_order_deduct_stock` line objects (DB snake_case). */
@@ -280,6 +282,7 @@ export async function checkoutOrder(
     p_lines,
     p_promotion_snapshot: promotionSnapshot,
     p_booth_id: input.boothId,
+    p_user_id: input.cashierUserId ?? null,
   })
   if (error) throw error
 }

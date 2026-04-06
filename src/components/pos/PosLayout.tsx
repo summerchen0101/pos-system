@@ -1,19 +1,19 @@
 import { Space, Spin, Tabs, Typography } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { listBoothsAdmin } from "../../api/boothsAdmin";
+import { listBoothsForPos } from "../../api/boothsPos";
 import { fetchProducts } from "../../api/fetchProducts";
 import { fetchPromotions } from "../../api/fetchPromotions";
+import { PosCashierProvider } from "../../context/PosCashierContext";
 import { useManualFreeLineSync } from "../../hooks/useManualFreeLineSync";
 import { useThresholdGiftSync } from "../../hooks/useThresholdGiftSync";
 import { zhtw } from "../../locales/zhTW";
-import { useAuth } from "../../auth/AuthContext";
-import { PosClockActions } from "./PosClockActions";
 import { useCartStore } from "../../store/cartStore";
 import type { Product, Promotion } from "../../types/pos";
 import { BundleApplyModal } from "./BundleApplyModal";
-import { ProductGrid } from "./ProductGrid";
 import { CartPanel } from "./CartPanel";
+import { PosTabletClockButtons } from "./PosTabletClockButtons";
+import { ProductGrid } from "./ProductGrid";
 import "./pos.css";
 
 /** Tab key for products without `category_id`. */
@@ -50,17 +50,22 @@ function categoryTabsFromProducts(
 }
 
 export function PosLayout() {
+  return (
+    <PosCashierProvider>
+      <PosLayoutInner />
+    </PosCashierProvider>
+  );
+}
+
+function PosLayoutInner() {
   const { boothId } = useParams<{ boothId: string }>();
-  const { session } = useAuth();
   const addProduct = useCartStore((s) => s.addProduct);
   const addBundleLines = useCartStore((s) => s.addBundleLines);
 
   const [boothOk, setBoothOk] = useState<boolean | null>(null);
   const [boothLabel, setBoothLabel] = useState<string>("");
   const [products, setProducts] = useState<Product[]>([]);
-  const [bundleModalProduct, setBundleModalProduct] = useState<Product | null>(
-    null,
-  );
+  const [bundleModalProduct, setBundleModalProduct] = useState<Product | null>(null);
   const [activeTab, setActiveTab] = useState<string>("");
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
@@ -75,10 +80,7 @@ export function PosLayout() {
     [products],
   );
 
-  const categoryKeySet = useMemo(
-    () => new Set(tabItems.map((t) => t.key)),
-    [tabItems],
-  );
+  const categoryKeySet = useMemo(() => new Set(tabItems.map((t) => t.key)), [tabItems]);
 
   const displayTab = useMemo(() => {
     if (activeTab && categoryKeySet.has(activeTab)) return activeTab;
@@ -131,7 +133,7 @@ export function PosLayout() {
       setBoothOk(null);
 
       try {
-        const booths = await listBoothsAdmin();
+        const booths = await listBoothsForPos();
         if (cancelled) return;
         const b = booths.find((x) => x.id === boothId);
         if (!b) {
@@ -196,9 +198,7 @@ export function PosLayout() {
           padding: "2rem",
         }}>
         <div style={{ maxWidth: 420, textAlign: "center" }}>
-          <Typography.Title
-            level={4}
-            style={{ color: "var(--pos-text-strong)" }}>
+          <Typography.Title level={4} style={{ color: "var(--pos-text-strong)" }}>
             {zhtw.pos.boothInvalidTitle}
           </Typography.Title>
           <Typography.Paragraph type="secondary">
@@ -214,9 +214,7 @@ export function PosLayout() {
 
   if (boothOk === null && boothId) {
     return (
-      <div
-        className="pos-layout"
-        style={{ gridTemplateColumns: "1fr", placeItems: "center" }}>
+      <div className="pos-layout" style={{ gridTemplateColumns: "1fr", placeItems: "center" }}>
         <Spin size="large" />
       </div>
     );
@@ -229,14 +227,11 @@ export function PosLayout() {
           <div className="pos-main__title-row">
             <h1>{zhtw.pos.registerTitle}</h1>
             <Space wrap size={12} align="center">
-              {session?.user?.id && boothId ? (
+              {boothId ? (
                 <div className="pos-header-clock">
-                  <PosClockActions boothId={boothId} />
+                  <PosTabletClockButtons boothId={boothId} />
                 </div>
               ) : null}
-              <Link className="pos-admin-link" to="/admin">
-                {zhtw.pos.adminLink}
-              </Link>
             </Space>
           </div>
           {boothLabel ? (
@@ -244,9 +239,7 @@ export function PosLayout() {
               {zhtw.pos.currentBooth(boothLabel)}
             </p>
           ) : null}
-          <p
-            className="pos-main__hint"
-            style={boothLabel ? { marginTop: 0 } : undefined}>
+          <p className="pos-main__hint" style={boothLabel ? { marginTop: 0 } : undefined}>
             {zhtw.pos.hint}
           </p>
         </header>
@@ -264,9 +257,7 @@ export function PosLayout() {
           error={productsError}
           onAddProduct={handleAddProduct}
           emptyMessage={
-            products.length === 0
-              ? zhtw.pos.emptyCatalog
-              : zhtw.pos.emptyCategory
+            products.length === 0 ? zhtw.pos.emptyCatalog : zhtw.pos.emptyCategory
           }
         />
       </main>

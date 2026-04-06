@@ -171,8 +171,11 @@ export type ShiftSwapRequestRow = {
 
 export type ShiftClockLogRow = {
   id: string
-  shift_id: string
+  /** Null for tablet ad-hoc clock-in (臨時人員). */
+  shift_id: string | null
   user_id: string
+  booth_id: string | null
+  work_date: string | null
   clock_in_at: string | null
   clock_out_at: string | null
 }
@@ -490,8 +493,17 @@ export type Database = {
           p_lines: Record<string, unknown>[]
           p_promotion_snapshot?: unknown | null
           p_booth_id?: string
+          p_user_id?: string | null
         }
         Returns: string
+      }
+      pos_adhoc_clock_in: {
+        Args: { p_booth_id: string }
+        Returns: undefined
+      }
+      pos_tablet_clock_out: {
+        Args: { p_booth_id: string }
+        Returns: undefined
       }
       clock_shift: {
         Args: { p_shift_id: string; p_action: string }
