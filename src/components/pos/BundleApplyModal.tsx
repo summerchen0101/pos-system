@@ -21,9 +21,21 @@ type Props = {
   catalogProducts: Product[]
   onClose: () => void
   onConfirm: (lines: CartLine[]) => void
+  /** When set, lines are $0 manual-free rows for this FREE_SELECTION / manual promotion. */
+  manualFreePromotionId?: string | null
+  /** Bump to reset internal group qty state (e.g. configuring another instance of the same bundle). */
+  configInstanceKey?: string | null
 }
 
-export function BundleApplyModal({ open, bundleProduct, catalogProducts, onClose, onConfirm }: Props) {
+export function BundleApplyModal({
+  open,
+  bundleProduct,
+  catalogProducts,
+  onClose,
+  onConfirm,
+  manualFreePromotionId = null,
+  configInstanceKey = null,
+}: Props) {
   return (
     <Modal
       title={bundleProduct ? zhtw.pos.bundleModalTitle(bundleProduct.name) : ''}
@@ -34,9 +46,10 @@ export function BundleApplyModal({ open, bundleProduct, catalogProducts, onClose
       footer={null}>
       {bundleProduct ? (
         <BundleModalContent
-          key={bundleProduct.id}
+          key={configInstanceKey ?? bundleProduct.id}
           bundleProduct={bundleProduct}
           catalogProducts={catalogProducts}
+          manualFreePromotionId={manualFreePromotionId}
           onConfirm={onConfirm}
           onClose={onClose}
         />
@@ -48,6 +61,7 @@ export function BundleApplyModal({ open, bundleProduct, catalogProducts, onClose
 type ContentProps = {
   bundleProduct: Product
   catalogProducts: Product[]
+  manualFreePromotionId: string | null
   onConfirm: (lines: CartLine[]) => void
   onClose: () => void
 }
@@ -60,7 +74,13 @@ function groupTotal(qtyByPid: Record<string, number>): number {
   return s
 }
 
-function BundleModalContent({ bundleProduct, catalogProducts, onConfirm, onClose }: ContentProps) {
+function BundleModalContent({
+  bundleProduct,
+  catalogProducts,
+  manualFreePromotionId,
+  onConfirm,
+  onClose,
+}: ContentProps) {
   const { message } = App.useApp()
   const groups = useMemo(
     () => [...bundleProduct.bundleGroups].sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id)),
@@ -103,12 +123,14 @@ function BundleModalContent({ bundleProduct, catalogProducts, onConfirm, onClose
       }
     }
     const instanceId = crypto.randomUUID()
+    const promoId = manualFreePromotionId
     const rootLine: CartLine = {
       lineId: bundleRootLineId(instanceId),
-      product: bundleProduct,
+      product: promoId ? { ...bundleProduct, price: 0 } : bundleProduct,
       quantity: 1,
       isBundleRoot: true,
       bundleInstanceId: instanceId,
+      ...(promoId ? { isManualFree: true as const, manualPromotionId: promoId } : {}),
     }
     const componentLines: CartLine[] = []
     for (const g of groups) {
@@ -124,12 +146,13 @@ function BundleModalContent({ bundleProduct, catalogProducts, onConfirm, onClose
         }
         componentLines.push({
           lineId: bundleComponentLineId(instanceId, g.id, rowPid),
-          product: prod,
+          product: promoId ? { ...prod, price: 0 } : prod,
           quantity: q,
           isBundleComponent: true,
           bundleInstanceId: instanceId,
           bundleRootProductId: bundleProduct.id,
           bundleGroupId: g.id,
+          ...(promoId ? { isManualFree: true as const, manualPromotionId: promoId } : {}),
         })
       }
     }

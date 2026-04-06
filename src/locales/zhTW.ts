@@ -102,6 +102,7 @@ export const zhtw = {
     freeSelectionNotExact: (max: number) =>
       `總件數須剛好 ${max} 件，請調整數量後再確認。`,
     freeSelectionStock: (name: string) => `「${name}」庫存不足`,
+    freeSelectionBundleInvalid: "此組合贈品未設定完成（分組或庫存），請聯絡後台",
     bundleModalTitle: (name: string) => `${name} — 組合選配`,
     bundleHint:
       "請依各分組選擇品項；每一分組的合計件數須與該組要求數一致才可加入購物車。",

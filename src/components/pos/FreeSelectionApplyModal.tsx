@@ -3,8 +3,29 @@ import { useMemo, useState } from 'react'
 import { zhtw } from '../../locales/zhTW'
 import { freeSelectionLineId } from '../../promotions/freeSelectionLines'
 import type { CartLine, Product, Promotion } from '../../types/pos'
+import { BundleApplyModal } from './BundleApplyModal'
 
 const { Text } = Typography
+
+type BundleQueueItem = { product: Product; count: number }
+
+type BundleConfigureStep = {
+  current: Product
+  remaining: number
+  rest: BundleQueueItem[]
+  linesSoFar: CartLine[]
+  standardLines: CartLine[]
+}
+
+function isBundleEligibleForPool(p: Product): boolean {
+  if (p.kind !== 'CUSTOM_BUNDLE') return false
+  if (p.stock < 1) return false
+  const groups = p.bundleGroups ?? []
+  return (
+    groups.length >= 1 &&
+    groups.every((g) => g.requiredQty >= 1 && g.productIds.length > 0)
+  )
+}
 
 function initialQtyMap(promotion: Promotion): Record<string, number> {
   const o: Record<string, number> = {}
@@ -53,8 +74,10 @@ type ContentProps = {
 function FreeSelectionModalContent({ promotion, products, onConfirm, onClose }: ContentProps) {
   const { message } = App.useApp()
   const [qtyByPid, setQtyByPid] = useState(() => initialQtyMap(promotion))
+  const [bundleConfigure, setBundleConfigure] = useState<BundleConfigureStep | null>(null)
 
   const productsById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
+  const standardCatalog = useMemo(() => products.filter((p) => p.kind === 'STANDARD'), [products])
   const requiredTotal = promotion.maxSelectionQty ?? 0
 
   const total = useMemo(() => {
@@ -78,7 +101,9 @@ function FreeSelectionModalContent({ promotion, products, onConfirm, onClose }: 
       message.error(zhtw.pos.freeSelectionNotExact(requiredTotal))
       return
     }
-    const lines: CartLine[] = []
+    const standardLines: CartLine[] = []
+    const bundleQueue: BundleQueueItem[] = []
+
     for (const pid of promotion.selectableProductIds) {
       const q = Math.max(0, Math.trunc(qtyByPid[pid] ?? 0))
       if (q < 1) continue
@@ -88,7 +113,17 @@ function FreeSelectionModalContent({ promotion, products, onConfirm, onClose }: 
         message.error(zhtw.pos.freeSelectionStock(prod.name))
         return
       }
-      lines.push({
+
+      if (prod.kind === 'CUSTOM_BUNDLE') {
+        if (!isBundleEligibleForPool(prod)) {
+          message.error(zhtw.pos.freeSelectionBundleInvalid)
+          return
+        }
+        bundleQueue.push({ product: prod, count: q })
+        continue
+      }
+
+      standardLines.push({
         lineId: freeSelectionLineId(promotion.id, pid),
         product: { ...prod, price: 0 },
         quantity: q,
@@ -96,11 +131,53 @@ function FreeSelectionModalContent({ promotion, products, onConfirm, onClose }: 
         manualPromotionId: promotion.id,
       })
     }
-    if (lines.reduce((a, l) => a + l.quantity, 0) !== requiredTotal) {
+
+    const sumStd = standardLines.reduce((a, l) => a + l.quantity, 0)
+    const sumBundleSlots = bundleQueue.reduce((a, b) => a + b.count, 0)
+    if (sumStd + sumBundleSlots !== requiredTotal) {
       message.error(zhtw.pos.freeSelectionNotExact(requiredTotal))
       return
     }
-    onConfirm(lines)
+
+    if (bundleQueue.length === 0) {
+      onConfirm(standardLines)
+      return
+    }
+
+    const [first, ...rest] = bundleQueue
+    setBundleConfigure({
+      current: first.product,
+      remaining: first.count,
+      rest,
+      linesSoFar: [],
+      standardLines,
+    })
+  }
+
+  const handleBundleConfigureConfirm = (bundleLines: CartLine[]) => {
+    if (!bundleConfigure) return
+    const nextSoFar = [...bundleConfigure.linesSoFar, ...bundleLines]
+    if (bundleConfigure.remaining > 1) {
+      setBundleConfigure({
+        ...bundleConfigure,
+        remaining: bundleConfigure.remaining - 1,
+        linesSoFar: nextSoFar,
+      })
+      return
+    }
+    if (bundleConfigure.rest.length === 0) {
+      onConfirm([...bundleConfigure.standardLines, ...nextSoFar])
+      setBundleConfigure(null)
+      return
+    }
+    const [next, ...r2] = bundleConfigure.rest
+    setBundleConfigure({
+      current: next.product,
+      remaining: next.count,
+      rest: r2,
+      linesSoFar: nextSoFar,
+      standardLines: bundleConfigure.standardLines,
+    })
   }
 
   return (
@@ -145,6 +222,20 @@ function FreeSelectionModalContent({ promotion, products, onConfirm, onClose }: 
           {zhtw.pos.manualPromoApply}
         </Button>
       </Space>
+
+      <BundleApplyModal
+        open={bundleConfigure != null}
+        bundleProduct={bundleConfigure?.current ?? null}
+        catalogProducts={standardCatalog}
+        manualFreePromotionId={promotion.id}
+        configInstanceKey={
+          bundleConfigure
+            ? `${bundleConfigure.current.id}:${bundleConfigure.linesSoFar.length}`
+            : null
+        }
+        onClose={() => setBundleConfigure(null)}
+        onConfirm={handleBundleConfigureConfirm}
+      />
     </>
   )
 }

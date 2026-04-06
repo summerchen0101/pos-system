@@ -82,7 +82,13 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
       if (!p || p.kind !== 'FREE_SELECTION') return
       const max = p.maxSelectionQty ?? 0
       const totalOthers = lines
-        .filter((l) => l.isManualFree && l.manualPromotionId === p.id && l.lineId !== lineId)
+        .filter(
+          (l) =>
+            l.isManualFree &&
+            l.manualPromotionId === p.id &&
+            l.lineId !== lineId &&
+            !l.isBundleComponent,
+        )
         .reduce((a, l) => a + l.quantity, 0)
       const next = line.quantity + 1
       if (totalOthers + next > max) return

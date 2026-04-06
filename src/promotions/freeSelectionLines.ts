@@ -10,7 +10,7 @@ export function isFreeSelectionLineId(lineId: string): boolean {
 }
 
 export function isFreeSelectionCartLine(line: CartLine, promotions: readonly Promotion[]): boolean {
-  if (!line.isManualFree || !line.manualPromotionId) return false
+  if (!line.isManualFree || !line.manualPromotionId || line.isBundleComponent) return false
   const p = promotions.find((x) => x.id === line.manualPromotionId)
   return p?.kind === 'FREE_SELECTION'
 }
@@ -18,6 +18,58 @@ export function isFreeSelectionCartLine(line: CartLine, promotions: readonly Pro
 /**
  * Rebuild FREE_SELECTION lines from current cart, enforcing pool membership, max total qty, and stock.
  */
+function validateManualFreeBundleComponents(
+  bundleProduct: Product,
+  comps: readonly CartLine[],
+  productsById: ReadonlyMap<string, Product>,
+): boolean {
+  const groups = bundleProduct.bundleGroups ?? []
+  for (const g of groups) {
+    const sum = comps
+      .filter((c) => c.bundleGroupId === g.id)
+      .reduce((a, c) => a + c.quantity, 0)
+    if (sum !== g.requiredQty) return false
+  }
+  for (const c of comps) {
+    const cp = productsById.get(c.product.id)
+    if (!cp || c.quantity > cp.stock) return false
+  }
+  return true
+}
+
+function pushValidatedManualFreeBundle(
+  p: Promotion,
+  bundleProduct: Product,
+  root: CartLine,
+  comps: CartLine[],
+  productsById: ReadonlyMap<string, Product>,
+  out: CartLine[],
+): boolean {
+  if (!root.bundleInstanceId || !validateManualFreeBundleComponents(bundleProduct, comps, productsById)) {
+    return false
+  }
+  const rq = Math.max(1, Math.trunc(root.quantity))
+  if (rq !== 1) return false
+  out.push({
+    ...root,
+    product: { ...bundleProduct, price: 0 },
+    quantity: 1,
+    isManualFree: true,
+    manualPromotionId: p.id,
+  })
+  for (const c of comps) {
+    const cp = productsById.get(c.product.id)
+    if (!cp) return false
+    out.push({
+      ...c,
+      product: { ...cp, price: 0 },
+      isManualFree: true,
+      manualPromotionId: p.id,
+    })
+  }
+  return true
+}
+
 export function collectFreeSelectionLines(
   p: Promotion,
   existingManualLines: readonly CartLine[],
@@ -29,7 +81,11 @@ export function collectFreeSelectionLines(
   if (!pool.size || max < 1) return []
 
   const relevant = existingManualLines.filter(
-    (l) => l.isManualFree && l.manualPromotionId === p.id && pool.has(l.product.id),
+    (l) =>
+      l.isManualFree &&
+      l.manualPromotionId === p.id &&
+      !l.isBundleComponent &&
+      pool.has(l.product.id),
   )
 
   const qtyByPid = new Map<string, number>()
@@ -45,6 +101,37 @@ export function collectFreeSelectionLines(
     if (want < 1) continue
     const prod = productsById.get(pid)
     if (!prod) continue
+
+    if (prod.kind === 'CUSTOM_BUNDLE') {
+      const roots = existingManualLines.filter(
+        (l) =>
+          l.isManualFree &&
+          l.manualPromotionId === p.id &&
+          l.isBundleRoot &&
+          l.product.id === pid &&
+          l.bundleInstanceId,
+      )
+      const sortedRoots = [...roots].sort((a, b) =>
+        (a.bundleInstanceId ?? '').localeCompare(b.bundleInstanceId ?? ''),
+      )
+      let take = Math.min(want, sortedRoots.length, remaining)
+      for (let i = 0; i < take; i++) {
+        const root = sortedRoots[i]
+        const bid = root.bundleInstanceId
+        const comps = existingManualLines.filter(
+          (l) =>
+            l.bundleInstanceId === bid && l.isBundleComponent && l.manualPromotionId === p.id,
+        )
+        if (!pushValidatedManualFreeBundle(p, prod, root, comps, productsById, out)) {
+          take = i
+          break
+        }
+        remaining -= 1
+        if (remaining <= 0) break
+      }
+      continue
+    }
+
     const q = Math.min(want, prod.stock, remaining)
     if (q < 1) continue
     out.push({
@@ -72,7 +159,10 @@ export function buildFreeSelectionPromotionsSnapshot(
     const max = p.maxSelectionQty ?? 0
     const prefix = `freeselection:${p.id}:`
     const sel = lines.filter(
-      (l) => l.manualPromotionId === p.id && l.lineId.startsWith(prefix),
+      (l) =>
+        l.manualPromotionId === p.id &&
+        !l.isBundleComponent &&
+        (l.lineId.startsWith(prefix) || !!l.isBundleRoot),
     )
     if (sel.length === 0) continue
     const parts = [...sel]

@@ -13,8 +13,9 @@ function paidStandardLines(lines: readonly CartLine[]): CartLine[] {
   )
 }
 
-function bundleLines(lines: readonly CartLine[]): CartLine[] {
-  return lines.filter((l) => l.isBundleRoot || l.isBundleComponent)
+/** Keeps paid bundles only; manual-free bundles live entirely under `isManualFree` lines. */
+function paidBundleLines(lines: readonly CartLine[]): CartLine[] {
+  return lines.filter((l) => (l.isBundleRoot || l.isBundleComponent) && !l.isManualFree)
 }
 
 function manualLines(lines: readonly CartLine[]): CartLine[] {
@@ -80,7 +81,7 @@ export const useCartStore = create<CartState>((set) => ({
       lines: [
         ...paidStandardLines(state.lines),
         ...manualLines(state.lines),
-        ...bundleLines(state.lines),
+        ...paidBundleLines(state.lines),
         ...newLines,
         ...giftLinesOnly(state.lines),
       ],
@@ -140,7 +141,7 @@ export const useCartStore = create<CartState>((set) => ({
       lines: [
         ...paidStandardLines(state.lines),
         ...manualLines(state.lines),
-        ...bundleLines(state.lines),
+        ...paidBundleLines(state.lines),
         ...giftLines,
       ],
     })),
@@ -150,7 +151,7 @@ export const useCartStore = create<CartState>((set) => ({
       lines: [
         ...paidStandardLines(state.lines),
         ...manualFreeLines,
-        ...bundleLines(state.lines),
+        ...paidBundleLines(state.lines),
         ...giftLinesOnly(state.lines),
       ],
     })),
@@ -162,14 +163,9 @@ export const useCartStore = create<CartState>((set) => ({
         : [...state.manualPromotionIds, promotionId],
       lines: [
         ...paidStandardLines(state.lines),
-        ...state.lines.filter(
-          (l) =>
-            !l.isManualFree ||
-            l.manualPromotionId !== promotionId ||
-            !l.lineId.startsWith(`freeselection:${promotionId}:`),
-        ),
+        ...state.lines.filter((l) => !l.isManualFree || l.manualPromotionId !== promotionId),
         ...newLines,
-        ...bundleLines(state.lines),
+        ...paidBundleLines(state.lines),
         ...giftLinesOnly(state.lines),
       ],
     })),
