@@ -100,6 +100,41 @@ export type ClockReportDerived = {
   lateMinutes: number | null;
 };
 
+/** Single punch-row status on the clock log report (上班 / 下班各自一列). */
+export type ClockEventUiStatus = "ok" | "late" | "very_late" | "early";
+
+/** 有排班：與 shift.start_time 比對；無排班（臨時）一律正常。 */
+export function computeClockInEventStatus(
+  hasSchedule: boolean,
+  shiftDate: string,
+  startTime: string,
+  clockInAt: string,
+): ClockEventUiStatus {
+  if (!hasSchedule) return "ok";
+  const scheduledStart = scheduledBoundaryTaipei(shiftDate, startTime);
+  const lateMin = dayjs(clockInAt).diff(scheduledStart, "minute");
+  if (lateMin <= CLOCK_IN_OUT_TOLERANCE_MIN) return "ok";
+  if (lateMin <= CLOCK_IN_VERY_LATE_MIN) return "late";
+  return "very_late";
+}
+
+/**
+ * 有排班：與 chain 下班時間 end_time 比對（end − 10 前打卡＝提早下班）；
+ * 無排班（臨時）一律正常。
+ */
+export function computeClockOutEventStatus(
+  hasSchedule: boolean,
+  shiftDate: string,
+  tailEndTime: string,
+  clockOutAt: string,
+): ClockEventUiStatus {
+  if (!hasSchedule) return "ok";
+  const scheduledEnd = scheduledBoundaryTaipei(shiftDate, tailEndTime);
+  const threshold = scheduledEnd.subtract(CLOCK_IN_OUT_TOLERANCE_MIN, "minute");
+  if (dayjs(clockOutAt).isBefore(threshold)) return "early";
+  return "ok";
+}
+
 export function computeClockReportDerived(
   row: {
     shift_date: string;

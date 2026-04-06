@@ -15,19 +15,18 @@ import type { ColumnsType } from "antd/es/table";
 import dayjs, { type Dayjs } from "dayjs";
 import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { listBoothsAdmin } from "../api/boothsAdmin";
 import {
   type ClockLogReportRow,
+  countMissingScheduledClockInsToday,
   listClockLogReportRows,
-  shiftKindLabel,
-  summarizeTodayRows,
+  summarizeTodayEventRows,
   taipeiTodayIso,
 } from "../api/clockLogsReport";
 import { isAdminRole } from "../api/authProfile";
 import { useAuth } from "../auth/AuthContext";
-import { formatShiftTime } from "../lib/shiftCalendar";
 import { zhtw } from "../locales/zhTW";
 
 dayjs.extend(utc);
@@ -37,65 +36,29 @@ const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 const c = zhtw.admin.clockLogs;
 
-const tagMutedDark: CSSProperties = {
-  border: "1px solid #434343",
-  color: "#8c8c8c",
-  background: "#1f1f1f",
-};
-
-type StatusFilter =
-  | "all"
-  | "ok"
-  | "late"
-  | "very_late"
-  | "missing_in"
-  | "early_out"
-  | "missing_out";
+type StatusFilter = "all" | "ok" | "late" | "very_late" | "early_out";
 
 function formatAtTaipei(iso: string | null): string {
   if (!iso) return zhtw.common.dash;
   return dayjs(iso).tz("Asia/Taipei").format("YYYY-MM-DD HH:mm");
 }
 
-function clockInTag(row: ClockLogReportRow): { label: string; color: string; style?: CSSProperties } {
-  switch (row.clockInStatus) {
+function eventStatusTag(row: ClockLogReportRow): {
+  label: string;
+  color: string;
+} {
+  switch (row.status) {
     case "ok":
-      return { label: c.inOk, color: "success" };
+      return { label: c.statusOk, color: "success" };
     case "late":
       return { label: c.inLate, color: "warning" };
     case "very_late":
       return { label: c.inVeryLate, color: "error" };
-    case "missing":
-      return { label: c.inMissing, color: "default", style: tagMutedDark };
-    case "upcoming":
-      return { label: c.inUpcoming, color: "default" };
-    default:
-      return { label: "—", color: "default" };
-  }
-}
-
-function clockOutTag(row: ClockLogReportRow): { label: string; color: string; style?: CSSProperties } {
-  switch (row.clockOutStatus) {
-    case "ok":
-      return { label: c.outOk, color: "success" };
     case "early":
       return { label: c.outEarly, color: "warning" };
-    case "missing":
-      return { label: c.outMissing, color: "default", style: tagMutedDark };
-    case "pending":
-      return { label: c.outPending, color: "default" };
-    case "upcoming":
-      return { label: c.outUpcoming, color: "default" };
-    case "na":
-      return { label: c.outNa, color: "default" };
     default:
       return { label: "—", color: "default" };
   }
-}
-
-function rowMatchesOkFilter(r: ClockLogReportRow): boolean {
-  if (r.clockInStatus !== "ok") return false;
-  return r.clockOutStatus !== "early" && r.clockOutStatus !== "missing";
 }
 
 export type ClockLogsReportVariant = "admin" | "staff";
@@ -127,9 +90,16 @@ export function ClockLogsReportPage({ variant }: { variant: ClockLogsReportVaria
     }
   }, [variant]);
 
-  const lockedUserId = variant === "staff" ? profile?.id ?? null : null;
+  /** 「我的打卡紀錄」僅本人；後台打卡紀錄頁的 STAFF 僅本人；MANAGER/ADMIN 不鎖。 */
+  const lockedUserId =
+    variant === "staff"
+      ? profile?.id ?? null
+      : profile?.role === "STAFF"
+        ? profile.id
+        : null;
 
   const load = useCallback(async () => {
+    if (!profile) return;
     if (variant === "staff" && !lockedUserId) return;
     setLoading(true);
     try {
@@ -145,18 +115,25 @@ export function ClockLogsReportPage({ variant }: { variant: ClockLogsReportVaria
         userId: lockedUserId,
       };
 
-      const [tableRows, todayRows] = await Promise.all([
+      const todayOpts = {
+        fromDate: today,
+        toDate: today,
+        boothId: variant === "admin" ? boothId : null,
+        userId: lockedUserId,
+      };
+
+      const [tableRows, todayRows, missing] = await Promise.all([
         listClockLogReportRows(baseOpts),
-        listClockLogReportRows({
-          fromDate: today,
-          toDate: today,
+        listClockLogReportRows(todayOpts),
+        countMissingScheduledClockInsToday({
+          todayIso: today,
           boothId: variant === "admin" ? boothId : null,
           userId: lockedUserId,
         }),
       ]);
 
       setRows(tableRows);
-      setSummary(summarizeTodayRows(todayRows, today));
+      setSummary(summarizeTodayEventRows(todayRows, missing, today));
     } catch {
       setRows([]);
       setSummary({
@@ -168,7 +145,7 @@ export function ClockLogsReportPage({ variant }: { variant: ClockLogsReportVaria
     } finally {
       setLoading(false);
     }
-  }, [boothId, dateRange, lockedUserId, variant]);
+  }, [boothId, dateRange, lockedUserId, profile, variant]);
 
   useEffect(() => {
     void load();
@@ -176,12 +153,12 @@ export function ClockLogsReportPage({ variant }: { variant: ClockLogsReportVaria
 
   const filteredRows = useMemo(() => {
     if (statusFilter === "all") return rows;
-    if (statusFilter === "ok") return rows.filter(rowMatchesOkFilter);
-    if (statusFilter === "late") return rows.filter((r) => r.clockInStatus === "late");
-    if (statusFilter === "very_late") return rows.filter((r) => r.clockInStatus === "very_late");
-    if (statusFilter === "missing_in") return rows.filter((r) => r.clockInStatus === "missing");
-    if (statusFilter === "early_out") return rows.filter((r) => r.clockOutStatus === "early");
-    if (statusFilter === "missing_out") return rows.filter((r) => r.clockOutStatus === "missing");
+    if (statusFilter === "ok") return rows.filter((r) => r.status === "ok");
+    if (statusFilter === "late") return rows.filter((r) => r.kind === "in" && r.status === "late");
+    if (statusFilter === "very_late")
+      return rows.filter((r) => r.kind === "in" && r.status === "very_late");
+    if (statusFilter === "early_out")
+      return rows.filter((r) => r.kind === "out" && r.status === "early");
     return rows;
   }, [rows, statusFilter]);
 
@@ -190,62 +167,25 @@ export function ClockLogsReportPage({ variant }: { variant: ClockLogsReportVaria
       { title: c.colName, dataIndex: "user_name", key: "n", width: 100, ellipsis: true },
       { title: c.colBooth, dataIndex: "booth_name", key: "b", width: 112, ellipsis: true },
       {
-        title: c.colKind,
+        title: c.colPunchType,
         key: "k",
         width: 72,
-        render: (_, r) => shiftKindLabel(r.start_time, c.kindEarly, c.kindLate),
+        render: (_, r) => (r.kind === "in" ? c.punchIn : c.punchOut),
       },
       {
-        title: c.colTimeRange,
-        key: "ss",
-        width: 148,
-        render: (_, r) => {
-          const a = dayjs
-            .tz(`${r.shift_date}T${formatShiftTime(r.start_time)}:00`, "Asia/Taipei")
-            .format("HH:mm");
-          const b = dayjs
-            .tz(`${r.shift_date}T${formatShiftTime(r.end_time)}:00`, "Asia/Taipei")
-            .format("HH:mm");
-          return r.isMergedChain ? `${a}–${b}${c.mergedSuffix}` : `${a}–${b}`;
-        },
+        title: c.colPunchTime,
+        key: "pt",
+        width: 152,
+        render: (_, r) => formatAtTaipei(r.punched_at),
       },
       {
-        title: c.colClockInStatus,
-        key: "cis",
+        title: c.colStatus,
+        key: "st",
         width: 108,
         render: (_, r) => {
-          const t = clockInTag(r);
-          return (
-            <Tag color={t.color} style={t.style}>
-              {t.label}
-            </Tag>
-          );
+          const t = eventStatusTag(r);
+          return <Tag color={t.color}>{t.label}</Tag>;
         },
-      },
-      {
-        title: c.colActualClockIn,
-        key: "ci",
-        width: 140,
-        render: (_, r) => formatAtTaipei(r.clock_in_at),
-      },
-      {
-        title: c.colClockOutStatus,
-        key: "cos",
-        width: 108,
-        render: (_, r) => {
-          const t = clockOutTag(r);
-          return (
-            <Tag color={t.color} style={t.style}>
-              {t.label}
-            </Tag>
-          );
-        },
-      },
-      {
-        title: c.colActualClockOut,
-        key: "co",
-        width: 140,
-        render: (_, r) => formatAtTaipei(r.clock_out_at),
       },
     ],
     [],
@@ -323,9 +263,7 @@ export function ClockLogsReportPage({ variant }: { variant: ClockLogsReportVaria
                   { value: "ok", label: c.statusOk },
                   { value: "late", label: c.statusLate },
                   { value: "very_late", label: c.statusVeryLate },
-                  { value: "missing_in", label: c.statusMissingIn },
                   { value: "early_out", label: c.statusEarlyOut },
-                  { value: "missing_out", label: c.statusMissingOut },
                 ]}
               />
             </>
@@ -333,7 +271,7 @@ export function ClockLogsReportPage({ variant }: { variant: ClockLogsReportVaria
         </Space>
 
         <Table<ClockLogReportRow>
-          rowKey="shift_id"
+          rowKey="rowKey"
           size="small"
           loading={loading}
           columns={columns}
