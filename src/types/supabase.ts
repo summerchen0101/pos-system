@@ -38,6 +38,8 @@ export type BoothRow = {
   id: string
   name: string
   location: string | null
+  start_date: string | null
+  end_date: string | null
 }
 
 export type PromotionRow = {

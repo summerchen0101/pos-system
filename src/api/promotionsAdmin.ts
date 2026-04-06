@@ -47,6 +47,40 @@ export type PromotionInput = {
   thresholdAmountCents: number | null
 }
 
+/** Deep-clone promotion config for another booth (new ids on create). */
+export function promotionToCloneInput(p: Promotion, boothId: string): PromotionInput {
+  return {
+    boothId,
+    // `promotions.code` is globally unique — cannot reuse when copying to another booth.
+    code: p.boothId === boothId ? p.code : null,
+    name: p.name,
+    kind: p.kind,
+    buyQty: p.buyQty,
+    freeQty: p.freeQty,
+    discountPercent: p.discountPercent,
+    active: p.active,
+    applyMode: p.applyMode,
+    fixedDiscountCents: p.fixedDiscountCents,
+    productIds: [...p.productIds],
+    freeItems: p.freeItems.map((x) => ({ productId: x.productId, quantity: x.quantity })),
+    selectableProductIds: [...p.selectableProductIds],
+    maxSelectionQty: p.maxSelectionQty,
+    tiers: p.rules.map((t) => ({
+      minQty: t.minQty,
+      freeQty: t.freeQty,
+      discountPercent: t.discountPercent,
+      sortOrder: t.sortOrder,
+    })),
+    quantityTiers: p.quantityDiscountTiers.map((t) => ({
+      minQty: t.minQty,
+      discountPercent: t.discountPercent,
+      sortOrder: t.sortOrder,
+    })),
+    giftId: p.giftId,
+    thresholdAmountCents: p.thresholdAmountCents,
+  }
+}
+
 function resolvedApplyMode(input: PromotionInput): PromotionApplyMode {
   if (input.kind === 'GIFT_WITH_THRESHOLD') return 'AUTO'
   if (input.kind === 'FREE_ITEMS' || input.kind === 'FREE_SELECTION') return 'MANUAL'

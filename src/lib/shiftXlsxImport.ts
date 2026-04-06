@@ -3,6 +3,7 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 import * as XLSX from "xlsx";
 import type { AdminUserListEntry } from "../api/usersAdmin";
 import type { ShiftUpsertInput } from "../api/shifts";
+import { formatBoothActivityRangeLabel, shiftDateOutsideBoothActivity } from "./boothActivity";
 
 dayjs.extend(customParseFormat);
 
@@ -17,13 +18,20 @@ export const SHIFT_IMPORT_HEADERS = {
 
 const HEADER_VALUES = new Set(Object.values(SHIFT_IMPORT_HEADERS));
 
-export type ShiftImportBoothRef = { id: string; name: string };
+export type ShiftImportBoothRef = {
+  id: string;
+  name: string;
+  start_date?: string | null;
+  end_date?: string | null;
+};
 
 export type ShiftImportPreviewRow = {
   rowIndex: number;
   raw: Record<string, string>;
   errors: string[];
   warnings: string[];
+  /** Row shift date is outside the resolved booth activity range (non-blocking). */
+  boothDateOutOfRange?: boolean;
   /** Set when row is valid enough to attempt import (no blocking errors). */
   payload?: ShiftUpsertInput;
 };
@@ -152,6 +160,7 @@ export type ShiftImportValidateMessages = {
   errEmptyRow: string;
   errMissingHeader: string;
   errNoDataRows: string;
+  warnBoothDateOutOfRange: (rangeLabel: string) => string;
 };
 
 export function parseShiftImportXlsx(
@@ -295,6 +304,7 @@ export function parseShiftImportXlsx(
     }
 
     let payload: ShiftUpsertInput | undefined;
+    let boothDateOutOfRange: boolean | undefined;
     if (
       user &&
       booth &&
@@ -340,12 +350,22 @@ export function parseShiftImportXlsx(
         if (overlapsDb) {
           warnings.push(messages.warnDuplicateDb);
         }
+
+        const rangeLabel = formatBoothActivityRangeLabel(booth.start_date, booth.end_date);
+        if (
+          rangeLabel &&
+          shiftDateOutsideBoothActivity(shiftDate, booth.start_date, booth.end_date)
+        ) {
+          warnings.push(messages.warnBoothDateOutOfRange(rangeLabel));
+          boothDateOutOfRange = true;
+        }
+
         const next = fileIntervals.concat([{ startSec: newStartSec, endSec: newEndSec }]);
         fileIntervalsByKey.set(key, next);
       }
     }
 
-    preview.push({ rowIndex, raw, errors, warnings, payload });
+    preview.push({ rowIndex, raw, errors, warnings, payload, boothDateOutOfRange });
   }
 
   if (preview.length === 0) {

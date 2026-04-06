@@ -1,5 +1,6 @@
 import {
   CalendarOutlined,
+  ExclamationCircleOutlined,
   LeftOutlined,
   RightOutlined,
   UploadOutlined,
@@ -31,7 +32,7 @@ import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { listBoothsAdmin } from "../api/boothsAdmin";
+import { listBoothsAdmin, type AdminBooth } from "../api/boothsAdmin";
 import {
   adminApproveShiftSwap,
   adminRejectShiftSwap,
@@ -49,6 +50,10 @@ import {
   type SwapRequestListEntry,
 } from "../api/shifts";
 import { listUsersAdmin, type AdminUserListEntry } from "../api/usersAdmin";
+import {
+  formatBoothActivityRangeLabel,
+  shiftDateOutsideBoothActivity,
+} from "../lib/boothActivity";
 import { formatShiftTime, weekRangeIso } from "../lib/shiftCalendar";
 import { consecutiveMetaByShiftId, logForShiftSegment } from "../lib/shiftConsecutive";
 import {
@@ -89,6 +94,7 @@ function shiftImportValidateMessages(): ShiftImportValidateMessages {
     errEmptyRow: s.importEmptyRows,
     errMissingHeader: s.importMissingHeader,
     errNoDataRows: s.importNoRows,
+    warnBoothDateOutOfRange: s.importBoothDateWarn,
   };
 }
 
@@ -236,7 +242,7 @@ export function AdminShiftsPage() {
   );
 
   const [boothFilter, setBoothFilter] = useState<string | null>(null);
-  const [booths, setBooths] = useState<{ id: string; name: string }[]>([]);
+  const [booths, setBooths] = useState<AdminBooth[]>([]);
   const [users, setUsers] = useState<AdminUserListEntry[]>([]);
   const [shifts, setShifts] = useState<ShiftWithNames[]>([]);
   const [logs, setLogs] = useState<
@@ -366,6 +372,20 @@ export function AdminShiftsPage() {
     setModalOpen(false);
     setEditingShift(null);
   };
+
+  const watchedBoothId = Form.useWatch("booth_id", form);
+  const watchedShiftDate = Form.useWatch("shift_date", form);
+
+  const shiftBoothActivityWarn = useMemo(() => {
+    if (!modalOpen || !watchedBoothId || !watchedShiftDate?.isValid?.()) return null;
+    const booth = booths.find((x) => x.id === watchedBoothId);
+    if (!booth) return null;
+    const rangeLabel = formatBoothActivityRangeLabel(booth.start_date, booth.end_date);
+    if (!rangeLabel) return null;
+    const d = watchedShiftDate.format("YYYY-MM-DD");
+    if (!shiftDateOutsideBoothActivity(d, booth.start_date, booth.end_date)) return null;
+    return s.boothDateWarnSave(rangeLabel);
+  }, [modalOpen, watchedBoothId, watchedShiftDate, booths]);
 
   const onSave = async () => {
     try {
@@ -631,6 +651,11 @@ export function AdminShiftsPage() {
       width: 200,
       render: (_, r) => (
         <Space direction="vertical" size={4}>
+          {r.boothDateOutOfRange ? (
+            <span title={s.importBoothDateIconTitle}>
+              <ExclamationCircleOutlined style={{ color: "#faad14", fontSize: 16 }} />
+            </span>
+          ) : null}
           {r.errors.map((e, i) => (
             <Tag key={`e${i}`} color="red">
               {e}
@@ -837,6 +862,9 @@ export function AdminShiftsPage() {
         destroyOnClose
         width={520}>
         <Form form={form} layout="vertical" style={{ marginTop: 8 }}>
+          {shiftBoothActivityWarn ? (
+            <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={shiftBoothActivityWarn} />
+          ) : null}
           <Form.Item name="booth_id" label={s.labelBooth} rules={[{ required: true }]}>
             <Select
               options={booths.map((b) => ({ value: b.id, label: b.name }))}
