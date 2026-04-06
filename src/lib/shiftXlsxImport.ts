@@ -78,10 +78,34 @@ export function parseImportTime(raw: string): string | null {
   return `${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
-function timeToMinutes(t: string): number {
-  const [h, mi, s] = t.split(":").map((x) => Number(x));
-  return h * 60 + mi + (s || 0) / 60;
+/** Seconds since midnight; supports HH:mm:ss from import or DB `time`. */
+export function timeToSecOfDay(t: string): number {
+  const s = t.trim();
+  const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(s);
+  if (!m) return NaN;
+  const h = Number(m[1]);
+  const mi = Number(m[2]);
+  const sec = m[3] != null ? Number(m[3]) : 0;
+  return h * 3600 + mi * 60 + sec;
 }
+
+/** True overlap only; back-to-back (end === start) is allowed. */
+export function shiftIntervalsOverlap(
+  aStartSec: number,
+  aEndSec: number,
+  bStartSec: number,
+  bEndSec: number,
+): boolean {
+  return aStartSec < bEndSec && aEndSec > bStartSec;
+}
+
+export type ExistingShiftInterval = {
+  user_id: string;
+  booth_id: string;
+  shift_date: string;
+  start_time: string;
+  end_time: string;
+};
 
 function buildNameMap(users: AdminUserListEntry[]): {
   byName: Map<string, AdminUserListEntry[]>;
@@ -134,7 +158,7 @@ export function parseShiftImportXlsx(
   arrayBuffer: ArrayBuffer,
   users: AdminUserListEntry[],
   booths: ShiftImportBoothRef[],
-  existingShiftKeys: Set<string>,
+  existingShifts: ExistingShiftInterval[],
   messages: ShiftImportValidateMessages,
 ): ShiftImportPreviewRow[] {
   const wb = XLSX.read(arrayBuffer, { type: "array", cellDates: true });
@@ -199,7 +223,8 @@ export function parseShiftImportXlsx(
   const { byName: boothsByName } = buildBoothMap(booths);
 
   const preview: ShiftImportPreviewRow[] = [];
-  const fileKeys = new Set<string>();
+  /** Per user|booth|date, intervals already accepted in this file (seconds). */
+  const fileIntervalsByKey = new Map<string, { startSec: number; endSec: number }[]>();
 
   for (let r = 1; r < matrix.length; r += 1) {
     const row = matrix[r];
@@ -254,7 +279,11 @@ export function parseShiftImportXlsx(
     if (!endRaw) errors.push(messages.errTimeEnd);
     else if (!endTime) errors.push(messages.errTimeEnd);
 
-    if (startTime && endTime && timeToMinutes(startTime) >= timeToMinutes(endTime)) {
+    if (
+      startTime &&
+      endTime &&
+      timeToSecOfDay(startTime) >= timeToSecOfDay(endTime)
+    ) {
       errors.push(messages.errTimeOrder);
     }
 
@@ -272,14 +301,34 @@ export function parseShiftImportXlsx(
       shiftDate &&
       startTime &&
       endTime &&
-      timeToMinutes(startTime) < timeToMinutes(endTime) &&
+      timeToSecOfDay(startTime) < timeToSecOfDay(endTime) &&
       errors.length === 0
     ) {
       const key = `${user.id}|${booth.id}|${shiftDate}`;
-      if (fileKeys.has(key)) {
+      const newStartSec = timeToSecOfDay(startTime);
+      const newEndSec = timeToSecOfDay(endTime);
+
+      const fileIntervals = fileIntervalsByKey.get(key) ?? [];
+      const overlapsFile = fileIntervals.some((iv) =>
+        shiftIntervalsOverlap(newStartSec, newEndSec, iv.startSec, iv.endSec),
+      );
+      if (overlapsFile) {
         errors.push(messages.errDuplicateFile);
       } else {
-        fileKeys.add(key);
+        const overlapsDb = existingShifts.some((ex) => {
+          if (
+            ex.user_id !== user.id ||
+            ex.booth_id !== booth.id ||
+            ex.shift_date !== shiftDate
+          ) {
+            return false;
+          }
+          const exS = timeToSecOfDay(ex.start_time);
+          const exE = timeToSecOfDay(ex.end_time);
+          if (!Number.isFinite(exS) || !Number.isFinite(exE)) return false;
+          return shiftIntervalsOverlap(newStartSec, newEndSec, exS, exE);
+        });
+
         payload = {
           user_id: user.id,
           booth_id: booth.id,
@@ -288,9 +337,11 @@ export function parseShiftImportXlsx(
           end_time: endTime,
           note: noteRaw.trim() ? noteRaw.trim() : null,
         };
-        if (existingShiftKeys.has(key)) {
+        if (overlapsDb) {
           warnings.push(messages.warnDuplicateDb);
         }
+        const next = fileIntervals.concat([{ startSec: newStartSec, endSec: newEndSec }]);
+        fileIntervalsByKey.set(key, next);
       }
     }
 

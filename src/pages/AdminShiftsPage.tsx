@@ -410,7 +410,7 @@ export function AdminShiftsPage() {
       try {
         const ab = await file.arrayBuffer();
         const im = shiftImportValidateMessages();
-        const pass1 = parseShiftImportXlsx(ab, users, booths, new Set(), im);
+        const pass1 = parseShiftImportXlsx(ab, users, booths, [], im);
         const dates: string[] = [];
         for (const p of pass1) {
           const d =
@@ -419,17 +419,14 @@ export function AdminShiftsPage() {
             null;
           if (d) dates.push(d);
         }
-        let keySet = new Set<string>();
+        let existingForOverlap: ShiftWithNames[] = [];
         if (dates.length > 0) {
           dates.sort();
           const from = dates[0];
           const to = dates[dates.length - 1];
-          const ex = await listShiftsInRange(null, from, to);
-          keySet = new Set(
-            ex.map((x) => existingShiftKey(x.user_id, x.booth_id, x.shift_date)),
-          );
+          existingForOverlap = await listShiftsInRange(null, from, to);
         }
-        setImportPreview(parseShiftImportXlsx(ab, users, booths, keySet, im));
+        setImportPreview(parseShiftImportXlsx(ab, users, booths, existingForOverlap, im));
       } catch {
         message.error(s.importParseFailed);
         setImportPreview([]);
