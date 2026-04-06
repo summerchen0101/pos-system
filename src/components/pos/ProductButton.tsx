@@ -2,10 +2,6 @@ import { zhtw } from '../../locales/zhTW'
 import type { Product } from '../../types/pos'
 import { formatMoney } from '../../lib/money'
 
-function isBundleProduct(p: Product): boolean {
-  return p.kind === 'CUSTOM_BUNDLE'
-}
-
 type Props = {
   product: Product
   onAdd: (product: Product) => void
@@ -13,7 +9,6 @@ type Props = {
 
 export function ProductButton({ product, onAdd }: Props) {
   const soldOut = product.stock <= 0
-  const bundle = isBundleProduct(product)
   return (
     <button
       type="button"
@@ -29,7 +24,6 @@ export function ProductButton({ product, onAdd }: Props) {
       <span className="pos-product-btn__name">
         {product.name}
         {product.size ? ` (${product.size})` : ''}
-        {bundle ? ` · ${zhtw.pos.bundleBadge}` : ''}
       </span>
       <span className="pos-product-btn__price">{formatMoney(product.price)}</span>
       <span className="pos-product-btn__stock">

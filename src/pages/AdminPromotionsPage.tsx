@@ -15,8 +15,9 @@ import {
   Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fetchAllProducts } from "../api/fetchAllProducts";
+import { ProductSelect } from "../components/admin/ProductSelect";
 import { listBoothsAdmin, type AdminBooth } from "../api/boothsAdmin";
 import { listGiftsAdmin, type AdminGift } from "../api/giftsAdmin";
 import {
@@ -413,7 +414,7 @@ export function AdminPromotionsPage() {
     setLoading(true);
     try {
       const [plist, mlist, glist, blist] = await Promise.all([
-        fetchAllProducts({ kinds: ["STANDARD", "CUSTOM_BUNDLE"] }),
+        fetchAllProducts(),
         listPromotionsAdmin(
           boothFilterId ? { boothId: boothFilterId } : undefined,
         ),
@@ -696,24 +697,6 @@ export function AdminPromotionsPage() {
       message.error(e instanceof Error ? e.message : pr.updateError);
     }
   };
-
-  const productsForPicker = useMemo(() => {
-    if (kindWatch === "TIERED_QUANTITY_DISCOUNT") {
-      return products;
-    }
-    return products.filter((p) => p.kind === "STANDARD");
-  }, [products, kindWatch]);
-
-  const productOptions = useMemo(
-    () =>
-      productsForPicker.map((p) => ({
-        label: `${p.name}${p.size ? ` (${p.size})` : ""} · ${p.sku}${
-          p.kind === "CUSTOM_BUNDLE" ? ` · ${pr.productOptionBundleTag}` : ""
-        }`,
-        value: p.id,
-      })),
-    [productsForPicker],
-  );
 
   const giftOptions = gifts.map((x) => ({
     label: x.name,
@@ -1290,13 +1273,11 @@ export function AdminPromotionsPage() {
                 name="selectablePoolIds"
                 label={pr.labelSelectablePool}
                 rules={[{ required: true, message: pr.selectablePoolError }]}>
-                <Select
-                  mode="multiple"
-                  allowClear
-                  showSearch
-                  optionFilterProp="label"
+                <ProductSelect
+                  multiple
                   placeholder={pr.productsPh}
-                  options={productOptions}
+                  products={products}
+                  style={{ width: "100%" }}
                 />
               </Form.Item>
               <Form.Item
@@ -1334,12 +1315,10 @@ export function AdminPromotionsPage() {
                             },
                           ]}
                           style={{ marginBottom: 0, flex: 1, minWidth: 220 }}>
-                          <Select
-                            showSearch
-                            optionFilterProp="label"
+                          <ProductSelect
                             placeholder={pr.productsPh}
-                            options={productOptions}
-                            allowClear
+                            products={products}
+                            style={{ width: "100%" }}
                           />
                         </Form.Item>
                         <Form.Item
@@ -1396,13 +1375,11 @@ export function AdminPromotionsPage() {
                   },
                 }),
               ]}>
-              <Select
-                mode="multiple"
-                allowClear
-                showSearch
-                optionFilterProp="label"
+              <ProductSelect
+                multiple
                 placeholder={pr.productsPh}
-                options={productOptions}
+                products={products}
+                style={{ width: "100%" }}
               />
             </Form.Item>
           )}

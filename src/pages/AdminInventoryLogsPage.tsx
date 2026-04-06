@@ -15,11 +15,11 @@ import dayjs from "dayjs";
 import { useCallback, useEffect, useState } from "react";
 import {
   listInventoryLogsAdmin,
-  listProductsForInventory,
   listWarehousesAdmin,
   type InventoryLogFilterType,
   type InventoryLogListEntry,
 } from "../api/inventoryAdmin";
+import { ProductSelect } from "../components/admin/ProductSelect";
 import { zhtw } from "../locales/zhTW";
 
 const { Title, Text } = Typography;
@@ -47,13 +47,10 @@ export function AdminInventoryLogsPage() {
   const [rows, setRows] = useState<InventoryLogListEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
-  const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
-
   const loadMeta = useCallback(async () => {
     try {
-      const [wh, pr] = await Promise.all([listWarehousesAdmin(), listProductsForInventory()]);
+      const wh = await listWarehousesAdmin();
       setWarehouses(wh.map((w) => ({ id: w.id, name: w.name })));
-      setProducts(pr.map((p) => ({ id: p.id, name: p.name })));
     } catch (e) {
       message.error(e instanceof Error ? e.message : inv.loadError);
     }
@@ -186,14 +183,7 @@ export function AdminInventoryLogsPage() {
               />
             </Form.Item>
             <Form.Item name="productId" label={inv.labelProduct} style={{ marginBottom: 0 }}>
-              <Select
-                allowClear
-                showSearch
-                optionFilterProp="label"
-                placeholder={inv.labelProduct}
-                style={{ minWidth: 220 }}
-                options={products.map((p) => ({ value: p.id, label: p.name }))}
-              />
+              <ProductSelect allowClear placeholder={inv.labelProduct} style={{ minWidth: 280 }} />
             </Form.Item>
             <Form.Item name="logType" label={inv.logsFilterType} style={{ marginBottom: 0 }}>
               <Select

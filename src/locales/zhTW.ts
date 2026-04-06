@@ -489,6 +489,12 @@ export const zhtw = {
         "拖曳列左側圖示調整分類順序；放開後自動儲存。此順序會影響 POS 分類分頁與商品管理中的分組顯示。",
       sortSaveError: "無法儲存分類順序",
     },
+    productSelect: {
+      uncategorized: "未分類",
+      empty: "找不到符合的商品",
+      placeholder: "請選擇商品",
+      loadError: "無法載入商品清單",
+    },
     products: {
       pageTitle: "商品管理",
       bulkEdit: "批次編輯",

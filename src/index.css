@@ -100,6 +100,17 @@ body {
   font-size: 18px;
 }
 
+.product-select__group-heading {
+  display: block;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ant-select-item-group .product-select__group-heading {
+  color: rgba(255, 255, 255, 0.45);
+}
+
 .admin-promotions {
   max-width: 1120px;
 }

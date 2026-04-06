@@ -3,14 +3,14 @@ import { mapProductRow, productSelectWithCategory, sortCatalogProducts, type Pro
 import type { Product, ProductKind } from '../types/pos'
 
 export type FetchAllProductsOptions = {
-  /** Defaults to `['STANDARD']` only. */
+  /** Defaults to `['STANDARD', 'CUSTOM_BUNDLE']` (general admin pickers include bundle products). */
   kinds?: readonly ProductKind[]
 }
 
 /** All products (including inactive) for admin pickers. */
 export async function fetchAllProducts(options?: FetchAllProductsOptions): Promise<Product[]> {
   const kinds: ProductKind[] =
-    options?.kinds?.length ? [...options.kinds] : ['STANDARD']
+    options?.kinds?.length ? [...options.kinds] : ['STANDARD', 'CUSTOM_BUNDLE']
   const { data, error } = await supabase
     .from('products')
     .select(productSelectWithCategory)

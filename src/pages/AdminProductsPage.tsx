@@ -51,6 +51,7 @@ import {
   type ProductInput,
   type ProductListFilters,
 } from "../api/productsAdmin";
+import { ProductSelect } from "../components/admin/ProductSelect";
 import { zhtw } from "../locales/zhTW";
 import { formatMoney } from "../lib/money";
 import type { Category, Product, ProductKind } from "../types/pos";
@@ -318,16 +319,6 @@ export function AdminProductsPage() {
     },
     [message, sortProductIdsByCategory],
   );
-
-  const componentProductOptions = useMemo(() => {
-    return products
-      .filter((x) => x.kind === "STANDARD")
-      .filter((x) => !editingId || x.id !== editingId)
-      .map((x) => ({
-        label: `${x.name}${x.size ? ` (${x.size})` : ""} · ${x.sku}`,
-        value: x.id,
-      }));
-  }, [products, editingId]);
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -927,13 +918,13 @@ export function AdminProductsPage() {
                                 },
                               },
                             ]}>
-                            <Select
-                              mode="multiple"
+                            <ProductSelect
+                              multiple
                               allowClear
                               placeholder={p.bundleGroupProductsPh}
-                              options={componentProductOptions}
-                              showSearch
-                              optionFilterProp="label"
+                              products={products}
+                              kinds={["STANDARD"]}
+                              excludeProductIds={editingId ? [editingId] : []}
                               style={{ width: "100%" }}
                             />
                           </Form.Item>

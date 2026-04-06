@@ -13,6 +13,7 @@ import {
 } from "../api/inventoryAdmin";
 import { createStocktakeAdmin } from "../api/stocktakesAdmin";
 import { useAuth } from "../auth/AuthContext";
+import { ProductSelect } from "../components/admin/ProductSelect";
 import { zhtw } from "../locales/zhTW";
 
 const { Title, Text } = Typography;
@@ -239,11 +240,6 @@ export function AdminInventoryOverviewPage() {
     return base;
   }, [visibleWarehouses]);
 
-  const productOptions = useMemo(
-    () => rows.map((r) => ({ value: r.product.id, label: r.product.name })),
-    [rows],
-  );
-
   return (
     <div className="admin-page">
       <Space align="center" style={{ justifyContent: "space-between", width: "100%", marginBottom: 16 }}>
@@ -362,12 +358,7 @@ export function AdminInventoryOverviewPage() {
             name="productId"
             label={inv.labelProduct}
             rules={[{ required: true, message: common.required }]}>
-            <Select
-              showSearch
-              optionFilterProp="label"
-              options={productOptions}
-              placeholder={inv.labelProduct}
-            />
+            <ProductSelect placeholder={inv.labelProduct} style={{ width: "100%" }} />
           </Form.Item>
           <Form.Item
             name="fromWarehouseId"
