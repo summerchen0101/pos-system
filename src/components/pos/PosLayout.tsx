@@ -55,7 +55,9 @@ export function PosLayout() {
   const [boothOk, setBoothOk] = useState<boolean | null>(null);
   const [boothLabel, setBoothLabel] = useState<string>("");
   const [products, setProducts] = useState<Product[]>([]);
-  const [bundleModalProduct, setBundleModalProduct] = useState<Product | null>(null);
+  const [bundleModalProduct, setBundleModalProduct] = useState<Product | null>(
+    null,
+  );
   const [activeTab, setActiveTab] = useState<string>("");
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
@@ -70,7 +72,10 @@ export function PosLayout() {
     [products],
   );
 
-  const categoryKeySet = useMemo(() => new Set(tabItems.map((t) => t.key)), [tabItems]);
+  const categoryKeySet = useMemo(
+    () => new Set(tabItems.map((t) => t.key)),
+    [tabItems],
+  );
 
   const displayTab = useMemo(() => {
     if (activeTab && categoryKeySet.has(activeTab)) return activeTab;
@@ -182,12 +187,20 @@ export function PosLayout() {
     return (
       <div
         className="pos-layout"
-        style={{ gridTemplateColumns: "1fr", placeItems: "center", padding: "2rem" }}>
+        style={{
+          gridTemplateColumns: "1fr",
+          placeItems: "center",
+          padding: "2rem",
+        }}>
         <div style={{ maxWidth: 420, textAlign: "center" }}>
-          <Typography.Title level={4} style={{ color: "var(--pos-text-strong)" }}>
+          <Typography.Title
+            level={4}
+            style={{ color: "var(--pos-text-strong)" }}>
             {zhtw.pos.boothInvalidTitle}
           </Typography.Title>
-          <Typography.Paragraph type="secondary">{zhtw.pos.boothInvalidHint}</Typography.Paragraph>
+          <Typography.Paragraph type="secondary">
+            {zhtw.pos.boothInvalidHint}
+          </Typography.Paragraph>
           <Link className="pos-admin-link" to="/">
             {zhtw.pos.boothPickerBack}
           </Link>
@@ -221,7 +234,9 @@ export function PosLayout() {
               {zhtw.pos.currentBooth(boothLabel)}
             </p>
           ) : null}
-          <p className="pos-main__hint" style={boothLabel ? { marginTop: 0 } : undefined}>
+          <p
+            className="pos-main__hint"
+            style={boothLabel ? { marginTop: 0 } : undefined}>
             {zhtw.pos.hint}
           </p>
         </header>
@@ -239,7 +254,9 @@ export function PosLayout() {
           error={productsError}
           onAddProduct={handleAddProduct}
           emptyMessage={
-            products.length === 0 ? zhtw.pos.emptyCatalog : zhtw.pos.emptyCategory
+            products.length === 0
+              ? zhtw.pos.emptyCatalog
+              : zhtw.pos.emptyCategory
           }
         />
       </main>

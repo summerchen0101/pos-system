@@ -1,6 +1,8 @@
 import { App as AntdApp, ConfigProvider, theme } from "antd";
 import zhTW from "antd/locale/zh_TW";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { AuthProvider } from "./auth/AuthContext";
+import { RequireAuth } from "./auth/RequireAuth";
 import { PosLayout } from "./components/pos/PosLayout";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { AdminBoothsPage } from "./pages/AdminBoothsPage";
@@ -10,7 +12,9 @@ import { AdminOrdersPage } from "./pages/AdminOrdersPage";
 import { AdminProductsPage } from "./pages/AdminProductsPage";
 import { AdminGiftsPage } from "./pages/AdminGiftsPage";
 import { AdminPromotionsPage } from "./pages/AdminPromotionsPage";
+import { LoginPage } from "./pages/LoginPage";
 import { PosBoothPickerPage } from "./pages/PosBoothPickerPage";
+import { AdminUsersPage } from "./pages/AdminUsersPage";
 
 const appTheme = {
   algorithm: theme.darkAlgorithm,
@@ -56,24 +60,48 @@ export default function App() {
     <ConfigProvider locale={zhTW} theme={appTheme}>
       <AntdApp>
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<PosBoothPickerPage />} />
-            <Route path="/pos/:boothId" element={<PosLayout />} />
-            <Route path="/admin" element={<AdminLayout />}>
+          <AuthProvider>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
               <Route
-                index
-                element={<Navigate to="/admin/dashboard" replace />}
+                path="/"
+                element={
+                  <RequireAuth>
+                    <PosBoothPickerPage />
+                  </RequireAuth>
+                }
               />
-              <Route path="dashboard" element={<AdminDashboardPage />} />
-              <Route path="booths" element={<AdminBoothsPage />} />
-              <Route path="categories" element={<AdminCategoriesPage />} />
-              <Route path="products" element={<AdminProductsPage />} />
-              <Route path="gifts" element={<AdminGiftsPage />} />
-              <Route path="promotions" element={<AdminPromotionsPage />} />
-              <Route path="orders" element={<AdminOrdersPage />} />
-            </Route>
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+              <Route
+                path="/pos/:boothId"
+                element={
+                  <RequireAuth>
+                    <PosLayout />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <RequireAuth>
+                    <AdminLayout />
+                  </RequireAuth>
+                }>
+                <Route
+                  index
+                  element={<Navigate to="/admin/dashboard" replace />}
+                />
+                <Route path="dashboard" element={<AdminDashboardPage />} />
+                <Route path="users" element={<AdminUsersPage />} />
+                <Route path="booths" element={<AdminBoothsPage />} />
+                <Route path="categories" element={<AdminCategoriesPage />} />
+                <Route path="products" element={<AdminProductsPage />} />
+                <Route path="gifts" element={<AdminGiftsPage />} />
+                <Route path="promotions" element={<AdminPromotionsPage />} />
+                <Route path="orders" element={<AdminOrdersPage />} />
+              </Route>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </AuthProvider>
         </BrowserRouter>
       </AntdApp>
     </ConfigProvider>

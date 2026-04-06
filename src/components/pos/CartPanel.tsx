@@ -167,7 +167,11 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
         const raw = e && typeof e === 'object' && 'message' in e ? String((e as { message: string }).message) : ''
         const msg = raw.includes('insufficient_stock')
           ? zhtw.pos.checkoutInsufficient
-          : zhtw.pos.checkoutFailed
+          : raw.includes('not_authenticated')
+            ? zhtw.pos.checkoutNeedLogin
+            : raw.includes('booth_forbidden')
+              ? zhtw.pos.checkoutBoothForbidden
+              : zhtw.pos.checkoutFailed
         message.error(msg)
         return
       }

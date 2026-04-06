@@ -124,9 +124,48 @@ export type OrderItemRow = {
   source: string | null
 }
 
+/** App profile (`public.users`), linked to `auth.users`. */
+export type AppUserRow = {
+  id: string
+  name: string
+  role: 'ADMIN' | 'STAFF'
+}
+
+export type UserBoothRow = {
+  user_id: string
+  booth_id: string
+}
+
 export type Database = {
   public: {
     Tables: {
+      users: {
+        Row: AppUserRow
+        Insert: AppUserRow
+        Update: Partial<Pick<AppUserRow, 'name' | 'role'>>
+        Relationships: []
+      }
+      user_booths: {
+        Row: UserBoothRow
+        Insert: UserBoothRow
+        Update: Partial<UserBoothRow>
+        Relationships: [
+          {
+            foreignKeyName: 'user_booths_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'user_booths_booth_id_fkey'
+            columns: ['booth_id']
+            isOneToOne: false
+            referencedRelation: 'booths'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       booths: {
         Row: BoothRow
         Insert: Omit<BoothRow, 'id'> & { id?: string }
