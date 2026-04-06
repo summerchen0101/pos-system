@@ -106,6 +106,8 @@ export type OrderRow = {
   final_amount: number
   promotion_snapshot: unknown | null
   booth_id: string
+  /** Cashier (auth / public.users); null on legacy rows. */
+  user_id: string | null
 }
 
 export type OrderItemRow = {
@@ -371,7 +373,11 @@ export type Database = {
       }
       orders: {
         Row: OrderRow
-        Insert: Omit<OrderRow, 'id' | 'created_at'> & { id?: string; created_at?: string }
+        Insert: Omit<OrderRow, 'id' | 'created_at' | 'user_id'> & {
+          id?: string
+          created_at?: string
+          user_id?: string | null
+        }
         Update: Partial<OrderRow>
         Relationships: [
           {
@@ -386,6 +392,13 @@ export type Database = {
             columns: ['booth_id']
             isOneToOne: false
             referencedRelation: 'booths'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'orders_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
             referencedColumns: ['id']
           },
         ]

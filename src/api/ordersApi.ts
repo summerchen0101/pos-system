@@ -9,6 +9,7 @@ import type {
 import type { OrderItemRow, OrderRow } from '../types/supabase'
 
 type BoothNameNested = { name: string } | { name: string }[] | null | undefined
+type UserNameNested = { name: string } | { name: string }[] | null | undefined
 
 function unwrapBoothName(booths: BoothNameNested): string | null {
   if (booths == null) return null
@@ -16,7 +17,13 @@ function unwrapBoothName(booths: BoothNameNested): string | null {
   return b?.name ?? null
 }
 
-function mapOrderRow(row: OrderRow & { booths?: BoothNameNested }): Order {
+function unwrapCashierName(users: UserNameNested): string | null {
+  if (users == null) return null
+  const u = Array.isArray(users) ? users[0] : users
+  return u?.name ?? null
+}
+
+function mapOrderRow(row: OrderRow & { booths?: BoothNameNested; users?: UserNameNested }): Order {
   return {
     id: row.id,
     createdAt: row.created_at,
@@ -25,6 +32,7 @@ function mapOrderRow(row: OrderRow & { booths?: BoothNameNested }): Order {
     finalAmountCents: row.final_amount,
     boothId: row.booth_id,
     boothName: unwrapBoothName(row.booths),
+    cashierName: unwrapCashierName(row.users),
   }
 }
 
@@ -150,7 +158,9 @@ export async function fetchOrdersForDateRange(
       discount_amount,
       final_amount,
       booth_id,
+      user_id,
       booths ( name ),
+      users ( name ),
       order_items ( product_name, quantity, sort_order )
     `,
     )
@@ -174,7 +184,9 @@ export async function fetchOrdersForDateRange(
     discount_amount: number
     final_amount: number
     booth_id: string
+    user_id: string | null
     booths: BoothNameNested
+    users: UserNameNested
     order_items: Pick<OrderItemRow, 'product_name' | 'quantity' | 'sort_order'>[] | null
   }
 
@@ -187,7 +199,9 @@ export async function fetchOrdersForDateRange(
       final_amount: row.final_amount,
       promotion_snapshot: null,
       booth_id: row.booth_id,
+      user_id: row.user_id,
       booths: row.booths,
+      users: row.users,
     })
     const itemsPreview = buildItemsPreview(row.order_items ?? [])
     return { ...base, itemsPreview }
@@ -206,7 +220,9 @@ export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | n
       final_amount,
       promotion_snapshot,
       booth_id,
+      user_id,
       booths ( name ),
+      users ( name ),
       order_items (
         id,
         order_id,
@@ -231,7 +247,11 @@ export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | n
   if (error) throw error
   if (!data) return null
 
-  type DetailRow = OrderRow & { booths?: BoothNameNested; order_items: OrderItemRow[] | null }
+  type DetailRow = OrderRow & {
+    booths?: BoothNameNested
+    users?: UserNameNested
+    order_items: OrderItemRow[] | null
+  }
   const row = data as unknown as DetailRow
   const items = (row.order_items ?? []).map(mapOrderItemRow)
   return {

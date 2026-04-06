@@ -96,6 +96,13 @@ export function AdminOrdersPage() {
       render: (_, row) => row.boothName ?? zhtw.common.dash,
     },
     {
+      title: o.colCashier,
+      key: 'cashier',
+      width: 100,
+      ellipsis: true,
+      render: (_, row) => row.cashierName ?? zhtw.common.dash,
+    },
+    {
       title: o.colFinal,
       dataIndex: 'finalAmountCents',
       key: 'final',
@@ -219,6 +226,9 @@ export function AdminOrdersPage() {
               </Descriptions.Item>
               <Descriptions.Item label={o.labelBoothInDetail}>
                 {detail.boothName ?? zhtw.common.dash}
+              </Descriptions.Item>
+              <Descriptions.Item label={o.labelCashierInDetail}>
+                {detail.cashierName ?? zhtw.common.dash}
               </Descriptions.Item>
               <Descriptions.Item label={o.colFinal}>{formatMoney(detail.finalAmountCents)}</Descriptions.Item>
               <Descriptions.Item label={o.colTotal}>{formatMoney(detail.totalAmountCents)}</Descriptions.Item>
