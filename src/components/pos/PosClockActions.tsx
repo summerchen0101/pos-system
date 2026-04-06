@@ -5,6 +5,8 @@ import utc from "dayjs/plugin/utc";
 import { useCallback, useEffect, useState } from "react";
 import { isAdminRole, type UserProfile } from "../../api/authProfile";
 import {
+  chainHeadId,
+  formatMergedShiftRange,
   loadPosClockState,
   loadPosClockStateWithClient,
   posClockIn,
@@ -71,7 +73,7 @@ export function PosClockActions({ boothId }: { boothId: string }) {
   const onSelfClockIn = async () => {
     if (!userId || selfState?.kind !== "clock_in") return;
     try {
-      await posClockIn(supabase, selfState.shift.id);
+      await posClockIn(supabase, chainHeadId(selfState.chain));
       message.success(`${p.clockInOkToast} ${formatHmNow()}`);
       setSelfOpen(false);
       setSelfState(null);
@@ -83,7 +85,7 @@ export function PosClockActions({ boothId }: { boothId: string }) {
   const onSelfClockOut = async () => {
     if (!userId || selfState?.kind !== "clock_out") return;
     try {
-      await posClockOut(supabase, selfState.shift.id);
+      await posClockOut(supabase, chainHeadId(selfState.chain));
       message.success(`${p.clockOutOkToast} ${formatHmNow()}`);
       setSelfOpen(false);
       setSelfState(null);
@@ -143,10 +145,10 @@ export function PosClockActions({ boothId }: { boothId: string }) {
 
       const hm = formatHmNow();
       if (state.kind === "clock_in") {
-        await posClockIn(ephemeral, state.shift.id);
+        await posClockIn(ephemeral, chainHeadId(state.chain));
         message.success(p.swapClockInSuccess(dispName, hm));
       } else {
-        await posClockOut(ephemeral, state.shift.id);
+        await posClockOut(ephemeral, chainHeadId(state.chain));
         message.success(p.swapClockOutSuccess(dispName, hm));
       }
       swapForm.resetFields();
@@ -237,6 +239,9 @@ function SelfModalBody({
   if (state.kind === "done") {
     return (
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        {state.chain.length > 1 ? (
+          <Typography.Text type="secondary">{p.mergedShiftLine(formatMergedShiftRange(state.chain))}</Typography.Text>
+        ) : null}
         <Typography.Text>{p.clockDoneToday}</Typography.Text>
         <Typography.Text type="secondary">
           {p.clockOutTime(dayjs(state.lastClockOutAt).tz("Asia/Taipei").format("HH:mm"))}
@@ -247,6 +252,9 @@ function SelfModalBody({
   if (state.kind === "clock_in") {
     return (
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        {state.chain.length > 1 ? (
+          <Typography.Text type="secondary">{p.mergedShiftLine(formatMergedShiftRange(state.chain))}</Typography.Text>
+        ) : null}
         <Button type="primary" size="large" block onClick={onClockIn}>
           {p.clockInBtn}
         </Button>
@@ -256,6 +264,9 @@ function SelfModalBody({
   const log = state.log;
   return (
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+      {state.chain.length > 1 ? (
+        <Typography.Text type="secondary">{p.mergedShiftLine(formatMergedShiftRange(state.chain))}</Typography.Text>
+      ) : null}
       {log.clock_in_at ? (
         <Typography.Text type="secondary">
           {p.clockInTime(dayjs(log.clock_in_at).tz("Asia/Taipei").format("HH:mm"))}

@@ -27,6 +27,8 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import type { Dayjs } from "dayjs";
 import dayjs from "dayjs";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { listBoothsAdmin } from "../api/boothsAdmin";
@@ -48,6 +50,7 @@ import {
 } from "../api/shifts";
 import { listUsersAdmin, type AdminUserListEntry } from "../api/usersAdmin";
 import { formatShiftTime, weekRangeIso } from "../lib/shiftCalendar";
+import { consecutiveMetaByShiftId, logForShiftSegment } from "../lib/shiftConsecutive";
 import {
   downloadShiftImportTemplate,
   existingShiftKey,
@@ -60,6 +63,9 @@ import {
 import { zhtw } from "../locales/zhTW";
 import { isAdminRole } from "../api/authProfile";
 import { useAuth } from "../auth/AuthContext";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const { Title, Text } = Typography;
 const s = zhtw.admin.shifts;
@@ -112,14 +118,110 @@ function groupShiftsByDate(rows: ShiftWithNames[]): Map<string, ShiftWithNames[]
   return m;
 }
 
-function clockStatus(
-  shiftId: string,
+function adminShiftStatusTag(
+  sh: ShiftWithNames,
+  meta: ReturnType<typeof consecutiveMetaByShiftId>,
   logs: { shift_id: string; clock_in_at: string | null; clock_out_at: string | null }[],
-): string {
-  const l = logs.find((x) => x.shift_id === shiftId);
-  if (!l || !l.clock_in_at) return s.clockNone;
-  if (!l.clock_out_at) return s.clockInOnly;
-  return s.clockDone;
+  nowTaipei: dayjs.Dayjs,
+) {
+  const m = meta.get(sh.id)!;
+  const logMap = new Map(logs.map((l) => [l.shift_id, l]));
+  const log = logForShiftSegment(sh.id, meta, logMap);
+  const todayIso = nowTaipei.format("YYYY-MM-DD");
+
+  if (m.chainLength > 1 && m.indexInChain > 0) {
+    return (
+      <Tag color="purple" style={{ marginTop: 4 }}>
+        {s.tagConsecutive}
+      </Tag>
+    );
+  }
+
+  const headStart = dayjs.tz(
+    `${sh.shift_date}T${formatShiftTime(sh.start_time)}:00`,
+    "Asia/Taipei",
+  );
+  const tailEnd = dayjs.tz(
+    `${sh.shift_date}T${formatShiftTime(m.tail.end_time)}:00`,
+    "Asia/Taipei",
+  );
+
+  if (log?.clock_in_at && log.clock_out_at) {
+    const lateMin = dayjs(log.clock_in_at).diff(headStart, "minute");
+    if (lateMin <= 10) {
+      return (
+        <Tag color="success" style={{ marginTop: 4 }}>
+          {s.shiftCardClockedOk}
+        </Tag>
+      );
+    }
+    if (lateMin <= 30) {
+      return (
+        <Tag color="warning" style={{ marginTop: 4 }}>
+          {s.shiftCardLate}
+        </Tag>
+      );
+    }
+    return (
+      <Tag color="error" style={{ marginTop: 4 }}>
+        {s.shiftCardVeryLate}
+      </Tag>
+    );
+  }
+
+  if (log?.clock_in_at && !log.clock_out_at) {
+    return (
+      <Tag color="processing" style={{ marginTop: 4 }}>
+        {s.shiftCardClockedInOnly}
+      </Tag>
+    );
+  }
+
+  if (!log?.clock_in_at) {
+    if (sh.shift_date > todayIso) {
+      return (
+        <Tag style={{ marginTop: 4 }} color="default">
+          {s.clockNone}
+        </Tag>
+      );
+    }
+    if (sh.shift_date < todayIso) {
+      return (
+        <Tag
+          style={{ marginTop: 4, border: "1px solid #ff4d4f", color: "#8c8c8c", background: "#2a2a2a" }}
+        >
+          {s.shiftCardMissingAfter}
+        </Tag>
+      );
+    }
+    if (nowTaipei.isBefore(headStart)) {
+      return (
+        <Tag style={{ marginTop: 4 }} color="default">
+          {s.shiftCardBeforeOpen}
+        </Tag>
+      );
+    }
+    if (nowTaipei.isAfter(tailEnd)) {
+      return (
+        <Tag
+          style={{ marginTop: 4, border: "1px solid #ff4d4f", color: "#8c8c8c", background: "#2a2a2a" }}
+        >
+          {s.shiftCardMissingAfter}
+        </Tag>
+      );
+    }
+    return (
+      <Tag color="warning" style={{ marginTop: 4 }}>
+        {s.clockNone}
+      </Tag>
+    );
+  }
+
+  return (
+    <Tag style={{ marginTop: 4 }} color="default">
+      {s.clockNone}
+    </Tag>
+  );
 }
 
 export function AdminShiftsPage() {
@@ -159,6 +261,17 @@ export function AdminShiftsPage() {
   const [importOverrideDup, setImportOverrideDup] = useState(false);
   const [importUploadKey, setImportUploadKey] = useState(0);
   const [importBusy, setImportBusy] = useState(false);
+  const [nowTick, setNowTick] = useState(0);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const nowTaipei = useMemo(() => {
+    void nowTick;
+    return dayjs().tz("Asia/Taipei");
+  }, [nowTick]);
 
   const loadCore = useCallback(async () => {
     const [b, u, sh, sw] = await Promise.all([
@@ -631,10 +744,15 @@ export function AdminShiftsPage() {
           </Button>
         </Space>
 
+        <Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
+          {s.consecutiveLegend}
+        </Text>
+
         <Row gutter={[12, 12]}>
           {days.map((d) => {
             const key = d.format("YYYY-MM-DD");
             const list = byDate.get(key) ?? [];
+            const consecMeta = consecutiveMetaByShiftId(list);
             return (
               <Col xs={24} sm={12} md={8} lg={6} xl={4} key={key}>
                 <Card size="small" title={d.format("ddd MM/DD")}>
@@ -642,29 +760,34 @@ export function AdminShiftsPage() {
                     <Text type="secondary">{s.emptyDay}</Text>
                   ) : (
                     <Space direction="vertical" style={{ width: "100%" }} size={8}>
-                      {list.map((sh) => (
-                        <Card key={sh.id} size="small" styles={{ body: { padding: 8 } }}>
-                          <div style={{ fontWeight: 600 }}>{sh.user_name ?? sh.user_id}</div>
-                          <div style={{ fontSize: 12, opacity: 0.85 }}>
-                            {sh.booth_name ?? boothNameById.get(sh.booth_id)}
-                          </div>
-                          <div style={{ fontSize: 13 }}>
-                            {formatShiftTime(sh.start_time)} – {formatShiftTime(sh.end_time)}
-                          </div>
-                          <Tag style={{ marginTop: 4 }}>{clockStatus(sh.id, logs)}</Tag>
-                          {sh.note ? (
-                            <div style={{ fontSize: 12, marginTop: 4 }}>{sh.note}</div>
-                          ) : null}
-                          <Space style={{ marginTop: 8 }}>
-                            <Button size="small" onClick={() => openEdit(sh)}>
-                              {common.edit}
-                            </Button>
-                            <Button size="small" danger onClick={() => onDelete(sh)}>
-                              {common.delete}
-                            </Button>
-                          </Space>
-                        </Card>
-                      ))}
+                      {list.map((sh) => {
+                        const cm = consecMeta.get(sh.id)!;
+                        const consecBg =
+                          cm.chainLength > 1 ? { background: "rgba(124, 58, 237, 0.1)" } : undefined;
+                        return (
+                          <Card key={sh.id} size="small" styles={{ body: { padding: 8 } }} style={consecBg}>
+                            <div style={{ fontWeight: 600 }}>{sh.user_name ?? sh.user_id}</div>
+                            <div style={{ fontSize: 12, opacity: 0.85 }}>
+                              {sh.booth_name ?? boothNameById.get(sh.booth_id)}
+                            </div>
+                            <div style={{ fontSize: 13 }}>
+                              {formatShiftTime(sh.start_time)} – {formatShiftTime(sh.end_time)}
+                            </div>
+                            {adminShiftStatusTag(sh, consecMeta, logs, nowTaipei)}
+                            {sh.note ? (
+                              <div style={{ fontSize: 12, marginTop: 4 }}>{sh.note}</div>
+                            ) : null}
+                            <Space style={{ marginTop: 8 }}>
+                              <Button size="small" onClick={() => openEdit(sh)}>
+                                {common.edit}
+                              </Button>
+                              <Button size="small" danger onClick={() => onDelete(sh)}>
+                                {common.delete}
+                              </Button>
+                            </Space>
+                          </Card>
+                        );
+                      })}
                     </Space>
                   )}
                 </Card>

@@ -39,6 +39,7 @@ import {
   formatShiftTime,
   weekRangeIso,
 } from "../lib/shiftCalendar";
+import { consecutiveMetaByShiftId, logForShiftSegment } from "../lib/shiftConsecutive";
 import { zhtw } from "../locales/zhTW";
 import { useAuth } from "../auth/AuthContext";
 import type { ShiftRow } from "../types/supabase";
@@ -49,9 +50,11 @@ const common = zhtw.common;
 
 function clockLabel(
   shiftId: string,
+  meta: ReturnType<typeof consecutiveMetaByShiftId>,
   logs: { shift_id: string; clock_in_at: string | null; clock_out_at: string | null }[],
 ): string {
-  const l = logs.find((x) => x.shift_id === shiftId);
+  const logMap = new Map(logs.map((x) => [x.shift_id, x]));
+  const l = logForShiftSegment(shiftId, meta, logMap);
   if (!l || !l.clock_in_at) return m.clockNone;
   if (!l.clock_out_at) return m.clockInAt(l.clock_in_at);
   return m.clockDoneAt(l.clock_out_at);
@@ -298,6 +301,8 @@ export function MyShiftsPage() {
           {days.map((d) => {
             const key = d.format("YYYY-MM-DD");
             const list = byDate.get(key) ?? [];
+            const consecMeta = consecutiveMetaByShiftId(list);
+            const logMap = new Map(logs.map((l) => [l.shift_id, l]));
             return (
               <Col xs={24} sm={12} md={8} lg={6} xl={4} key={key}>
                 <Card size="small" title={d.format("ddd MM/DD")}>
@@ -306,12 +311,16 @@ export function MyShiftsPage() {
                   ) : (
                     <Space direction="vertical" style={{ width: "100%" }} size={8}>
                       {list.map((sh) => {
+                        const cm = consecMeta.get(sh.id)!;
+                        const isFollower = cm.chainLength > 1 && cm.indexInChain > 0;
                         const canClock = canClockOnShiftDayTaipei(sh, now);
-                        const log = logs.find((l) => l.shift_id === sh.id);
+                        const log = logForShiftSegment(sh.id, consecMeta, logMap);
                         const clockedIn = Boolean(log?.clock_in_at);
                         const clockedOut = Boolean(log?.clock_out_at);
+                        const consecBg =
+                          cm.chainLength > 1 ? { background: "rgba(124, 58, 237, 0.1)" } : undefined;
                         return (
-                          <Card key={sh.id} size="small" styles={{ body: { padding: 8 } }}>
+                          <Card key={sh.id} size="small" styles={{ body: { padding: 8 } }} style={consecBg}>
                             <div style={{ fontWeight: 600 }}>{sh.booth_name ?? m.booth}</div>
                             <div style={{ fontSize: 13 }}>
                               {formatShiftTime(sh.start_time)} – {formatShiftTime(sh.end_time)}
@@ -320,39 +329,45 @@ export function MyShiftsPage() {
                               <div style={{ fontSize: 12, marginTop: 4 }}>{sh.note}</div>
                             ) : null}
                             <div style={{ fontSize: 12, marginTop: 6, opacity: 0.9 }}>
-                              {m.clockStatus}：{clockLabel(sh.id, logs)}
+                              {m.clockStatus}：{clockLabel(sh.id, consecMeta, logs)}
                             </div>
-                            <Space style={{ marginTop: 8 }} wrap>
-                              <Button
-                                size="small"
-                                type="primary"
-                                disabled={!canClock || clockedIn}
-                                onClick={async () => {
-                                  try {
-                                    await clockShift(sh.id, "in");
-                                    message.success(m.clockInOk);
-                                    await load();
-                                  } catch (e) {
-                                    message.error(e instanceof Error ? e.message : m.clockError);
-                                  }
-                                }}>
-                                {m.clockIn}
-                              </Button>
-                              <Button
-                                size="small"
-                                disabled={!canClock || !clockedIn || clockedOut}
-                                onClick={async () => {
-                                  try {
-                                    await clockShift(sh.id, "out");
-                                    message.success(m.clockOutOk);
-                                    await load();
-                                  } catch (e) {
-                                    message.error(e instanceof Error ? e.message : m.clockError);
-                                  }
-                                }}>
-                                {m.clockOut}
-                              </Button>
-                            </Space>
+                            {isFollower ? (
+                              <Tag color="purple" style={{ marginTop: 8 }}>
+                                {zhtw.admin.shifts.tagConsecutive}
+                              </Tag>
+                            ) : (
+                              <Space style={{ marginTop: 8 }} wrap>
+                                <Button
+                                  size="small"
+                                  type="primary"
+                                  disabled={!canClock || clockedIn}
+                                  onClick={async () => {
+                                    try {
+                                      await clockShift(sh.id, "in");
+                                      message.success(m.clockInOk);
+                                      await load();
+                                    } catch (e) {
+                                      message.error(e instanceof Error ? e.message : m.clockError);
+                                    }
+                                  }}>
+                                  {m.clockIn}
+                                </Button>
+                                <Button
+                                  size="small"
+                                  disabled={!canClock || !clockedIn || clockedOut}
+                                  onClick={async () => {
+                                    try {
+                                      await clockShift(sh.id, "out");
+                                      message.success(m.clockOutOk);
+                                      await load();
+                                    } catch (e) {
+                                      message.error(e instanceof Error ? e.message : m.clockError);
+                                    }
+                                  }}>
+                                  {m.clockOut}
+                                </Button>
+                              </Space>
+                            )}
                           </Card>
                         );
                       })}

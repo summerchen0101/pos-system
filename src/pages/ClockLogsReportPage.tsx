@@ -150,13 +150,18 @@ export function ClockLogsReportPage({ variant }: { variant: ClockLogsReportVaria
         render: (_, r) => shiftKindLabel(r.start_time, c.kindEarly, c.kindLate),
       },
       {
-        title: c.colScheduledStart,
+        title: c.colTimeRange,
         key: "ss",
-        width: 96,
-        render: (_, r) =>
-          dayjs
+        width: 148,
+        render: (_, r) => {
+          const a = dayjs
             .tz(`${r.shift_date}T${formatShiftTime(r.start_time)}:00`, "Asia/Taipei")
-            .format("HH:mm"),
+            .format("HH:mm");
+          const b = dayjs
+            .tz(`${r.shift_date}T${formatShiftTime(r.end_time)}:00`, "Asia/Taipei")
+            .format("HH:mm");
+          return r.isMergedChain ? `${a}–${b}${c.mergedSuffix}` : `${a}–${b}`;
+        },
       },
       {
         title: c.colClockIn,

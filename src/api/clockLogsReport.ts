@@ -3,6 +3,8 @@ import timezone from 'dayjs/plugin/timezone'
 import utc from 'dayjs/plugin/utc'
 import { supabase } from '../supabase'
 import { formatShiftTime } from '../lib/shiftCalendar'
+import { buildConsecutiveChains } from '../lib/shiftConsecutive'
+import type { ShiftWithNames } from './shifts'
 import type { ShiftClockLogRow, ShiftRow } from '../types/supabase'
 
 dayjs.extend(utc)
@@ -17,6 +19,7 @@ export type ClockReportStatus =
   | 'upcoming'
 
 export type ClockLogReportRow = {
+  /** Earliest segment id in a consecutive chain (where clock log is stored). */
   shift_id: string
   user_id: string
   booth_id: string
@@ -29,6 +32,8 @@ export type ClockLogReportRow = {
   clock_out_at: string | null
   status: ClockReportStatus
   lateMinutes: number | null
+  /** True when this row merges two+ touching segments for display. */
+  isMergedChain?: boolean
 }
 
 /** 早班 / 晚班: start before 14:00 Taipei wall time → 早班 */
@@ -57,12 +62,26 @@ export function computeClockReportStatus(
   todayIso: string,
 ): Pick<ClockLogReportRow, 'status' | 'lateMinutes'> {
   const scheduled = scheduledStartTaipei(row.shift_date, row.start_time)
+  const scheduledEnd = dayjs.tz(
+    `${row.shift_date}T${formatShiftTime(row.end_time)}:00`,
+    'Asia/Taipei',
+  )
+  const now = dayjs().tz('Asia/Taipei')
 
   if (!row.clock_in_at) {
-    if (row.shift_date <= todayIso) {
+    if (row.shift_date > todayIso) {
+      return { status: 'upcoming', lateMinutes: null }
+    }
+    if (row.shift_date < todayIso) {
       return { status: 'missing', lateMinutes: null }
     }
-    return { status: 'upcoming', lateMinutes: null }
+    if (now.isBefore(scheduled)) {
+      return { status: 'upcoming', lateMinutes: null }
+    }
+    if (now.isAfter(scheduledEnd)) {
+      return { status: 'missing', lateMinutes: null }
+    }
+    return { status: 'missing', lateMinutes: null }
   }
 
   const clockIn = dayjs(row.clock_in_at)
@@ -122,28 +141,52 @@ export async function listClockLogReportRows(
   const todayIso = taipeiTodayIso()
   const rows: ClockLogReportRow[] = []
 
+  const byKey = new Map<string, ShiftSelectRow[]>()
   for (const raw of rawShifts) {
-    const u = raw.users
-    const b = raw.booths
-    const userName = Array.isArray(u) ? u[0]?.name ?? null : u?.name ?? null
-    const boothName = Array.isArray(b) ? b[0]?.name ?? null : b?.name ?? null
-    const log = logByShift.get(raw.id)
-
-    const base: Omit<ClockLogReportRow, 'status' | 'lateMinutes'> = {
-      shift_id: raw.id,
-      user_id: raw.user_id,
-      booth_id: raw.booth_id,
-      shift_date: raw.shift_date,
-      start_time: raw.start_time,
-      end_time: raw.end_time,
-      user_name: userName,
-      booth_name: boothName,
-      clock_in_at: log?.clock_in_at ?? null,
-      clock_out_at: log?.clock_out_at ?? null,
-    }
-    const { status, lateMinutes } = computeClockReportStatus(base, todayIso)
-    rows.push({ ...base, status, lateMinutes })
+    const k = `${raw.user_id}|${raw.booth_id}|${raw.shift_date}`
+    const arr = byKey.get(k) ?? []
+    arr.push(raw)
+    byKey.set(k, arr)
   }
+
+  for (const arr of byKey.values()) {
+    arr.sort((a, b) => a.start_time.localeCompare(b.start_time))
+    const chains = buildConsecutiveChains(arr as unknown as ShiftWithNames[])
+    for (const chain of chains) {
+      const head = chain[0] as unknown as ShiftSelectRow
+      const tail = chain[chain.length - 1] as unknown as ShiftSelectRow
+      const u = head.users
+      const b = head.booths
+      const userName = Array.isArray(u) ? u[0]?.name ?? null : u?.name ?? null
+      const boothName = Array.isArray(b) ? b[0]?.name ?? null : b?.name ?? null
+      const log = logByShift.get(head.id)
+
+      const base: Omit<ClockLogReportRow, 'status' | 'lateMinutes'> = {
+        shift_id: head.id,
+        user_id: head.user_id,
+        booth_id: head.booth_id,
+        shift_date: head.shift_date,
+        start_time: head.start_time,
+        end_time: tail.end_time,
+        user_name: userName,
+        booth_name: boothName,
+        clock_in_at: log?.clock_in_at ?? null,
+        clock_out_at: log?.clock_out_at ?? null,
+      }
+      const { status, lateMinutes } = computeClockReportStatus(base, todayIso)
+      rows.push({
+        ...base,
+        status,
+        lateMinutes,
+        isMergedChain: chain.length > 1,
+      })
+    }
+  }
+
+  rows.sort((a, b) => {
+    if (a.shift_date !== b.shift_date) return a.shift_date > b.shift_date ? -1 : 1
+    return a.start_time.localeCompare(b.start_time)
+  })
 
   return rows
 }
