@@ -12,6 +12,8 @@ import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 import { AdminInventoryLogsPage } from "./pages/AdminInventoryLogsPage";
 import { AdminInventoryOverviewPage } from "./pages/AdminInventoryOverviewPage";
 import { AdminOrdersPage } from "./pages/AdminOrdersPage";
+import { AdminStocktakeDetailPage } from "./pages/AdminStocktakeDetailPage";
+import { AdminStocktakesPage } from "./pages/AdminStocktakesPage";
 import { AdminWarehousesPage } from "./pages/AdminWarehousesPage";
 import { AdminProductsPage } from "./pages/AdminProductsPage";
 import { AdminGiftsPage } from "./pages/AdminGiftsPage";
@@ -96,6 +98,8 @@ export default function App() {
                 <Route path="products" element={<AdminProductsPage />} />
                 <Route path="inventory" element={<AdminInventoryOverviewPage />} />
                 <Route path="inventory/warehouses" element={<AdminWarehousesPage />} />
+                <Route path="inventory/stocktakes" element={<AdminStocktakesPage />} />
+                <Route path="inventory/stocktakes/:stocktakeId" element={<AdminStocktakeDetailPage />} />
                 <Route path="inventory/logs" element={<AdminInventoryLogsPage />} />
                 <Route path="gifts" element={<AdminGiftsPage />} />
                 <Route path="promotions" element={<AdminPromotionsPage />} />

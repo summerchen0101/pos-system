@@ -45,6 +45,7 @@ const ADMIN_MENU_KEYS = new Set([
   "/admin/booths",
   "/admin/inventory",
   "/admin/inventory/warehouses",
+  "/admin/inventory/stocktakes",
   "/admin/inventory/logs",
   "/admin/promotions",
   "/admin/gifts",
@@ -56,6 +57,7 @@ const MANAGER_MENU_KEYS = new Set([
   "/admin/dashboard",
   "/admin/orders",
   "/admin/clock-logs",
+  "/admin/inventory/stocktakes",
   "/admin/shifts",
   "/admin/my-shifts",
   "/admin/my-clock-logs",
@@ -187,11 +189,20 @@ export function AdminLayout() {
     if (!profile) return [];
     const allowed = menuKeysForRole(profile.role);
     const filtered = fullMenuItems.filter((m) => allowed.has(m.key));
-    const flat: ItemType[] = filtered.map((m) => ({
+    let flat: ItemType[] = filtered.map((m) => ({
       key: m.key,
       icon: m.icon,
       label: m.label,
     }));
+    if (isManagerRole(profile.role) && !isAdminRole(profile.role)) {
+      const idx = flat.findIndex((x) => x && typeof x === "object" && "key" in x && x.key === "/admin/clock-logs");
+      const st: ItemType = {
+        key: "/admin/inventory/stocktakes",
+        icon: <InboxOutlined />,
+        label: zhtw.admin.layout.menuStocktakes,
+      };
+      flat = [...flat.slice(0, idx + 1), st, ...flat.slice(idx + 1)];
+    }
     if (!isAdminRole(profile.role)) return flat;
     const idx = flat.findIndex((x) => x && typeof x === "object" && "key" in x && x.key === "/admin/booths");
     const invMenu: ItemType = {
@@ -201,6 +212,7 @@ export function AdminLayout() {
       children: [
         { key: "/admin/inventory", label: zhtw.admin.layout.menuInventoryOverview },
         { key: "/admin/inventory/warehouses", label: zhtw.admin.layout.menuWarehouses },
+        { key: "/admin/inventory/stocktakes", label: zhtw.admin.layout.menuStocktakes },
         { key: "/admin/inventory/logs", label: zhtw.admin.layout.menuInventoryLogs },
       ],
     };

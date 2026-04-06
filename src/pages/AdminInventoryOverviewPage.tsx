@@ -2,6 +2,8 @@ import { App, Button, Card, Form, Input, InputNumber, Modal, Select, Space, Tabl
 import type { ColumnsType } from "antd/es/table";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { isAdminRole } from "../api/authProfile";
 import {
   fetchInventoryMatrix,
   inventoryStockIn,
@@ -9,10 +11,13 @@ import {
   inventoryTransferBetween,
   type ProductWithCategory,
 } from "../api/inventoryAdmin";
+import { createStocktakeAdmin } from "../api/stocktakesAdmin";
+import { useAuth } from "../auth/AuthContext";
 import { zhtw } from "../locales/zhTW";
 
 const { Title, Text } = Typography;
 const inv = zhtw.admin.inventory;
+const st = zhtw.admin.stocktakes;
 const common = zhtw.common;
 
 type MatrixRow = {
@@ -36,8 +41,16 @@ function rpcErrorMessage(e: unknown): string {
   return msg || inv.saveError;
 }
 
+function stocktakeCreateErrorMessage(raw: string): string {
+  if (raw.includes("stocktake_draft_exists")) return st.draftExistsError;
+  return raw || st.createError;
+}
+
 export function AdminInventoryOverviewPage() {
   const { message } = App.useApp();
+  const { profile } = useAuth();
+  const navigate = useNavigate();
+  const admin = profile ? isAdminRole(profile.role) : false;
   const [loading, setLoading] = useState(true);
   const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
   const [rows, setRows] = useState<MatrixRow[]>([]);
@@ -57,6 +70,9 @@ export function AdminInventoryOverviewPage() {
   const [stockSaving, setStockSaving] = useState(false);
   const [stockProduct, setStockProduct] = useState<{ id: string; name: string } | null>(null);
   const [stockForm] = Form.useForm<{ warehouseId: string; quantity: number; note?: string }>();
+  const [stModalOpen, setStModalOpen] = useState(false);
+  const [stCreating, setStCreating] = useState(false);
+  const [stForm] = Form.useForm<{ warehouseId: string; note?: string }>();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -162,6 +178,26 @@ export function AdminInventoryOverviewPage() {
     setTransferOpen(true);
   };
 
+  const submitStocktakeCreate = async () => {
+    try {
+      const v = await stForm.validateFields();
+      setStCreating(true);
+      const id = await createStocktakeAdmin({
+        warehouseId: v.warehouseId,
+        note: v.note?.trim() ? v.note.trim() : null,
+      });
+      message.success(st.createdOk);
+      setStModalOpen(false);
+      navigate(`/admin/inventory/stocktakes/${id}`);
+    } catch (e) {
+      if (e && typeof e === "object" && "errorFields" in e) return;
+      const msg = e && typeof e === "object" && "message" in e ? String((e as { message: string }).message) : "";
+      message.error(stocktakeCreateErrorMessage(msg));
+    } finally {
+      setStCreating(false);
+    }
+  };
+
   const columns: ColumnsType<MatrixRow> = useMemo(() => {
     const base: ColumnsType<MatrixRow> = [
       { title: inv.colProduct, key: "pname", render: (_, r) => r.product.name },
@@ -214,9 +250,23 @@ export function AdminInventoryOverviewPage() {
         <Title level={4} style={{ margin: 0 }}>
           {inv.overviewTitle}
         </Title>
-        <Button type="primary" onClick={openTransfer}>
-          {inv.transfer}
-        </Button>
+        <Space wrap>
+          <Link to="/admin/inventory/stocktakes">
+            <Button>{st.goManage}</Button>
+          </Link>
+          {admin ? (
+            <Button
+              onClick={() => {
+                stForm.resetFields();
+                setStModalOpen(true);
+              }}>
+              {st.newStocktake}
+            </Button>
+          ) : null}
+          <Button type="primary" onClick={openTransfer}>
+            {inv.transfer}
+          </Button>
+        </Space>
       </Space>
       <Text type="secondary" style={{ display: "block", marginBottom: 16 }}>
         {inv.overviewHint}
@@ -347,6 +397,32 @@ export function AdminInventoryOverviewPage() {
           </Form.Item>
           <Form.Item name="note" label={inv.labelNote}>
             <Input.TextArea rows={2} placeholder={inv.notePh} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={st.modalCreateTitle}
+        open={admin && stModalOpen}
+        onCancel={() => setStModalOpen(false)}
+        onOk={() => void submitStocktakeCreate()}
+        confirmLoading={stCreating}
+        destroyOnClose
+        okText={common.save}>
+        <Form form={stForm} layout="vertical" style={{ marginTop: 8 }}>
+          <Form.Item
+            name="warehouseId"
+            label={st.labelWarehouse}
+            rules={[{ required: true, message: common.required }]}>
+            <Select
+              showSearch
+              optionFilterProp="label"
+              options={warehouses.map((w) => ({ value: w.id, label: w.name }))}
+              placeholder={st.labelWarehouse}
+            />
+          </Form.Item>
+          <Form.Item name="note" label={st.labelNote}>
+            <Input.TextArea rows={2} placeholder={st.notePh} />
           </Form.Item>
         </Form>
       </Modal>

@@ -71,6 +71,26 @@ export type InventoryLogRow = {
   created_at: string
 }
 
+export type StocktakeRow = {
+  id: string
+  warehouse_id: string
+  status: 'draft' | 'completed'
+  note: string | null
+  created_by: string | null
+  completed_at: string | null
+  created_at: string
+}
+
+export type StocktakeItemRow = {
+  id: string
+  stocktake_id: string
+  product_id: string
+  system_stock: number
+  actual_stock: number | null
+  difference: number | null
+  reason: string | null
+}
+
 export type PromotionRow = {
   id: string
   code: string | null
@@ -265,6 +285,22 @@ export type Database = {
         Row: InventoryLogRow
         Insert: Omit<InventoryLogRow, 'id' | 'created_at'> & { id?: string; created_at?: string }
         Update: Partial<Omit<InventoryLogRow, 'id'>>
+        Relationships: []
+      }
+      stocktakes: {
+        Row: StocktakeRow
+        Insert: Omit<StocktakeRow, 'id' | 'created_at' | 'completed_at'> & {
+          id?: string
+          created_at?: string
+          completed_at?: string | null
+        }
+        Update: Partial<Omit<StocktakeRow, 'id'>>
+        Relationships: []
+      }
+      stocktake_items: {
+        Row: StocktakeItemRow
+        Insert: Omit<StocktakeItemRow, 'id'> & { id?: string }
+        Update: Partial<Omit<StocktakeItemRow, 'id'>>
         Relationships: []
       }
       categories: {
@@ -589,6 +625,14 @@ export type Database = {
           p_note?: string | null
         }
         Returns: undefined
+      }
+      create_stocktake: {
+        Args: { p_warehouse_id: string; p_note?: string | null }
+        Returns: string
+      }
+      complete_stocktake: {
+        Args: { p_stocktake_id: string; p_items?: unknown }
+        Returns: Record<string, unknown>
       }
       clock_shift: {
         Args: { p_shift_id: string; p_action: string }
