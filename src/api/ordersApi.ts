@@ -9,7 +9,6 @@ import type {
 import type { OrderItemRow, OrderRow } from '../types/supabase'
 
 type BoothNameNested = { name: string } | { name: string }[] | null | undefined
-type UserNameNested = { name: string } | { name: string }[] | null | undefined
 
 function unwrapBoothName(booths: BoothNameNested): string | null {
   if (booths == null) return null
@@ -17,13 +16,12 @@ function unwrapBoothName(booths: BoothNameNested): string | null {
   return b?.name ?? null
 }
 
-function unwrapCashierName(users: UserNameNested): string | null {
-  if (users == null) return null
-  const u = Array.isArray(users) ? users[0] : users
-  return u?.name ?? null
+function normalizeNameArray(raw: string[] | null | undefined): string[] {
+  if (raw == null || !Array.isArray(raw)) return []
+  return raw.filter((x): x is string => typeof x === 'string')
 }
 
-function mapOrderRow(row: OrderRow & { booths?: BoothNameNested; users?: UserNameNested }): Order {
+function mapOrderRow(row: OrderRow & { booths?: BoothNameNested }): Order {
   return {
     id: row.id,
     createdAt: row.created_at,
@@ -32,7 +30,8 @@ function mapOrderRow(row: OrderRow & { booths?: BoothNameNested; users?: UserNam
     finalAmountCents: row.final_amount,
     boothId: row.booth_id,
     boothName: unwrapBoothName(row.booths),
-    cashierName: unwrapCashierName(row.users),
+    scheduledStaffNames: normalizeNameArray(row.scheduled_staff),
+    clockedInStaffNames: normalizeNameArray(row.clocked_in_staff),
   }
 }
 
@@ -104,8 +103,11 @@ export type OrderInsert = {
   discountAmountCents: number
   finalAmountCents: number
   boothId: string
-  /** POS: optional cashier (after 上班打卡); falls back to auth.uid() for logged-in admin. */
+  /** POS: optional cashier id stored on row; not shown in admin (staff snapshots used). */
   cashierUserId?: string | null
+  /** Snapshot at checkout (display names). */
+  scheduledStaff: string[]
+  clockedInStaff: string[]
 }
 
 /** Payload for `checkout_order_deduct_stock` line objects (DB snake_case). */
@@ -162,8 +164,9 @@ export async function fetchOrdersForDateRange(
       final_amount,
       booth_id,
       user_id,
+      scheduled_staff,
+      clocked_in_staff,
       booths ( name ),
-      users ( name ),
       order_items ( product_name, quantity, sort_order )
     `,
     )
@@ -188,8 +191,9 @@ export async function fetchOrdersForDateRange(
     final_amount: number
     booth_id: string
     user_id: string | null
+    scheduled_staff: string[] | null
+    clocked_in_staff: string[] | null
     booths: BoothNameNested
-    users: UserNameNested
     order_items: Pick<OrderItemRow, 'product_name' | 'quantity' | 'sort_order'>[] | null
   }
 
@@ -203,8 +207,9 @@ export async function fetchOrdersForDateRange(
       promotion_snapshot: null,
       booth_id: row.booth_id,
       user_id: row.user_id,
+      scheduled_staff: row.scheduled_staff,
+      clocked_in_staff: row.clocked_in_staff,
       booths: row.booths,
-      users: row.users,
     })
     const itemsPreview = buildItemsPreview(row.order_items ?? [])
     return { ...base, itemsPreview }
@@ -224,8 +229,9 @@ export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | n
       promotion_snapshot,
       booth_id,
       user_id,
+      scheduled_staff,
+      clocked_in_staff,
       booths ( name ),
-      users ( name ),
       order_items (
         id,
         order_id,
@@ -252,7 +258,6 @@ export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | n
 
   type DetailRow = OrderRow & {
     booths?: BoothNameNested
-    users?: UserNameNested
     order_items: OrderItemRow[] | null
   }
   const row = data as unknown as DetailRow
@@ -283,6 +288,8 @@ export async function checkoutOrder(
     p_promotion_snapshot: promotionSnapshot,
     p_booth_id: input.boothId,
     p_user_id: input.cashierUserId ?? null,
+    p_scheduled_staff: input.scheduledStaff,
+    p_clocked_in_staff: input.clockedInStaff,
   })
   if (error) throw error
 }

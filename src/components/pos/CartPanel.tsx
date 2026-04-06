@@ -1,6 +1,7 @@
 import { App, Space, Tag } from 'antd'
 import { useMemo, useState } from 'react'
 import { usePosCashier } from '../../context/PosCashierContext'
+import { fetchCheckoutStaffSnapshots } from '../../api/posCheckoutStaff'
 import { checkoutOrder, type CheckoutLinePayload } from '../../api/ordersApi'
 import { useCartPromotionTotals } from '../../hooks/useCartPromotionTotals'
 import { zhtw } from '../../locales/zhTW'
@@ -145,6 +146,7 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
             ...(source ? { source } : {}),
           }
         })
+        const { scheduledStaff, clockedInStaff } = await fetchCheckoutStaffSnapshots(boothId)
         await checkoutOrder(
           {
             totalAmountCents: totals.subtotalCents,
@@ -152,6 +154,8 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
             finalAmountCents: totals.finalCents,
             boothId,
             cashierUserId: cashier?.userId ?? null,
+            scheduledStaff,
+            clockedInStaff,
           },
           checkoutLines,
           {

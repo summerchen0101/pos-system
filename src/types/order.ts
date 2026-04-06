@@ -8,8 +8,10 @@ export type Order = {
   boothId: string
   /** Present when list/detail query embeds `booths`. */
   boothName?: string | null
-  /** Present when list/detail query embeds `users` (checkout cashier). */
-  cashierName?: string | null
+  /** Snapshot at checkout: names on shift roster for that booth/day. */
+  scheduledStaffNames: string[]
+  /** Snapshot at checkout: names clocked in (incl. ad-hoc). */
+  clockedInStaffNames: string[]
 }
 
 /** Stored with checkout for admin history (JSON on `orders.promotion_snapshot`). */

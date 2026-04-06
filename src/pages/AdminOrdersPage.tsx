@@ -18,6 +18,14 @@ function startEndRange(d0: Dayjs, d1: Dayjs): { start: Date; end: Date } {
   return { start: a.startOf('day').toDate(), end: b.endOf('day').toDate() }
 }
 
+function namesListCsv(names: string[]): string {
+  return names.length > 0 ? names.join(', ') : zhtw.common.dash
+}
+
+function namesDetailIdeographic(names: string[]): string {
+  return names.length > 0 ? names.join('、') : zhtw.common.dash
+}
+
 function lineTags(item: OrderItem) {
   if (item.source === 'FREE_SELECTION') return <Tag color="purple">{o.tagFreeSelection}</Tag>
   if (item.source === 'BUNDLE_COMPONENT') return <Tag color="geekblue">{o.tagBundleComponent}</Tag>
@@ -96,11 +104,18 @@ export function AdminOrdersPage() {
       render: (_, row) => row.boothName ?? zhtw.common.dash,
     },
     {
-      title: o.colCashier,
-      key: 'cashier',
-      width: 100,
+      title: o.colScheduledStaff,
+      key: 'scheduled',
+      width: 120,
       ellipsis: true,
-      render: (_, row) => row.cashierName ?? zhtw.common.dash,
+      render: (_, row) => namesListCsv(row.scheduledStaffNames),
+    },
+    {
+      title: o.colClockedInStaff,
+      key: 'clocked',
+      width: 120,
+      ellipsis: true,
+      render: (_, row) => namesListCsv(row.clockedInStaffNames),
     },
     {
       title: o.colFinal,
@@ -227,8 +242,11 @@ export function AdminOrdersPage() {
               <Descriptions.Item label={o.labelBoothInDetail}>
                 {detail.boothName ?? zhtw.common.dash}
               </Descriptions.Item>
-              <Descriptions.Item label={o.labelCashierInDetail}>
-                {detail.cashierName ?? zhtw.common.dash}
+              <Descriptions.Item label={o.labelScheduledInDetail}>
+                {namesDetailIdeographic(detail.scheduledStaffNames)}
+              </Descriptions.Item>
+              <Descriptions.Item label={o.labelClockedInDetail}>
+                {namesDetailIdeographic(detail.clockedInStaffNames)}
               </Descriptions.Item>
               <Descriptions.Item label={o.colFinal}>{formatMoney(detail.finalAmountCents)}</Descriptions.Item>
               <Descriptions.Item label={o.colTotal}>{formatMoney(detail.totalAmountCents)}</Descriptions.Item>

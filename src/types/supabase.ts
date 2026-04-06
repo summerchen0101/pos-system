@@ -116,6 +116,10 @@ export type OrderRow = {
   booth_id: string
   /** Cashier (auth / public.users); null on legacy rows. */
   user_id: string | null
+  /** Snapshot at checkout: scheduled staff display names. */
+  scheduled_staff: string[] | null
+  /** Snapshot at checkout: clocked-in staff display names. */
+  clocked_in_staff: string[] | null
 }
 
 export type OrderItemRow = {
@@ -494,8 +498,14 @@ export type Database = {
           p_promotion_snapshot?: unknown | null
           p_booth_id?: string
           p_user_id?: string | null
+          p_scheduled_staff?: string[]
+          p_clocked_in_staff?: string[]
         }
         Returns: string
+      }
+      pos_list_scheduled_staff_names: {
+        Args: { p_booth_id: string }
+        Returns: string[]
       }
       pos_adhoc_clock_in: {
         Args: { p_booth_id: string }
