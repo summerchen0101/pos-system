@@ -1,0 +1,5 @@
+# Supabase CLI config. Set project_id when linking: `supabase link`.
+# Deploy this function: `supabase functions deploy manage-users`
+
+[functions.manage-users]
+verify_jwt = false
