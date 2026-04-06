@@ -1,72 +1,78 @@
-import { App, Button, Card, Form, Input, Spin, Typography } from 'antd'
-import { useEffect } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../auth/AuthContext'
-import { isAdminRole } from '../api/authProfile'
-import { zhtw } from '../locales/zhTW'
-import '../components/pos/pos.css'
+import { App, Button, Card, Form, Input, Spin, Typography } from "antd";
+import { useEffect } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { isAdminRole } from "../api/authProfile";
+import { useAuth } from "../auth/AuthContext";
+import { zhtw } from "../locales/zhTW";
+import "../components/pos/pos.css";
 
-const { Title, Text } = Typography
-const a = zhtw.auth
+const { Title, Text } = Typography;
+const a = zhtw.auth;
 
 export function LoginPage() {
-  const { message } = App.useApp()
-  const { session, profile, loading, signIn } = useAuth()
-  const [form] = Form.useForm<{ email: string; password: string }>()
-  const navigate = useNavigate()
-  const location = useLocation()
-  const from = (location.state as { from?: string } | null)?.from
+  const { message } = App.useApp();
+  const { session, profile, loading, signIn } = useAuth();
+  const [form] = Form.useForm<{ username: string; password: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from;
 
   useEffect(() => {
     if (session && profile) {
       const target =
-        from && from !== '/login'
+        from && from !== "/login"
           ? from
           : isAdminRole(profile.role)
-            ? '/admin/dashboard'
-            : '/'
-      navigate(target, { replace: true })
+            ? "/admin/dashboard"
+            : "/";
+      navigate(target, { replace: true });
     }
-  }, [session, profile, from, navigate])
+  }, [session, profile, from, navigate]);
 
   if (loading || (session && profile)) {
     return (
-      <div className="pos-layout" style={{ gridTemplateColumns: '1fr', placeItems: 'center' }}>
+      <div className="pos-layout" style={{ gridTemplateColumns: "1fr", placeItems: "center" }}>
         <Spin size="large" />
       </div>
-    )
+    );
   }
 
   if (session && !profile) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/" replace />;
   }
 
-  const onFinish = async (v: { email: string; password: string }) => {
+  const onFinish = async (v: { username: string; password: string }) => {
     try {
-      await signIn(v.email, v.password)
-      message.success(a.loginOk)
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : a.loginFailed)
+      await signIn(v.username, v.password);
+      message.success(a.loginOk);
+    } catch {
+      message.error(a.loginInvalidCredentials);
     }
-  }
+  };
 
   return (
     <div
       className="pos-layout"
-      style={{ gridTemplateColumns: '1fr', placeItems: 'center', padding: '2rem' }}>
-      <Card style={{ width: '100%', maxWidth: 400, background: 'var(--pos-cart-bg)', borderColor: 'var(--pos-border)' }}>
-        <Title level={3} style={{ marginTop: 0, color: 'var(--pos-text-strong)' }}>
+      style={{ gridTemplateColumns: "1fr", placeItems: "center", padding: "2rem" }}>
+      <Card
+        style={{
+          width: "100%",
+          maxWidth: 400,
+          background: "var(--pos-cart-bg)",
+          borderColor: "var(--pos-border)",
+        }}>
+        <Title level={3} style={{ marginTop: 0, color: "var(--pos-text-strong)" }}>
           {a.loginTitle}
         </Title>
-        <Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
+        <Text type="secondary" style={{ display: "block", marginBottom: 24 }}>
           {a.loginSubtitle}
         </Text>
         <Form form={form} layout="vertical" onFinish={(v) => void onFinish(v)} requiredMark={false}>
           <Form.Item
-            name="email"
-            label={a.emailLabel}
+            name="username"
+            label={a.usernameLabel}
             rules={[{ required: true, message: zhtw.common.required }]}>
-            <Input type="email" autoComplete="email" placeholder={a.emailPh} />
+            <Input autoComplete="username" placeholder={a.usernamePh} />
           </Form.Item>
           <Form.Item
             name="password"
@@ -78,10 +84,10 @@ export function LoginPage() {
             {a.signIn}
           </Button>
         </Form>
-        <Text type="secondary" style={{ display: 'block', marginTop: 16, fontSize: 13, textAlign: 'center' }}>
+        <Text type="secondary" style={{ display: "block", marginTop: 16, fontSize: 13, textAlign: "center" }}>
           {a.acquireAccountHint}
         </Text>
       </Card>
     </div>
-  )
+  );
 }

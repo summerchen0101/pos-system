@@ -2,12 +2,13 @@ import type { Session } from '@supabase/supabase-js'
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { fetchUserProfile, type UserProfile } from '../api/authProfile'
 import { supabase } from '../supabase'
+import { zhtw } from '../locales/zhTW'
 
 type AuthContextValue = {
   session: Session | null
   profile: UserProfile | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<void>
+  signIn: (username: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
@@ -56,12 +57,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [loadProfile])
 
-  const signIn = useCallback(async (email: string, password: string) => {
+  const signIn = useCallback(async (username: string, password: string) => {
+    const u = username.trim()
+    const invalid = (): never => {
+      throw new Error(zhtw.auth.loginInvalidCredentials)
+    }
+    if (!u) invalid()
+
+    const { data: emailData, error: rpcErr } = await supabase.rpc('get_auth_email_by_username', {
+      p_username: u,
+    })
+    if (rpcErr) invalid()
+    if (typeof emailData !== 'string' || emailData.length === 0) invalid()
+
+    const loginEmail = emailData as string
+
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: loginEmail,
       password,
     })
-    if (error) throw error
+    if (error) invalid()
   }, [])
 
   const signOut = useCallback(async () => {

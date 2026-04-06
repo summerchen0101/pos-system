@@ -5,6 +5,8 @@ export type AppRole = 'ADMIN' | 'STAFF'
 export type UserProfile = {
   id: string
   name: string
+  username: string
+  phone: string | null
   role: AppRole
   boothIds: string[]
 }
@@ -19,7 +21,11 @@ export async function fetchUserProfile(): Promise<UserProfile | null> {
   } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data: row, error } = await supabase.from('users').select('id, name, role').eq('id', user.id).maybeSingle()
+  const { data: row, error } = await supabase
+    .from('users')
+    .select('id, name, role, username, phone')
+    .eq('id', user.id)
+    .maybeSingle()
 
   if (error) throw error
   if (!row) return null
@@ -31,6 +37,8 @@ export async function fetchUserProfile(): Promise<UserProfile | null> {
   return {
     id: row.id,
     name: row.name,
+    username: row.username,
+    phone: row.phone,
     role: row.role as AppRole,
     boothIds: (ub ?? []).map((x) => x.booth_id),
   }

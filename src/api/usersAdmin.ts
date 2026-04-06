@@ -4,6 +4,7 @@ import type { AppRole } from './authProfile'
 export type AdminUserListEntry = {
   id: string
   name: string
+  username: string
   role: AppRole
   boothIds: string[]
 }
@@ -11,6 +12,7 @@ export type AdminUserListEntry = {
 type UserRowNested = {
   id: string
   name: string
+  username: string
   role: string
   user_booths: { booth_id: string }[] | null
 }
@@ -18,7 +20,7 @@ type UserRowNested = {
 export async function listUsersAdmin(): Promise<AdminUserListEntry[]> {
   const { data, error } = await supabase
     .from('users')
-    .select('id, name, role, user_booths(booth_id)')
+    .select('id, name, username, role, user_booths(booth_id)')
     .order('name')
 
   if (error) throw error
@@ -26,6 +28,7 @@ export async function listUsersAdmin(): Promise<AdminUserListEntry[]> {
   return ((data ?? []) as unknown as UserRowNested[]).map((row) => ({
     id: row.id,
     name: row.name,
+    username: row.username,
     role: row.role as AppRole,
     boothIds: (row.user_booths ?? []).map((x) => x.booth_id),
   }))

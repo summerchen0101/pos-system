@@ -3,7 +3,8 @@ import type { AppRole } from './authProfile'
 
 export type ManagedUserRow = {
   id: string
-  email: string
+  username: string
+  phone: string
   name: string
   role: AppRole
   boothIds: string[]
@@ -53,7 +54,8 @@ export async function listManagedUsers(accessToken: string): Promise<ManagedUser
 export async function createManagedUser(
   accessToken: string,
   input: {
-    email: string
+    username: string
+    phone?: string
     password: string
     name: string
     role: AppRole
@@ -63,11 +65,12 @@ export async function createManagedUser(
   await invokeManageUsers(
     {
       action: 'create',
-      email: input.email.trim(),
+      username: input.username.trim().toLowerCase(),
       password: input.password,
       name: input.name.trim(),
       role: input.role,
       boothIds: input.role === 'STAFF' ? input.boothIds : [],
+      phone: input.phone?.trim() ?? '',
     },
     accessToken,
   )
@@ -77,6 +80,8 @@ export async function updateManagedUser(
   accessToken: string,
   input: {
     userId: string
+    username: string
+    phone?: string
     name: string
     role: AppRole
     boothIds: string[]
@@ -86,9 +91,11 @@ export async function updateManagedUser(
   const payload: Record<string, unknown> = {
     action: 'update',
     userId: input.userId,
+    username: input.username.trim().toLowerCase(),
     name: input.name.trim(),
     role: input.role,
     boothIds: input.role === 'STAFF' ? input.boothIds : [],
+    phone: input.phone?.trim() ?? '',
   }
   if (input.password && input.password.length > 0) {
     payload.password = input.password

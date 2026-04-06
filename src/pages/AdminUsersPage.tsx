@@ -1,10 +1,29 @@
-import { App, Button, Card, Form, Input, Modal, Select, Space, Table, Tag, Typography } from "antd";
+import {
+  App,
+  Button,
+  Card,
+  Form,
+  Input,
+  Modal,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+} from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { isAdminRole, type AppRole } from "../api/authProfile";
 import { listBoothsAdmin, type AdminBooth } from "../api/boothsAdmin";
-import { ManageUsersError, createManagedUser, deleteManagedUser, listManagedUsers, updateManagedUser, type ManagedUserRow } from "../api/manageUsersEdge";
+import {
+  ManageUsersError,
+  createManagedUser,
+  deleteManagedUser,
+  listManagedUsers,
+  updateManagedUser,
+  type ManagedUserRow,
+} from "../api/manageUsersEdge";
 import { useAuth } from "../auth/AuthContext";
 import { zhtw } from "../locales/zhTW";
 
@@ -12,17 +31,22 @@ const { Title, Text } = Typography;
 const u = zhtw.admin.users;
 const common = zhtw.common;
 
+const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,20}$/;
+
 type ModalMode = "create" | "edit" | null;
 
 type CreateFormValues = {
+  username: string;
+  phone?: string;
   name: string;
-  email: string;
   password: string;
   role: AppRole;
   boothIds: string[];
 };
 
 type EditFormValues = {
+  username: string;
+  phone?: string;
   name: string;
   role: AppRole;
   boothIds: string[];
@@ -31,6 +55,10 @@ type EditFormValues = {
 
 function mapManageUsersError(code: string, fallback?: string): string {
   switch (code) {
+    case "USERNAME_TAKEN":
+      return u.errUsernameTaken;
+    case "INVALID_USERNAME":
+      return u.errInvalidUsername;
     case "EMAIL_TAKEN":
       return u.errEmailTaken;
     case "PASSWORD_SHORT":
@@ -78,12 +106,17 @@ export function AdminUsersPage() {
     }
     setLoading(true);
     try {
-      const [ulist, blist] = await Promise.all([listManagedUsers(token), listBoothsAdmin()]);
+      const [ulist, blist] = await Promise.all([
+        listManagedUsers(token),
+        listBoothsAdmin(),
+      ]);
       setRows(ulist);
       setBooths(blist);
     } catch (e) {
       const msg =
-        e instanceof ManageUsersError ? mapManageUsersError(e.code, e.message) : u.loadError;
+        e instanceof ManageUsersError
+          ? mapManageUsersError(e.code, e.message)
+          : u.loadError;
       message.error(e instanceof Error ? msg : u.loadError);
       setRows([]);
     } finally {
@@ -99,8 +132,9 @@ export function AdminUsersPage() {
     setEditing(null);
     createForm.resetFields();
     createForm.setFieldsValue({
+      username: "",
+      phone: "",
       name: "",
-      email: "",
       password: "",
       role: "STAFF",
       boothIds: [],
@@ -111,6 +145,8 @@ export function AdminUsersPage() {
   const openEdit = (row: ManagedUserRow) => {
     setEditing(row);
     editForm.setFieldsValue({
+      username: row.username,
+      phone: row.phone || "",
       name: row.name,
       role: row.role,
       boothIds: row.boothIds,
@@ -132,8 +168,9 @@ export function AdminUsersPage() {
       const v = await createForm.validateFields();
       setSaving(true);
       await createManagedUser(token, {
+        username: v.username.trim().toLowerCase(),
+        phone: v.phone?.trim(),
         name: v.name,
-        email: v.email,
         password: v.password,
         role: v.role,
         boothIds: v.role === "STAFF" ? (v.boothIds ?? []) : [],
@@ -144,7 +181,9 @@ export function AdminUsersPage() {
     } catch (e) {
       if (e && typeof e === "object" && "errorFields" in e) return;
       const code = e instanceof ManageUsersError ? e.code : "";
-      message.error(mapManageUsersError(code, e instanceof Error ? e.message : u.saveError));
+      message.error(
+        mapManageUsersError(code, e instanceof Error ? e.message : u.saveError),
+      );
     } finally {
       setSaving(false);
     }
@@ -157,6 +196,8 @@ export function AdminUsersPage() {
       setSaving(true);
       await updateManagedUser(token, {
         userId: editing.id,
+        username: v.username.trim().toLowerCase(),
+        phone: v.phone?.trim(),
         name: v.name,
         role: v.role,
         boothIds: v.role === "STAFF" ? (v.boothIds ?? []) : [],
@@ -168,7 +209,9 @@ export function AdminUsersPage() {
     } catch (e) {
       if (e && typeof e === "object" && "errorFields" in e) return;
       const code = e instanceof ManageUsersError ? e.code : "";
-      message.error(mapManageUsersError(code, e instanceof Error ? e.message : u.saveError));
+      message.error(
+        mapManageUsersError(code, e instanceof Error ? e.message : u.saveError),
+      );
     } finally {
       setSaving(false);
     }
@@ -183,7 +226,7 @@ export function AdminUsersPage() {
     }
     modal.confirm({
       title: u.deleteTitle,
-      content: u.deleteBody(row.name, row.email),
+      content: u.deleteBody(row.name, row.username),
       okText: common.delete,
       okButtonProps: { danger: true },
       onOk: async () => {
@@ -193,7 +236,12 @@ export function AdminUsersPage() {
           await load();
         } catch (e) {
           const code = e instanceof ManageUsersError ? e.code : "";
-          message.error(mapManageUsersError(code, e instanceof Error ? e.message : u.deleteError));
+          message.error(
+            mapManageUsersError(
+              code,
+              e instanceof Error ? e.message : u.deleteError,
+            ),
+          );
         }
       },
     });
@@ -204,6 +252,14 @@ export function AdminUsersPage() {
     value: b.id,
   }));
 
+  const usernameRules = [
+    { required: true, message: common.required },
+    {
+      pattern: USERNAME_PATTERN,
+      message: u.errInvalidUsername,
+    },
+  ];
+
   const columns: ColumnsType<ManagedUserRow> = [
     {
       title: u.colNameDisplay,
@@ -212,18 +268,23 @@ export function AdminUsersPage() {
       render: (name: string) => <Text strong>{name}</Text>,
     },
     {
-      title: u.colEmail,
-      dataIndex: "email",
-      key: "email",
+      title: u.colUsername,
+      dataIndex: "username",
+      key: "username",
       ellipsis: true,
-      render: (email: string) =>
-        email ? (
-          <Text copyable={{ text: email }} style={{ fontSize: 13 }}>
-            {email}
-          </Text>
-        ) : (
-          <Text type="secondary">{common.dash}</Text>
-        ),
+      render: (un: string) => (
+        <Text copyable={{ text: un }} style={{ fontSize: 13 }}>
+          {un}
+        </Text>
+      ),
+    },
+    {
+      title: u.colPhone,
+      dataIndex: "phone",
+      key: "phone",
+      ellipsis: true,
+      render: (p: string) =>
+        p ? <Text>{p}</Text> : <Text type="secondary">{common.dash}</Text>,
     },
     {
       title: u.colRole,
@@ -231,7 +292,11 @@ export function AdminUsersPage() {
       key: "role",
       width: 120,
       render: (r: AppRole) =>
-        r === "ADMIN" ? <Tag color="blue">{u.roleAdmin}</Tag> : <Tag>{u.roleStaff}</Tag>,
+        r === "ADMIN" ? (
+          <Tag color="blue">{u.roleAdmin}</Tag>
+        ) : (
+          <Tag>{u.roleStaff}</Tag>
+        ),
     },
     {
       title: u.colBooths,
@@ -275,7 +340,7 @@ export function AdminUsersPage() {
   }
 
   return (
-    <div className="admin-page" style={{ padding: "0 24px 24px" }}>
+    <div className="admin-page">
       <Title level={4} style={{ marginTop: 0 }}>
         {u.pageTitle}
       </Title>
@@ -315,17 +380,20 @@ export function AdminUsersPage() {
               createForm.setFieldsValue({ boothIds: [] });
             }
           }}>
-          <Form.Item name="name" label={u.labelName} rules={[{ required: true, message: common.required }]}>
-            <Input placeholder={u.namePh} autoComplete="off" />
+          <Form.Item
+            name="username"
+            label={u.labelUsername}
+            rules={usernameRules}>
+            <Input placeholder={u.usernamePh} autoComplete="off" />
+          </Form.Item>
+          <Form.Item name="phone" label={u.labelPhone}>
+            <Input placeholder={u.phonePh} autoComplete="tel" />
           </Form.Item>
           <Form.Item
-            name="email"
-            label={u.labelEmail}
-            rules={[
-              { required: true, message: common.required },
-              { type: "email", message: u.errInvalidEmail },
-            ]}>
-            <Input placeholder={u.emailPh} autoComplete="off" />
+            name="name"
+            label={u.labelName}
+            rules={[{ required: true, message: common.required }]}>
+            <Input placeholder={u.namePh} autoComplete="off" />
           </Form.Item>
           <Form.Item
             name="password"
@@ -334,9 +402,15 @@ export function AdminUsersPage() {
               { required: true, message: common.required },
               { min: 6, message: u.errPasswordShort },
             ]}>
-            <Input.Password placeholder={u.passwordPh} autoComplete="new-password" />
+            <Input.Password
+              placeholder={u.passwordPh}
+              autoComplete="new-password"
+            />
           </Form.Item>
-          <Form.Item name="role" label={u.labelRole} rules={[{ required: true }]}>
+          <Form.Item
+            name="role"
+            label={u.labelRole}
+            rules={[{ required: true }]}>
             <Select
               options={[
                 { value: "ADMIN", label: u.roleAdmin },
@@ -344,7 +418,9 @@ export function AdminUsersPage() {
               ]}
             />
           </Form.Item>
-          <Form.Item shouldUpdate={(prev, cur) => prev.role !== cur.role} noStyle>
+          <Form.Item
+            shouldUpdate={(prev, cur) => prev.role !== cur.role}
+            noStyle>
             {() =>
               createForm.getFieldValue("role") === "STAFF" ? (
                 <Form.Item name="boothIds" label={u.labelBooths}>
@@ -373,12 +449,6 @@ export function AdminUsersPage() {
         destroyOnClose
         width={520}
         okText={common.save}>
-        {editing ? (
-          <div style={{ marginBottom: 12 }}>
-            <Text type="secondary">{u.labelEmail}：</Text>
-            <Text copyable>{editing.email || common.dash}</Text>
-          </div>
-        ) : null}
         <Form
           form={editForm}
           layout="vertical"
@@ -388,10 +458,25 @@ export function AdminUsersPage() {
               editForm.setFieldsValue({ boothIds: [] });
             }
           }}>
-          <Form.Item name="name" label={u.labelName} rules={[{ required: true, message: common.required }]}>
+          <Form.Item
+            name="username"
+            label={u.labelUsername}
+            rules={usernameRules}>
+            <Input placeholder={u.usernamePh} autoComplete="off" />
+          </Form.Item>
+          <Form.Item name="phone" label={u.labelPhone}>
+            <Input placeholder={u.phonePh} autoComplete="tel" />
+          </Form.Item>
+          <Form.Item
+            name="name"
+            label={u.labelName}
+            rules={[{ required: true, message: common.required }]}>
             <Input placeholder={u.namePh} autoComplete="off" />
           </Form.Item>
-          <Form.Item name="role" label={u.labelRole} rules={[{ required: true }]}>
+          <Form.Item
+            name="role"
+            label={u.labelRole}
+            rules={[{ required: true }]}>
             <Select
               options={[
                 { value: "ADMIN", label: u.roleAdmin },
@@ -399,7 +484,9 @@ export function AdminUsersPage() {
               ]}
             />
           </Form.Item>
-          <Form.Item shouldUpdate={(prev, cur) => prev.role !== cur.role} noStyle>
+          <Form.Item
+            shouldUpdate={(prev, cur) => prev.role !== cur.role}
+            noStyle>
             {() =>
               editForm.getFieldValue("role") === "STAFF" ? (
                 <Form.Item name="boothIds" label={u.labelBooths}>
@@ -425,12 +512,16 @@ export function AdminUsersPage() {
                 validator: (_, v) => {
                   const s = typeof v === "string" ? v.trim() : "";
                   if (s.length === 0) return Promise.resolve();
-                  if (s.length < 6) return Promise.reject(new Error(u.errPasswordShort));
+                  if (s.length < 6)
+                    return Promise.reject(new Error(u.errPasswordShort));
                   return Promise.resolve();
                 },
               },
             ]}>
-            <Input.Password placeholder={u.resetPasswordPh} autoComplete="new-password" />
+            <Input.Password
+              placeholder={u.resetPasswordPh}
+              autoComplete="new-password"
+            />
           </Form.Item>
         </Form>
       </Modal>

@@ -129,6 +129,8 @@ export type AppUserRow = {
   id: string
   name: string
   role: 'ADMIN' | 'STAFF'
+  username: string
+  phone: string | null
 }
 
 export type UserBoothRow = {
@@ -170,8 +172,8 @@ export type Database = {
     Tables: {
       users: {
         Row: AppUserRow
-        Insert: AppUserRow
-        Update: Partial<Pick<AppUserRow, 'name' | 'role'>>
+        Insert: Omit<AppUserRow, 'phone'> & { phone?: string | null }
+        Update: Partial<Pick<AppUserRow, 'name' | 'role' | 'username' | 'phone'>>
         Relationships: []
       }
       user_booths: {
@@ -483,6 +485,10 @@ export type Database = {
       list_colleague_shifts_for_swap: {
         Args: { p_booth_id: string; p_from: string; p_to: string }
         Returns: ShiftRow[]
+      }
+      get_auth_email_by_username: {
+        Args: { p_username: string }
+        Returns: string | null
       }
     }
     Enums: Record<string, never>

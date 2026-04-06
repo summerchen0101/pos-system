@@ -19,7 +19,9 @@ export const zhtw = {
   },
   auth: {
     loginTitle: "登入",
-    loginSubtitle: "請使用管理員提供的電子郵件與密碼登入。",
+    loginSubtitle: "請輸入帳號與密碼。",
+    usernameLabel: "帳號",
+    usernamePh: "英文、數字或底線",
     emailLabel: "電子郵件",
     emailPh: "name@example.com",
     passwordLabel: "密碼",
@@ -28,7 +30,8 @@ export const zhtw = {
     signOut: "登出",
     loginOk: "登入成功",
     loginFailed: "登入失敗，請檢查帳號密碼。",
-    acquireAccountHint: "若尚無帳號，請聯絡管理員在 Supabase Authentication 建立使用者。",
+    loginInvalidCredentials: "帳號或密碼錯誤",
+    acquireAccountHint: "若尚無帳號，請聯絡管理員於後台建立使用者。",
     profileMissingTitle: "找不到使用者檔案",
     profileMissingHint:
       "您的登入帳號尚未對應到系統使用者表。請聯絡管理員執行資料庫遷移或手動建立 public.users 資料列。",
@@ -181,9 +184,11 @@ export const zhtw = {
     users: {
       pageTitle: "使用者與權限",
       hint:
-        "在此新增、編輯、刪除使用者與登入帳號（需已部署 Supabase Edge Function「manage-users」，且勿將 service_role 金鑰放進前端）。",
+        "在此新增、編輯、刪除使用者與登入帳號（需已部署 Supabase Edge Function「manage-users」，且勿將 service_role 金鑰放進前端）。登入使用帳號與密碼；系統內部信箱為 {帳號}@internal.pos。",
       colName: "顯示名稱／帳號 ID",
       colNameDisplay: "姓名",
+      colUsername: "帳號",
+      colPhone: "手機",
       colEmail: "電子郵件",
       colRole: "角色",
       colBooths: "指派攤位",
@@ -196,6 +201,10 @@ export const zhtw = {
       modalEdit: "編輯使用者",
       labelName: "姓名",
       namePh: "例：王小明",
+      labelUsername: "帳號",
+      usernamePh: "3–20 字元，僅英文、數字、底線",
+      labelPhone: "手機",
+      phonePh: "選填",
       labelEmail: "電子郵件",
       emailPh: "name@example.com",
       labelDefaultPassword: "預設密碼",
@@ -213,9 +222,11 @@ export const zhtw = {
       created: "使用者已建立",
       deleted: "使用者已刪除",
       deleteTitle: "刪除此使用者？",
-      deleteBody: (name: string, email: string) =>
-        `將刪除「${name}」${email ? `（${email}）` : ""} 的登入帳號與權限資料，且無法復原。`,
+      deleteBody: (name: string, username: string) =>
+        `將刪除「${name}」（帳號 ${username}）的登入帳號與權限資料，且無法復原。`,
       deleteError: "刪除失敗",
+      errUsernameTaken: "此帳號已被使用。",
+      errInvalidUsername: "帳號須為 3–20 字元，僅能使用英文、數字、底線。",
       errEmailTaken: "此電子郵件已被使用，請換一個信箱。",
       errPasswordShort: "密碼至少需 6 個字元。",
       errInvalidEmail: "請輸入有效的電子郵件。",
