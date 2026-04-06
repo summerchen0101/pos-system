@@ -1,9 +1,14 @@
 import { App, Button, Form, Input, Modal, Space, Spin, Typography } from "antd";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import dayjs from "dayjs";
 import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 import { useCallback, useEffect, useState } from "react";
 import { isAdminRole, type UserProfile } from "../../api/authProfile";
+import {
+  minutesRemainingUntilShiftEnd,
+  shouldWarnBeforeClockOut,
+} from "../../lib/clockStatus";
 import {
   chainHeadId,
   formatMergedShiftRange,
@@ -12,7 +17,9 @@ import {
   posClockIn,
   posClockOut,
   type PosClockState,
+  type ShiftChain,
 } from "../../lib/posClock";
+import type { Database } from "../../types/supabase";
 import { createEphemeralSupabaseClient } from "../../supabaseEphemeral";
 import { supabase } from "../../supabase";
 import { useAuth } from "../../auth/AuthContext";
@@ -31,6 +38,38 @@ function canUseClock(profile: UserProfile | null, boothId: string): boolean {
 
 function formatHmNow(): string {
   return dayjs().tz("Asia/Taipei").format("HH:mm");
+}
+
+async function posClockOutWithEarlyOutWarn(
+  client: SupabaseClient<Database>,
+  chain: ShiftChain,
+): Promise<boolean> {
+  const tail = chain[chain.length - 1]!;
+  const now = dayjs().tz("Asia/Taipei");
+  if (shouldWarnBeforeClockOut(now, tail.shift_date, tail.end_time)) {
+    const mins = minutesRemainingUntilShiftEnd(now, tail.shift_date, tail.end_time);
+    return new Promise((resolve, reject) => {
+      Modal.confirm({
+        title: p.earlyClockOutTitle,
+        content: p.earlyClockOutWarn(mins),
+        okText: p.clockOutBtn,
+        cancelText: zhtw.common.cancel,
+        async onOk() {
+          try {
+            await posClockOut(client, chainHeadId(chain));
+            resolve(true);
+          } catch (e) {
+            reject(e);
+          }
+        },
+        onCancel() {
+          resolve(false);
+        },
+      });
+    });
+  }
+  await posClockOut(client, chainHeadId(chain));
+  return true;
 }
 
 export function PosClockActions({ boothId }: { boothId: string }) {
@@ -85,7 +124,8 @@ export function PosClockActions({ boothId }: { boothId: string }) {
   const onSelfClockOut = async () => {
     if (!userId || selfState?.kind !== "clock_out") return;
     try {
-      await posClockOut(supabase, chainHeadId(selfState.chain));
+      const did = await posClockOutWithEarlyOutWarn(supabase, selfState.chain);
+      if (!did) return;
       message.success(`${p.clockOutOkToast} ${formatHmNow()}`);
       setSelfOpen(false);
       setSelfState(null);
@@ -148,7 +188,8 @@ export function PosClockActions({ boothId }: { boothId: string }) {
         await posClockIn(ephemeral, chainHeadId(state.chain));
         message.success(p.swapClockInSuccess(dispName, hm));
       } else {
-        await posClockOut(ephemeral, chainHeadId(state.chain));
+        const did = await posClockOutWithEarlyOutWarn(ephemeral, state.chain);
+        if (!did) return;
         message.success(p.swapClockOutSuccess(dispName, hm));
       }
       swapForm.resetFields();

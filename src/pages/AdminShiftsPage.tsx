@@ -54,6 +54,12 @@ import {
   formatBoothActivityRangeLabel,
   shiftDateOutsideBoothActivity,
 } from "../lib/boothActivity";
+import {
+  computeClockInUiStatus,
+  computeClockOutUiStatus,
+  type ClockInUiStatus,
+  type ClockOutUiStatus,
+} from "../lib/clockStatus";
 import { formatShiftTime, weekRangeIso } from "../lib/shiftCalendar";
 import { consecutiveMetaByShiftId, logForShiftSegment } from "../lib/shiftConsecutive";
 import {
@@ -124,109 +130,98 @@ function groupShiftsByDate(rows: ShiftWithNames[]): Map<string, ShiftWithNames[]
   return m;
 }
 
-function adminShiftStatusTag(
+function renderAdminInDot(st: ClockInUiStatus) {
+  switch (st) {
+    case "ok":
+      return <span title={s.shiftCardClockedOk}>🟢</span>;
+    case "late":
+      return <span title={s.shiftCardLate}>🟠</span>;
+    case "very_late":
+      return <span title={s.shiftCardVeryLate}>🔴</span>;
+    case "missing":
+      return (
+        <span title={s.shiftCardMissingAfter} style={{ color: "#262626" }}>
+          ●
+        </span>
+      );
+    default:
+      return (
+        <span title={s.shiftCardBeforeOpen} style={{ color: "#bfbfbf" }}>
+          ●
+        </span>
+      );
+  }
+}
+
+function renderAdminOutDot(st: ClockOutUiStatus) {
+  switch (st) {
+    case "ok":
+      return <span title={s.clockDone}>🟢</span>;
+    case "early":
+      return <span title={s.shiftCardOutEarly}>🟠</span>;
+    case "missing":
+      return (
+        <span title={s.shiftCardOutMissingAfter} style={{ color: "#262626" }}>
+          ●
+        </span>
+      );
+    default:
+      return (
+        <span title={s.shiftCardOutPending} style={{ color: "#bfbfbf" }}>
+          ●
+        </span>
+      );
+  }
+}
+
+function adminShiftClockDots(
   sh: ShiftWithNames,
   meta: ReturnType<typeof consecutiveMetaByShiftId>,
+  dayList: ShiftWithNames[],
   logs: { shift_id: string; clock_in_at: string | null; clock_out_at: string | null }[],
   nowTaipei: dayjs.Dayjs,
 ) {
   const m = meta.get(sh.id)!;
   const logMap = new Map(logs.map((l) => [l.shift_id, l]));
   const log = logForShiftSegment(sh.id, meta, logMap);
+  const head = dayList.find((x) => x.id === m.headId) ?? sh;
+  const tail = m.tail;
   const todayIso = nowTaipei.format("YYYY-MM-DD");
 
-  if (m.chainLength > 1 && m.indexInChain > 0) {
-    return (
-      <Tag color="purple" style={{ marginTop: 4 }}>
-        {s.tagConsecutive}
-      </Tag>
-    );
-  }
-
-  const headStart = dayjs.tz(
-    `${sh.shift_date}T${formatShiftTime(sh.start_time)}:00`,
-    "Asia/Taipei",
+  const inS = computeClockInUiStatus(
+    head.shift_date,
+    head.start_time,
+    log?.clock_in_at ?? null,
+    todayIso,
+    nowTaipei,
   );
-  const tailEnd = dayjs.tz(
-    `${sh.shift_date}T${formatShiftTime(m.tail.end_time)}:00`,
-    "Asia/Taipei",
+  const outS = computeClockOutUiStatus(
+    tail.shift_date,
+    tail.end_time,
+    log?.clock_in_at ?? null,
+    log?.clock_out_at ?? null,
+    todayIso,
+    nowTaipei,
   );
 
-  if (log?.clock_in_at && log.clock_out_at) {
-    const lateMin = dayjs(log.clock_in_at).diff(headStart, "minute");
-    if (lateMin <= 10) {
-      return (
-        <Tag color="success" style={{ marginTop: 4 }}>
-          {s.shiftCardClockedOk}
-        </Tag>
-      );
-    }
-    if (lateMin <= 30) {
-      return (
-        <Tag color="warning" style={{ marginTop: 4 }}>
-          {s.shiftCardLate}
-        </Tag>
-      );
-    }
-    return (
-      <Tag color="error" style={{ marginTop: 4 }}>
-        {s.shiftCardVeryLate}
-      </Tag>
-    );
-  }
-
-  if (log?.clock_in_at && !log.clock_out_at) {
-    return (
-      <Tag color="processing" style={{ marginTop: 4 }}>
-        {s.shiftCardClockedInOnly}
-      </Tag>
-    );
-  }
-
-  if (!log?.clock_in_at) {
-    if (sh.shift_date > todayIso) {
-      return (
-        <Tag style={{ marginTop: 4 }} color="default">
-          {s.clockNone}
-        </Tag>
-      );
-    }
-    if (sh.shift_date < todayIso) {
-      return (
-        <Tag
-          style={{ marginTop: 4, border: "1px solid #ff4d4f", color: "#8c8c8c", background: "#2a2a2a" }}
-        >
-          {s.shiftCardMissingAfter}
-        </Tag>
-      );
-    }
-    if (nowTaipei.isBefore(headStart)) {
-      return (
-        <Tag style={{ marginTop: 4 }} color="default">
-          {s.shiftCardBeforeOpen}
-        </Tag>
-      );
-    }
-    if (nowTaipei.isAfter(tailEnd)) {
-      return (
-        <Tag
-          style={{ marginTop: 4, border: "1px solid #ff4d4f", color: "#8c8c8c", background: "#2a2a2a" }}
-        >
-          {s.shiftCardMissingAfter}
-        </Tag>
-      );
-    }
-    return (
-      <Tag color="warning" style={{ marginTop: 4 }}>
-        {s.clockNone}
-      </Tag>
-    );
-  }
+  const showConsec = m.chainLength > 1 && m.indexInChain > 0;
 
   return (
-    <Tag style={{ marginTop: 4 }} color="default">
-      {s.clockNone}
-    </Tag>
+    <Space direction="vertical" size={4} style={{ marginTop: 4 }}>
+      {showConsec ? (
+        <Tag color="purple" style={{ margin: 0 }}>
+          {s.tagConsecutive}
+        </Tag>
+      ) : null}
+      <Space size={12} wrap style={{ fontSize: 14, lineHeight: 1.2 }}>
+        <span style={{ whiteSpace: "nowrap" }}>
+          {renderAdminInDot(inS)} <span style={{ fontSize: 11, opacity: 0.85 }}>上</span>
+        </span>
+        <span style={{ whiteSpace: "nowrap" }}>
+          {renderAdminOutDot(outS)} <span style={{ fontSize: 11, opacity: 0.85 }}>下</span>
+        </span>
+      </Space>
+    </Space>
   );
 }
 
@@ -771,9 +766,10 @@ export function AdminShiftsPage() {
           </Button>
         </Space>
 
-        <Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
-          {s.consecutiveLegend}
-        </Text>
+        <Space direction="vertical" size={4} style={{ marginBottom: 8, display: "flex" }}>
+          <Text type="secondary">{s.consecutiveLegend}</Text>
+          <Text type="secondary">{s.clockDotsLegend}</Text>
+        </Space>
 
         <Row gutter={[12, 12]}>
           {days.map((d) => {
@@ -800,7 +796,7 @@ export function AdminShiftsPage() {
                             <div style={{ fontSize: 13 }}>
                               {formatShiftTime(sh.start_time)} – {formatShiftTime(sh.end_time)}
                             </div>
-                            {adminShiftStatusTag(sh, consecMeta, logs, nowTaipei)}
+                            {adminShiftClockDots(sh, consecMeta, list, logs, nowTaipei)}
                             {sh.note ? (
                               <div style={{ fontSize: 12, marginTop: 4 }}>{sh.note}</div>
                             ) : null}

@@ -20,6 +20,11 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   cancelShiftSwapRequest,
@@ -35,6 +40,10 @@ import {
 } from "../api/shifts";
 import { listUsersAdmin } from "../api/usersAdmin";
 import {
+  minutesRemainingUntilShiftEnd,
+  shouldWarnBeforeClockOut,
+} from "../lib/clockStatus";
+import {
   canClockOnShiftDayTaipei,
   formatShiftTime,
   weekRangeIso,
@@ -49,6 +58,7 @@ import type { ShiftRow } from "../types/supabase";
 const { Title, Text } = Typography;
 const m = zhtw.admin.myShifts;
 const common = zhtw.common;
+const posCopy = zhtw.pos;
 
 function clockLabel(
   shiftId: string,
@@ -371,14 +381,54 @@ export function MyShiftsPage() {
                                   <Button
                                     size="small"
                                     disabled={!canClock || !clockedIn || clockedOut}
-                                    onClick={async () => {
-                                      try {
-                                        await clockShift(sh.id, "out");
-                                        message.success(m.clockOutOk);
-                                        await load();
-                                      } catch (e) {
-                                        message.error(e instanceof Error ? e.message : m.clockError);
-                                      }
+                                    onClick={() => {
+                                      void (async () => {
+                                        const tail = cm.tail;
+                                        const nowTaipei = dayjs().tz("Asia/Taipei");
+                                        const doOut = async () => {
+                                          await clockShift(sh.id, "out");
+                                          message.success(m.clockOutOk);
+                                          await load();
+                                        };
+                                        try {
+                                          if (
+                                            shouldWarnBeforeClockOut(
+                                              nowTaipei,
+                                              tail.shift_date,
+                                              tail.end_time,
+                                            )
+                                          ) {
+                                            const mins = minutesRemainingUntilShiftEnd(
+                                              nowTaipei,
+                                              tail.shift_date,
+                                              tail.end_time,
+                                            );
+                                            await new Promise<void>((resolve, reject) => {
+                                              Modal.confirm({
+                                                title: posCopy.earlyClockOutTitle,
+                                                content: posCopy.earlyClockOutWarn(mins),
+                                                okText: m.clockOut,
+                                                cancelText: common.cancel,
+                                                async onOk() {
+                                                  try {
+                                                    await doOut();
+                                                    resolve();
+                                                  } catch (e) {
+                                                    reject(e);
+                                                  }
+                                                },
+                                                onCancel() {
+                                                  resolve();
+                                                },
+                                              });
+                                            });
+                                          } else {
+                                            await doOut();
+                                          }
+                                        } catch (e) {
+                                          message.error(e instanceof Error ? e.message : m.clockError);
+                                        }
+                                      })();
                                     }}>
                                     {m.clockOut}
                                   </Button>

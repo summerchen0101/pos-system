@@ -4,19 +4,14 @@ import utc from 'dayjs/plugin/utc'
 import { supabase } from '../supabase'
 import { formatShiftTime } from '../lib/shiftCalendar'
 import { buildConsecutiveChains } from '../lib/shiftConsecutive'
+import { computeClockReportDerived, type ClockInUiStatus, type ClockOutUiStatus } from '../lib/clockStatus'
+
+export type { ClockInUiStatus, ClockOutUiStatus } from '../lib/clockStatus'
 import type { ShiftWithNames } from './shifts'
 import type { ShiftClockLogRow, ShiftRow } from '../types/supabase'
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
-
-export type ClockReportStatus =
-  | 'ok'
-  | 'late'
-  | 'very_late'
-  | 'missing'
-  /** Shift day after today, no clock-in yet */
-  | 'upcoming'
 
 export type ClockLogReportRow = {
   /** Earliest segment id in a consecutive chain (where clock log is stored). */
@@ -30,7 +25,8 @@ export type ClockLogReportRow = {
   booth_name: string | null
   clock_in_at: string | null
   clock_out_at: string | null
-  status: ClockReportStatus
+  clockInStatus: ClockInUiStatus
+  clockOutStatus: ClockOutUiStatus
   lateMinutes: number | null
   /** True when this row merges two+ touching segments for display. */
   isMergedChain?: boolean
@@ -47,52 +43,6 @@ export function shiftKindLabel(startTime: string, earlyLabel: string, lateLabel:
 
 export function taipeiTodayIso(): string {
   return dayjs().tz('Asia/Taipei').format('YYYY-MM-DD')
-}
-
-function scheduledStartTaipei(shiftDate: string, startTime: string): dayjs.Dayjs {
-  const hm = formatShiftTime(startTime)
-  return dayjs.tz(`${shiftDate}T${hm}:00`, 'Asia/Taipei')
-}
-
-/**
- * @param todayIso — calendar "today" in Asia/Taipei (YYYY-MM-DD)
- */
-export function computeClockReportStatus(
-  row: Omit<ClockLogReportRow, 'status' | 'lateMinutes'>,
-  todayIso: string,
-): Pick<ClockLogReportRow, 'status' | 'lateMinutes'> {
-  const scheduled = scheduledStartTaipei(row.shift_date, row.start_time)
-  const scheduledEnd = dayjs.tz(
-    `${row.shift_date}T${formatShiftTime(row.end_time)}:00`,
-    'Asia/Taipei',
-  )
-  const now = dayjs().tz('Asia/Taipei')
-
-  if (!row.clock_in_at) {
-    if (row.shift_date > todayIso) {
-      return { status: 'upcoming', lateMinutes: null }
-    }
-    if (row.shift_date < todayIso) {
-      return { status: 'missing', lateMinutes: null }
-    }
-    if (now.isBefore(scheduled)) {
-      return { status: 'upcoming', lateMinutes: null }
-    }
-    if (now.isAfter(scheduledEnd)) {
-      return { status: 'missing', lateMinutes: null }
-    }
-    return { status: 'missing', lateMinutes: null }
-  }
-
-  const clockIn = dayjs(row.clock_in_at)
-  const lateMinutes = clockIn.diff(scheduled, 'minute')
-  if (lateMinutes <= 10) {
-    return { status: 'ok', lateMinutes }
-  }
-  if (lateMinutes <= 30) {
-    return { status: 'late', lateMinutes }
-  }
-  return { status: 'very_late', lateMinutes }
 }
 
 type ShiftSelectRow = ShiftRow & {
@@ -161,7 +111,7 @@ export async function listClockLogReportRows(
       const boothName = Array.isArray(b) ? b[0]?.name ?? null : b?.name ?? null
       const log = logByShift.get(head.id)
 
-      const base: Omit<ClockLogReportRow, 'status' | 'lateMinutes'> = {
+      const base = {
         shift_id: head.id,
         user_id: head.user_id,
         booth_id: head.booth_id,
@@ -173,10 +123,11 @@ export async function listClockLogReportRows(
         clock_in_at: log?.clock_in_at ?? null,
         clock_out_at: log?.clock_out_at ?? null,
       }
-      const { status, lateMinutes } = computeClockReportStatus(base, todayIso)
+      const { clockInStatus, clockOutStatus, lateMinutes } = computeClockReportDerived(base, todayIso)
       rows.push({
         ...base,
-        status,
+        clockInStatus,
+        clockOutStatus,
         lateMinutes,
         isMergedChain: chain.length > 1,
       })
@@ -198,6 +149,8 @@ export type ClockSummaryToday = {
   lateUserIds: number
   /** Shifts scheduled today with no clock-in and date <= today. */
   missingShiftCount: number
+  /** Distinct users who clocked out early today (before end − 10 min). */
+  earlyClockOutUserIds: number
 }
 
 export function summarizeTodayRows(
@@ -207,16 +160,20 @@ export function summarizeTodayRows(
   const todayRows = rows.filter((r) => r.shift_date === todayIso)
   const present = new Set<string>()
   const late = new Set<string>()
+  const earlyOut = new Set<string>()
   let missingShiftCount = 0
 
   for (const r of todayRows) {
     if (r.clock_in_at) {
       present.add(r.user_id)
-      if (r.status === 'late' || r.status === 'very_late') {
+      if (r.clockInStatus === 'late' || r.clockInStatus === 'very_late') {
         late.add(r.user_id)
       }
-    } else if (r.status === 'missing') {
+    } else if (r.clockInStatus === 'missing') {
       missingShiftCount += 1
+    }
+    if (r.clockOutStatus === 'early') {
+      earlyOut.add(r.user_id)
     }
   }
 
@@ -224,5 +181,6 @@ export function summarizeTodayRows(
     presentUserIds: present.size,
     lateUserIds: late.size,
     missingShiftCount,
+    earlyClockOutUserIds: earlyOut.size,
   }
 }

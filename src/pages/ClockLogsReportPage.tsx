@@ -15,7 +15,7 @@ import type { ColumnsType } from "antd/es/table";
 import dayjs, { type Dayjs } from "dayjs";
 import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Navigate } from "react-router-dom";
 import { listBoothsAdmin } from "../api/boothsAdmin";
 import {
@@ -37,30 +37,65 @@ const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 const c = zhtw.admin.clockLogs;
 
-type StatusFilter = "all" | "ok" | "late" | "very_late" | "missing";
+const tagMutedDark: CSSProperties = {
+  border: "1px solid #434343",
+  color: "#8c8c8c",
+  background: "#1f1f1f",
+};
+
+type StatusFilter =
+  | "all"
+  | "ok"
+  | "late"
+  | "very_late"
+  | "missing_in"
+  | "early_out"
+  | "missing_out";
 
 function formatAtTaipei(iso: string | null): string {
   if (!iso) return zhtw.common.dash;
   return dayjs(iso).tz("Asia/Taipei").format("YYYY-MM-DD HH:mm");
 }
 
-function statusTag(
-  row: ClockLogReportRow,
-): { label: string; color: string } | null {
-  switch (row.status) {
+function clockInTag(row: ClockLogReportRow): { label: string; color: string; style?: CSSProperties } {
+  switch (row.clockInStatus) {
     case "ok":
-      return { label: c.statusOk, color: "success" };
+      return { label: c.inOk, color: "success" };
     case "late":
-      return { label: c.statusLate, color: "warning" };
+      return { label: c.inLate, color: "warning" };
     case "very_late":
-      return { label: c.statusVeryLate, color: "error" };
+      return { label: c.inVeryLate, color: "error" };
     case "missing":
-      return { label: c.statusMissing, color: "default" };
+      return { label: c.inMissing, color: "default", style: tagMutedDark };
     case "upcoming":
-      return { label: c.statusUpcoming, color: "default" };
+      return { label: c.inUpcoming, color: "default" };
     default:
-      return null;
+      return { label: "—", color: "default" };
   }
+}
+
+function clockOutTag(row: ClockLogReportRow): { label: string; color: string; style?: CSSProperties } {
+  switch (row.clockOutStatus) {
+    case "ok":
+      return { label: c.outOk, color: "success" };
+    case "early":
+      return { label: c.outEarly, color: "warning" };
+    case "missing":
+      return { label: c.outMissing, color: "default", style: tagMutedDark };
+    case "pending":
+      return { label: c.outPending, color: "default" };
+    case "upcoming":
+      return { label: c.outUpcoming, color: "default" };
+    case "na":
+      return { label: c.outNa, color: "default" };
+    default:
+      return { label: "—", color: "default" };
+  }
+}
+
+function rowMatchesOkFilter(r: ClockLogReportRow): boolean {
+  if (r.clockInStatus !== "ok") return false;
+  return r.clockOutStatus !== "early" && r.clockOutStatus !== "missing";
 }
 
 export type ClockLogsReportVariant = "admin" | "staff";
@@ -76,7 +111,12 @@ export function ClockLogsReportPage({ variant }: { variant: ClockLogsReportVaria
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [booths, setBooths] = useState<{ id: string; name: string }[]>([]);
   const [rows, setRows] = useState<ClockLogReportRow[]>([]);
-  const [summary, setSummary] = useState({ presentUserIds: 0, lateUserIds: 0, missingShiftCount: 0 });
+  const [summary, setSummary] = useState({
+    presentUserIds: 0,
+    lateUserIds: 0,
+    missingShiftCount: 0,
+    earlyClockOutUserIds: 0,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -119,7 +159,12 @@ export function ClockLogsReportPage({ variant }: { variant: ClockLogsReportVaria
       setSummary(summarizeTodayRows(todayRows, today));
     } catch {
       setRows([]);
-      setSummary({ presentUserIds: 0, lateUserIds: 0, missingShiftCount: 0 });
+      setSummary({
+        presentUserIds: 0,
+        lateUserIds: 0,
+        missingShiftCount: 0,
+        earlyClockOutUserIds: 0,
+      });
     } finally {
       setLoading(false);
     }
@@ -131,10 +176,12 @@ export function ClockLogsReportPage({ variant }: { variant: ClockLogsReportVaria
 
   const filteredRows = useMemo(() => {
     if (statusFilter === "all") return rows;
-    if (statusFilter === "ok") return rows.filter((r) => r.status === "ok");
-    if (statusFilter === "late") return rows.filter((r) => r.status === "late");
-    if (statusFilter === "very_late") return rows.filter((r) => r.status === "very_late");
-    if (statusFilter === "missing") return rows.filter((r) => r.status === "missing");
+    if (statusFilter === "ok") return rows.filter(rowMatchesOkFilter);
+    if (statusFilter === "late") return rows.filter((r) => r.clockInStatus === "late");
+    if (statusFilter === "very_late") return rows.filter((r) => r.clockInStatus === "very_late");
+    if (statusFilter === "missing_in") return rows.filter((r) => r.clockInStatus === "missing");
+    if (statusFilter === "early_out") return rows.filter((r) => r.clockOutStatus === "early");
+    if (statusFilter === "missing_out") return rows.filter((r) => r.clockOutStatus === "missing");
     return rows;
   }, [rows, statusFilter]);
 
@@ -163,23 +210,39 @@ export function ClockLogsReportPage({ variant }: { variant: ClockLogsReportVaria
         },
       },
       {
-        title: c.colClockIn,
+        title: c.colClockInStatus,
+        key: "cis",
+        width: 108,
+        render: (_, r) => {
+          const t = clockInTag(r);
+          return (
+            <Tag color={t.color} style={t.style}>
+              {t.label}
+            </Tag>
+          );
+        },
+      },
+      {
+        title: c.colActualClockIn,
         key: "ci",
         width: 140,
         render: (_, r) => formatAtTaipei(r.clock_in_at),
       },
       {
-        title: c.colStatus,
-        key: "st",
-        width: 100,
+        title: c.colClockOutStatus,
+        key: "cos",
+        width: 108,
         render: (_, r) => {
-          const t = statusTag(r);
-          if (!t) return zhtw.common.dash;
-          return <Tag color={t.color}>{t.label}</Tag>;
+          const t = clockOutTag(r);
+          return (
+            <Tag color={t.color} style={t.style}>
+              {t.label}
+            </Tag>
+          );
         },
       },
       {
-        title: c.colClockOut,
+        title: c.colActualClockOut,
         key: "co",
         width: 140,
         render: (_, r) => formatAtTaipei(r.clock_out_at),
@@ -211,19 +274,24 @@ export function ClockLogsReportPage({ variant }: { variant: ClockLogsReportVaria
       <Text type="secondary">{c.hint}</Text>
 
       <Row gutter={16} style={{ marginTop: 16 }}>
-        <Col xs={24} sm={8}>
+        <Col xs={24} sm={12} lg={6}>
           <Card size="small">
             <Statistic title={c.summaryPresent} value={summary.presentUserIds} />
           </Card>
         </Col>
-        <Col xs={24} sm={8}>
+        <Col xs={24} sm={12} lg={6}>
           <Card size="small">
             <Statistic title={c.summaryLate} value={summary.lateUserIds} />
           </Card>
         </Col>
-        <Col xs={24} sm={8}>
+        <Col xs={24} sm={12} lg={6}>
           <Card size="small">
             <Statistic title={c.summaryMissing} value={summary.missingShiftCount} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card size="small">
+            <Statistic title={c.summaryEarlyOut} value={summary.earlyClockOutUserIds} />
           </Card>
         </Col>
       </Row>
@@ -247,7 +315,7 @@ export function ClockLogsReportPage({ variant }: { variant: ClockLogsReportVaria
                 options={booths.map((b) => ({ value: b.id, label: b.name }))}
               />
               <Select<StatusFilter>
-                style={{ minWidth: 160 }}
+                style={{ minWidth: 180 }}
                 value={statusFilter}
                 onChange={(v) => setStatusFilter(v)}
                 options={[
@@ -255,7 +323,9 @@ export function ClockLogsReportPage({ variant }: { variant: ClockLogsReportVaria
                   { value: "ok", label: c.statusOk },
                   { value: "late", label: c.statusLate },
                   { value: "very_late", label: c.statusVeryLate },
-                  { value: "missing", label: c.statusMissing },
+                  { value: "missing_in", label: c.statusMissingIn },
+                  { value: "early_out", label: c.statusEarlyOut },
+                  { value: "missing_out", label: c.statusMissingOut },
                 ]}
               />
             </>
