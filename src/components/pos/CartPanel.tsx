@@ -152,6 +152,7 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
           },
           checkoutLines,
           {
+            autoPromotionId: totals.appliedPromotionId,
             autoPromotionName: totals.appliedPromotionName,
             manualPromotionDetails: totals.manualPromotionDetails.map((m) => ({
               promotionId: m.promotionId,
@@ -171,7 +172,10 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
             ? zhtw.pos.checkoutNeedLogin
             : raw.includes('booth_forbidden')
               ? zhtw.pos.checkoutBoothForbidden
-              : zhtw.pos.checkoutFailed
+              : raw.includes('promotion_not_allowed_for_booth') ||
+                  raw.includes('invalid_promotion_id')
+                ? zhtw.pos.checkoutPromotionInvalid
+                : zhtw.pos.checkoutFailed
         message.error(msg)
         return
       }

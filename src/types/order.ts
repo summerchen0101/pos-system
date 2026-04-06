@@ -22,6 +22,8 @@ export type OrderSnapshotPromotionEntry = {
 }
 
 export type OrderPromotionSnapshot = {
+  /** Base promotion UUID for auto-applied discount (engine id may use `~` suffix). */
+  autoPromotionId?: string | null
   autoPromotionName: string | null
   manualPromotionDetails: { promotionId?: string; name: string; discountCents: number }[]
   thresholdGiftSummaries: string[]

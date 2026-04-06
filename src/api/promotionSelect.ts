@@ -9,8 +9,7 @@ const giftEmbed = `
 /** Shared select for POS and admin promotion lists. */
 export const PROMOTION_LIST_SELECT = `
   id,
-  booth_id,
-  booths ( id, name, location ),
+  promotion_booths ( booth_id, booths ( id, name, location ) ),
   code,
   name,
   kind,

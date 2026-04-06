@@ -56,6 +56,7 @@ export function parsePromotionSnapshot(raw: unknown): OrderPromotionSnapshot | n
   if (raw == null || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
   return {
+    autoPromotionId: typeof o.autoPromotionId === 'string' ? o.autoPromotionId : null,
     autoPromotionName: typeof o.autoPromotionName === 'string' ? o.autoPromotionName : null,
     manualPromotionDetails: Array.isArray(o.manualPromotionDetails)
       ? o.manualPromotionDetails

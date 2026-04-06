@@ -32,8 +32,13 @@ export type PromotionQuantityTierNestedRow = Pick<
 
 type BoothNestedRow = { id: string; name: string; location: string | null }
 
-export type PromotionRowWithProducts = PromotionRow & {
+type PromotionBoothJoinRow = {
+  booth_id: string
   booths?: BoothNestedRow | BoothNestedRow[] | null
+}
+
+export type PromotionRowWithProducts = PromotionRow & {
+  promotion_booths?: PromotionBoothJoinRow[] | null
   promotion_products?: { product_id: string; quantity?: number }[] | null
   promotion_selectable_items?: { product_id: string }[] | null
   promotion_rules?: PromotionRuleNestedRow[] | null
@@ -113,13 +118,26 @@ export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
 
   const selectableRows = row.promotion_selectable_items ?? []
   const selectableProductIds = selectableRows.map((x) => x.product_id)
-  const boothNested = unwrapOne(row.booths as BoothNestedRow | BoothNestedRow[] | null | undefined)
+  const pbRows = row.promotion_booths ?? []
+  const pairs = pbRows
+    .map((pb) => {
+      const b = unwrapOne(pb.booths as BoothNestedRow | BoothNestedRow[] | null | undefined)
+      const label = b?.name?.trim()
+        ? b.location?.trim()
+          ? `${b.name}（${b.location}）`
+          : b.name
+        : b?.location?.trim() ?? ''
+      return { boothId: pb.booth_id, label: label.trim() ? label : '—' }
+    })
+    .filter((x) => x.boothId)
+  pairs.sort((a, b) => a.label.localeCompare(b.label, 'zh-Hant'))
+  const boothIds = pairs.map((x) => x.boothId)
+  const boothNames = pairs.map((x) => x.label)
 
   return {
     id: row.id,
-    boothId: row.booth_id,
-    boothName: boothNested?.name ?? null,
-    boothLocation: boothNested?.location ?? null,
+    boothIds,
+    boothNames,
     code: row.code,
     name: row.name,
     kind,

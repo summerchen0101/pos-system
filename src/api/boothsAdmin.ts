@@ -1,6 +1,6 @@
 import { DEFAULT_BOOTH_ID } from '../lib/boothConstants'
 import { supabase } from '../supabase'
-import { createPromotion, listPromotionsAdmin, promotionToCloneInput } from './promotionsAdmin'
+import { deletePromotionsNotLinkedToAnyBooth } from './promotionsAdmin'
 
 export type AdminBooth = {
   id: string
@@ -110,11 +110,19 @@ export async function copyBoothAdmin(
   })
   let promotionsCopied = 0
   if (input.copyPromotions) {
-    const promos = await listPromotionsAdmin({ boothId: input.sourceBoothId })
-    for (const p of promos) {
-      await createPromotion(promotionToCloneInput(p, booth.id))
-      promotionsCopied += 1
+    const { data: links, error: linkErr } = await supabase
+      .from('promotion_booths')
+      .select('promotion_id')
+      .eq('booth_id', input.sourceBoothId)
+    if (linkErr) throw linkErr
+    const promoIds = [...new Set((links ?? []).map((r) => r.promotion_id))]
+    if (promoIds.length > 0) {
+      const { error: insErr } = await supabase.from('promotion_booths').insert(
+        promoIds.map((promotion_id) => ({ promotion_id, booth_id: booth.id })),
+      )
+      if (insErr) throw insErr
     }
+    promotionsCopied = promoIds.length
   }
   void input.copyProductSettings
   return { booth, promotionsCopied }
@@ -135,9 +143,8 @@ export async function deleteBooth(id: string): Promise<void> {
     throw new Error('BOOTH_HAS_ORDERS')
   }
 
-  const { error: promoDelErr } = await supabase.from('promotions').delete().eq('booth_id', id)
-  if (promoDelErr) throw promoDelErr
-
   const { error } = await supabase.from('booths').delete().eq('id', id)
   if (error) throw error
+
+  await deletePromotionsNotLinkedToAnyBooth()
 }

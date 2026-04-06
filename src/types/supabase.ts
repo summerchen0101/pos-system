@@ -57,6 +57,10 @@ export type PromotionRow = {
   threshold_amount: number | null
   /** `FREE_SELECTION` only. */
   max_selection_qty: number | null
+}
+
+export type PromotionBoothRow = {
+  promotion_id: string
   booth_id: string
 }
 
@@ -274,8 +278,22 @@ export type Database = {
             referencedRelation: 'gifts'
             referencedColumns: ['id']
           },
+        ]
+      }
+      promotion_booths: {
+        Row: PromotionBoothRow
+        Insert: PromotionBoothRow
+        Update: Partial<PromotionBoothRow>
+        Relationships: [
           {
-            foreignKeyName: 'promotions_booth_id_fkey'
+            foreignKeyName: 'promotion_booths_promotion_id_fkey'
+            columns: ['promotion_id']
+            isOneToOne: false
+            referencedRelation: 'promotions'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'promotion_booths_booth_id_fkey'
             columns: ['booth_id']
             isOneToOne: false
             referencedRelation: 'booths'

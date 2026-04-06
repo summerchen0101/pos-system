@@ -28,7 +28,6 @@ import {
   type PromotionQuantityTierInput,
   type PromotionTierInput,
 } from "../api/promotionsAdmin";
-import { DEFAULT_BOOTH_ID } from "../lib/boothConstants";
 import { formatMoney } from "../lib/money";
 import { zhtw } from "../locales/zhTW";
 import type {
@@ -61,6 +60,15 @@ const KIND_OPTIONS: { value: PromotionKind; label: string }[] = [
   { value: "FREE_ITEMS", label: pr.kindFreeItems },
   { value: "FREE_SELECTION", label: pr.kindFreeSelection },
 ];
+
+function formatPromotionBoothsCell(p: Promotion, totalBooths: number): string {
+  if (totalBooths > 0 && p.boothIds.length >= totalBooths) {
+    return pr.appliesAllBoothsLabel;
+  }
+  const labels = p.boothNames.filter((n) => n && n !== "—");
+  if (labels.length > 0) return labels.join("、");
+  return p.boothIds.join("、") || common.dash;
+}
 
 function promotionSummary(p: Promotion, products: Product[]): string {
   const dash = common.dash;
@@ -114,7 +122,7 @@ type QtyDiscountTierFormRow = {
 };
 
 type FormValues = {
-  boothId: string;
+  boothIds: string[];
   code?: string;
   name: string;
   kind: PromotionKind;
@@ -190,7 +198,8 @@ function buildTierInputs(rows: TierFormRow[]): PromotionTierInput[] {
   });
 }
 
-function toInput(values: FormValues): Omit<PromotionInput, "boothId"> {
+function toInput(values: FormValues): PromotionInput {
+  const boothIds = [...new Set((values.boothIds ?? []).filter(Boolean))];
   const tiers: PromotionTierInput[] =
     values.kind === "TIERED" ? buildTierInputs(values.tiers ?? []) : [];
   const quantityTiers: PromotionQuantityTierInput[] =
@@ -202,6 +211,7 @@ function toInput(values: FormValues): Omit<PromotionInput, "boothId"> {
 
   if (values.kind === "GIFT_WITH_THRESHOLD") {
     return {
+      boothIds,
       code,
       name,
       kind: values.kind,
@@ -226,6 +236,7 @@ function toInput(values: FormValues): Omit<PromotionInput, "boothId"> {
 
   if (values.kind === "FIXED_DISCOUNT") {
     return {
+      boothIds,
       code,
       name,
       kind: values.kind,
@@ -255,6 +266,7 @@ function toInput(values: FormValues): Omit<PromotionInput, "boothId"> {
         quantity: Math.max(1, Math.trunc(Number(r.qty) || 1)),
       }));
     return {
+      boothIds,
       code,
       name,
       kind: "FREE_ITEMS",
@@ -278,6 +290,7 @@ function toInput(values: FormValues): Omit<PromotionInput, "boothId"> {
   if (values.kind === "FREE_SELECTION") {
     const pool = values.selectablePoolIds ?? [];
     return {
+      boothIds,
       code,
       name,
       kind: "FREE_SELECTION",
@@ -303,6 +316,7 @@ function toInput(values: FormValues): Omit<PromotionInput, "boothId"> {
 
   if (values.kind === "TIERED") {
     return {
+      boothIds,
       code,
       name,
       kind: values.kind,
@@ -325,6 +339,7 @@ function toInput(values: FormValues): Omit<PromotionInput, "boothId"> {
 
   if (values.kind === "TIERED_QUANTITY_DISCOUNT") {
     return {
+      boothIds,
       code,
       name,
       kind: values.kind,
@@ -346,6 +361,7 @@ function toInput(values: FormValues): Omit<PromotionInput, "boothId"> {
   }
 
   return {
+    boothIds,
     code,
     name,
     kind: values.kind,
@@ -410,12 +426,8 @@ export function AdminPromotionsPage() {
   const openCreate = () => {
     setEditingId(null);
     form.resetFields();
-    const defaultBooth =
-      boothFilterId ??
-      booths[0]?.id ??
-      DEFAULT_BOOTH_ID;
     form.setFieldsValue({
-      boothId: defaultBooth,
+      boothIds: booths.map((b) => b.id),
       name: "",
       code: "",
       kind: "BULK_DISCOUNT",
@@ -437,7 +449,7 @@ export function AdminPromotionsPage() {
   const openEdit = (p: Promotion) => {
     setEditingId(p.id);
     form.setFieldsValue({
-      boothId: p.boothId,
+      boothIds: [...p.boothIds],
       name: p.name,
       code: p.code ?? "",
       kind: p.kind,
@@ -582,13 +594,13 @@ export function AdminPromotionsPage() {
           return;
         }
       }
-      if (!values.boothId) {
+      if (!values.boothIds?.length) {
         message.error(pr.boothRequired);
         return;
       }
       let input: PromotionInput;
       try {
-        input = { ...toInput(values), boothId: values.boothId };
+        input = toInput(values);
       } catch (err) {
         message.error(err instanceof Error ? err.message : pr.invalidTiers);
         return;
@@ -719,7 +731,7 @@ export function AdminPromotionsPage() {
       key: "booth",
       width: 140,
       ellipsis: true,
-      render: (_, row) => row.boothName ?? common.dash,
+      render: (_, row) => formatPromotionBoothsCell(row, booths.length),
     },
     {
       title: pr.colApplyMode,
@@ -979,10 +991,12 @@ export function AdminPromotionsPage() {
             }
           }}>
           <Form.Item
-            name="boothId"
+            name="boothIds"
             label={pr.labelBooth}
             rules={[{ required: true, message: pr.boothRequired }]}>
             <Select
+              mode="multiple"
+              allowClear
               options={boothOptions}
               placeholder={pr.boothPh}
               optionFilterProp="label"

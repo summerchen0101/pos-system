@@ -1,8 +1,7 @@
 import { supabase } from '../supabase'
 import { mapPromotionFromRow, type PromotionRowWithProducts } from './promotionMappers'
 import { PROMOTION_LIST_SELECT } from './promotionSelect'
-import type { Promotion, PromotionKind } from '../types/pos'
-import type { PromotionApplyMode } from '../types/pos'
+import type { Promotion, PromotionApplyMode, PromotionKind } from '../types/pos'
 
 export type PromotionTierInput = {
   minQty: number
@@ -23,7 +22,7 @@ export type PromotionProductQtyInput = {
 }
 
 export type PromotionInput = {
-  boothId: string
+  boothIds: string[]
   code: string | null
   name: string
   kind: PromotionKind
@@ -47,40 +46,6 @@ export type PromotionInput = {
   thresholdAmountCents: number | null
 }
 
-/** Deep-clone promotion config for another booth (new ids on create). */
-export function promotionToCloneInput(p: Promotion, boothId: string): PromotionInput {
-  return {
-    boothId,
-    // `promotions.code` is globally unique — cannot reuse when copying to another booth.
-    code: p.boothId === boothId ? p.code : null,
-    name: p.name,
-    kind: p.kind,
-    buyQty: p.buyQty,
-    freeQty: p.freeQty,
-    discountPercent: p.discountPercent,
-    active: p.active,
-    applyMode: p.applyMode,
-    fixedDiscountCents: p.fixedDiscountCents,
-    productIds: [...p.productIds],
-    freeItems: p.freeItems.map((x) => ({ productId: x.productId, quantity: x.quantity })),
-    selectableProductIds: [...p.selectableProductIds],
-    maxSelectionQty: p.maxSelectionQty,
-    tiers: p.rules.map((t) => ({
-      minQty: t.minQty,
-      freeQty: t.freeQty,
-      discountPercent: t.discountPercent,
-      sortOrder: t.sortOrder,
-    })),
-    quantityTiers: p.quantityDiscountTiers.map((t) => ({
-      minQty: t.minQty,
-      discountPercent: t.discountPercent,
-      sortOrder: t.sortOrder,
-    })),
-    giftId: p.giftId,
-    thresholdAmountCents: p.thresholdAmountCents,
-  }
-}
-
 function resolvedApplyMode(input: PromotionInput): PromotionApplyMode {
   if (input.kind === 'GIFT_WITH_THRESHOLD') return 'AUTO'
   if (input.kind === 'FREE_ITEMS' || input.kind === 'FREE_SELECTION') return 'MANUAL'
@@ -96,7 +61,6 @@ function rowPayload(input: PromotionInput) {
   const apply_mode = resolvedApplyMode(input)
   const max_selection_qty = maxSelectionColumn(input)
   const base = {
-    booth_id: input.boothId,
     code: input.code || null,
     name: input.name,
     kind: input.kind,
@@ -239,6 +203,17 @@ async function replacePromotionTiers(promotionId: string, tiers: PromotionQuanti
   if (insErr) throw insErr
 }
 
+async function replacePromotionBooths(promotionId: string, boothIds: string[]) {
+  const unique = [...new Set(boothIds.filter(Boolean))]
+  const { error: delErr } = await supabase.from('promotion_booths').delete().eq('promotion_id', promotionId)
+  if (delErr) throw delErr
+  if (unique.length === 0) return
+  const { error: insErr } = await supabase.from('promotion_booths').insert(
+    unique.map((booth_id) => ({ promotion_id: promotionId, booth_id })),
+  )
+  if (insErr) throw insErr
+}
+
 async function syncPromotionRelations(id: string, input: PromotionInput) {
   if (input.kind === 'FREE_SELECTION') {
     await replacePromotionProductEntries(id, [])
@@ -269,14 +244,14 @@ async function syncPromotionRelations(id: string, input: PromotionInput) {
 }
 
 export type PromotionListFilters = {
-  /** When set, only promotions for this booth. Omit or `undefined` = all booths. */
+  /** When set, only promotions that include this booth. */
   boothId?: string | null
 }
 
 export async function listPromotionsAdmin(filters?: PromotionListFilters): Promise<Promotion[]> {
   let q = supabase.from('promotions').select(PROMOTION_LIST_SELECT).order('name', { ascending: true })
   if (filters?.boothId) {
-    q = q.eq('booth_id', filters.boothId)
+    q = q.eq('promotion_booths.booth_id', filters.boothId)
   }
 
   const { data, error } = await q
@@ -286,6 +261,8 @@ export async function listPromotionsAdmin(filters?: PromotionListFilters): Promi
 }
 
 export async function createPromotion(input: PromotionInput): Promise<Promotion> {
+  if (!input.boothIds?.length) throw new Error('PROMOTION_NEEDS_BOOTH')
+
   const { data, error } = await supabase
     .from('promotions')
     .insert(rowPayload(input))
@@ -296,6 +273,7 @@ export async function createPromotion(input: PromotionInput): Promise<Promotion>
   if (!data?.id) throw new Error('No id returned')
 
   await syncPromotionRelations(data.id, input)
+  await replacePromotionBooths(data.id, input.boothIds)
 
   const { data: full, error: fetchErr } = await supabase
     .from('promotions')
@@ -304,14 +282,17 @@ export async function createPromotion(input: PromotionInput): Promise<Promotion>
     .single()
 
   if (fetchErr) throw fetchErr
-  return mapPromotionFromRow(full)
+  return mapPromotionFromRow(full as PromotionRowWithProducts)
 }
 
 export async function updatePromotion(id: string, input: PromotionInput): Promise<Promotion> {
+  if (!input.boothIds?.length) throw new Error('PROMOTION_NEEDS_BOOTH')
+
   const { error } = await supabase.from('promotions').update(rowPayload(input)).eq('id', id)
   if (error) throw error
 
   await syncPromotionRelations(id, input)
+  await replacePromotionBooths(id, input.boothIds)
 
   const { data: full, error: fetchErr } = await supabase
     .from('promotions')
@@ -320,7 +301,7 @@ export async function updatePromotion(id: string, input: PromotionInput): Promis
     .single()
 
   if (fetchErr) throw fetchErr
-  return mapPromotionFromRow(full)
+  return mapPromotionFromRow(full as PromotionRowWithProducts)
 }
 
 export async function deletePromotion(id: string): Promise<void> {
@@ -331,4 +312,17 @@ export async function deletePromotion(id: string): Promise<void> {
 export async function setPromotionActive(id: string, active: boolean): Promise<void> {
   const { error } = await supabase.from('promotions').update({ active }).eq('id', id)
   if (error) throw error
+}
+
+/** Remove promotions with no `promotion_booths` rows (e.g. after a booth is deleted). */
+export async function deletePromotionsNotLinkedToAnyBooth(): Promise<void> {
+  const { data: promos, error: e1 } = await supabase.from('promotions').select('id')
+  if (e1) throw e1
+  const { data: pb, error: e2 } = await supabase.from('promotion_booths').select('promotion_id')
+  if (e2) throw e2
+  const linked = new Set((pb ?? []).map((r) => r.promotion_id))
+  const orphans = (promos ?? []).map((p) => p.id).filter((pid) => !linked.has(pid))
+  if (orphans.length === 0) return
+  const { error: e3 } = await supabase.from('promotions').delete().in('id', orphans)
+  if (e3) throw e3
 }

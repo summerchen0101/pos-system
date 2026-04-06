@@ -109,9 +109,10 @@ export type PromotionGiftDetail = {
 
 export type Promotion = {
   id: string
-  boothId: string
-  boothName: string | null
-  boothLocation: string | null
+  /** Booths this promotion applies to (from `promotion_booths`). */
+  boothIds: string[]
+  /** Display names aligned with `boothIds` after sort. */
+  boothNames: string[]
   code: string | null
   name: string
   kind: PromotionKind
