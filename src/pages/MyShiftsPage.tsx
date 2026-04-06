@@ -35,8 +35,7 @@ import {
 } from "../api/shifts";
 import { listUsersAdmin } from "../api/usersAdmin";
 import {
-  canClockInTaipei,
-  canClockOutTaipei,
+  canClockOnShiftDayTaipei,
   formatShiftTime,
   weekRangeIso,
 } from "../lib/shiftCalendar";
@@ -307,8 +306,7 @@ export function MyShiftsPage() {
                   ) : (
                     <Space direction="vertical" style={{ width: "100%" }} size={8}>
                       {list.map((sh) => {
-                        const canIn = canClockInTaipei(sh, now);
-                        const canOut = canClockOutTaipei(sh, now);
+                        const canClock = canClockOnShiftDayTaipei(sh, now);
                         const log = logs.find((l) => l.shift_id === sh.id);
                         const clockedIn = Boolean(log?.clock_in_at);
                         const clockedOut = Boolean(log?.clock_out_at);
@@ -328,7 +326,7 @@ export function MyShiftsPage() {
                               <Button
                                 size="small"
                                 type="primary"
-                                disabled={!canIn || clockedIn}
+                                disabled={!canClock || clockedIn}
                                 onClick={async () => {
                                   try {
                                     await clockShift(sh.id, "in");
@@ -342,7 +340,7 @@ export function MyShiftsPage() {
                               </Button>
                               <Button
                                 size="small"
-                                disabled={!canOut || !clockedIn || clockedOut}
+                                disabled={!canClock || !clockedIn || clockedOut}
                                 onClick={async () => {
                                   try {
                                     await clockShift(sh.id, "out");

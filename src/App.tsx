@@ -14,8 +14,10 @@ import { AdminGiftsPage } from "./pages/AdminGiftsPage";
 import { AdminPromotionsPage } from "./pages/AdminPromotionsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { PosBoothPickerPage } from "./pages/PosBoothPickerPage";
+import { AdminClockLogsPage } from "./pages/AdminClockLogsPage";
 import { AdminShiftsPage } from "./pages/AdminShiftsPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
+import { MyClockLogsPage } from "./pages/MyClockLogsPage";
 import { MyShiftsPage } from "./pages/MyShiftsPage";
 
 const appTheme = {
@@ -100,7 +102,9 @@ export default function App() {
                 <Route path="gifts" element={<AdminGiftsPage />} />
                 <Route path="promotions" element={<AdminPromotionsPage />} />
                 <Route path="my-shifts" element={<MyShiftsPage />} />
+                <Route path="my-clock-logs" element={<MyClockLogsPage />} />
                 <Route path="shifts" element={<AdminShiftsPage />} />
+                <Route path="clock-logs" element={<AdminClockLogsPage />} />
                 <Route path="orders" element={<AdminOrdersPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,6 +1,7 @@
 import {
   AppstoreOutlined,
   CalendarOutlined,
+  ClockCircleOutlined,
   DashboardOutlined,
   GiftOutlined,
   HistoryOutlined,
@@ -31,6 +32,7 @@ const STAFF_MENU_KEYS = new Set([
   "/admin/dashboard",
   "/admin/orders",
   "/admin/my-shifts",
+  "/admin/my-clock-logs",
 ]);
 
 type MenuDef = { key: string; icon: ReactNode; label: string };
@@ -84,9 +86,19 @@ export function AdminLayout() {
         label: zhtw.admin.layout.menuMyShifts,
       },
       {
+        key: "/admin/my-clock-logs",
+        icon: <ClockCircleOutlined />,
+        label: zhtw.admin.layout.menuMyClockLogs,
+      },
+      {
         key: "/admin/shifts",
         icon: <ScheduleOutlined />,
         label: zhtw.admin.layout.menuShifts,
+      },
+      {
+        key: "/admin/clock-logs",
+        icon: <ClockCircleOutlined />,
+        label: zhtw.admin.layout.menuClockLogs,
       },
       {
         key: "/admin/orders",
@@ -98,7 +110,9 @@ export function AdminLayout() {
   );
 
   const menuItems = useMemo(() => {
-    if (profile && isAdminRole(profile.role)) return fullMenuItems;
+    if (profile && isAdminRole(profile.role)) {
+      return fullMenuItems.filter((m) => m.key !== "/admin/my-clock-logs");
+    }
     return fullMenuItems.filter((m) => STAFF_MENU_KEYS.has(m.key));
   }, [fullMenuItems, profile]);
 

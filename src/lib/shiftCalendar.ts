@@ -29,27 +29,11 @@ export function formatShiftTime(t: string): string {
   return t;
 }
 
-/** Server uses Asia/Taipei for clock windows; keep client aligned. */
-export function canClockInTaipei(
-  shift: { shift_date: string; start_time: string },
+/** True when wall-clock date in Asia/Taipei matches the shift's calendar date (no time-of-day restriction). */
+export function canClockOnShiftDayTaipei(
+  shift: { shift_date: string },
   now: Dayjs = dayjs(),
 ): boolean {
-  const hm = formatShiftTime(shift.start_time);
-  const start = dayjs.tz(`${shift.shift_date}T${hm}:00`, "Asia/Taipei");
   const localDay = now.tz("Asia/Taipei").format("YYYY-MM-DD");
-  if (localDay !== shift.shift_date) return false;
-  const diffMin = now.diff(start, "minute", true);
-  return diffMin >= -30 && diffMin <= 30;
-}
-
-export function canClockOutTaipei(
-  shift: { shift_date: string; end_time: string },
-  now: Dayjs = dayjs(),
-): boolean {
-  const hm = formatShiftTime(shift.end_time);
-  const end = dayjs.tz(`${shift.shift_date}T${hm}:00`, "Asia/Taipei");
-  const localDay = now.tz("Asia/Taipei").format("YYYY-MM-DD");
-  if (localDay !== shift.shift_date) return false;
-  const diffMin = now.diff(end, "minute", true);
-  return diffMin >= -30 && diffMin <= 30;
+  return localDay === shift.shift_date;
 }

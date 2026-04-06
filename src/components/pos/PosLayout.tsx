@@ -1,4 +1,4 @@
-import { Spin, Tabs, Typography } from "antd";
+import { Space, Spin, Tabs, Typography } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { listBoothsAdmin } from "../../api/boothsAdmin";
@@ -7,6 +7,8 @@ import { fetchPromotions } from "../../api/fetchPromotions";
 import { useManualFreeLineSync } from "../../hooks/useManualFreeLineSync";
 import { useThresholdGiftSync } from "../../hooks/useThresholdGiftSync";
 import { zhtw } from "../../locales/zhTW";
+import { useAuth } from "../../auth/AuthContext";
+import { PosClockActions } from "./PosClockActions";
 import { useCartStore } from "../../store/cartStore";
 import type { Product, Promotion } from "../../types/pos";
 import { BundleApplyModal } from "./BundleApplyModal";
@@ -49,6 +51,7 @@ function categoryTabsFromProducts(
 
 export function PosLayout() {
   const { boothId } = useParams<{ boothId: string }>();
+  const { session } = useAuth();
   const addProduct = useCartStore((s) => s.addProduct);
   const addBundleLines = useCartStore((s) => s.addBundleLines);
 
@@ -225,9 +228,16 @@ export function PosLayout() {
         <header className="pos-main__header">
           <div className="pos-main__title-row">
             <h1>{zhtw.pos.registerTitle}</h1>
-            <Link className="pos-admin-link" to="/admin">
-              {zhtw.pos.adminLink}
-            </Link>
+            <Space wrap size={12} align="center">
+              {session?.user?.id && boothId ? (
+                <div className="pos-header-clock">
+                  <PosClockActions boothId={boothId} />
+                </div>
+              ) : null}
+              <Link className="pos-admin-link" to="/admin">
+                {zhtw.pos.adminLink}
+              </Link>
+            </Space>
           </div>
           {boothLabel ? (
             <p className="pos-main__hint" style={{ marginBottom: 4 }}>

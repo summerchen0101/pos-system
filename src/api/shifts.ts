@@ -1,5 +1,6 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
-import type { ShiftClockLogRow, ShiftRow, ShiftSwapRequestRow } from '../types/supabase'
+import type { Database, ShiftClockLogRow, ShiftRow, ShiftSwapRequestRow } from '../types/supabase'
 
 export type ShiftWithNames = ShiftRow & {
   user_name: string | null
@@ -30,12 +31,14 @@ function mapShiftRow(r: ShiftSelectRow): ShiftWithNames {
   }
 }
 
-export async function listShiftsInRange(
+export async function listShiftsInRangeWithClient(
+  client: SupabaseClient<Database>,
   boothId: string | null,
   fromDate: string,
   toDate: string,
+  options?: { userId?: string | null },
 ): Promise<ShiftWithNames[]> {
-  let q = supabase
+  let q = client
     .from('shifts')
     .select('id, user_id, booth_id, shift_date, start_time, end_time, note, created_at, users(name), booths(name)')
     .gte('shift_date', fromDate)
@@ -44,20 +47,37 @@ export async function listShiftsInRange(
     .order('start_time', { ascending: true })
 
   if (boothId) q = q.eq('booth_id', boothId)
+  if (options?.userId) q = q.eq('user_id', options.userId)
 
   const { data, error } = await q
   if (error) throw error
   return ((data ?? []) as unknown as ShiftSelectRow[]).map(mapShiftRow)
 }
 
-export async function listClockLogsForShiftIds(shiftIds: string[]): Promise<ShiftClockLogRow[]> {
+export async function listShiftsInRange(
+  boothId: string | null,
+  fromDate: string,
+  toDate: string,
+  options?: { userId?: string | null },
+): Promise<ShiftWithNames[]> {
+  return listShiftsInRangeWithClient(supabase, boothId, fromDate, toDate, options)
+}
+
+export async function listClockLogsForShiftIdsWithClient(
+  client: SupabaseClient<Database>,
+  shiftIds: string[],
+): Promise<ShiftClockLogRow[]> {
   if (shiftIds.length === 0) return []
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from('shift_clock_logs')
     .select('id, shift_id, user_id, clock_in_at, clock_out_at')
     .in('shift_id', shiftIds)
   if (error) throw error
   return (data ?? []) as ShiftClockLogRow[]
+}
+
+export async function listClockLogsForShiftIds(shiftIds: string[]): Promise<ShiftClockLogRow[]> {
+  return listClockLogsForShiftIdsWithClient(supabase, shiftIds)
 }
 
 export type ShiftUpsertInput = {
@@ -195,12 +215,20 @@ export async function adminRejectShiftSwap(requestId: string): Promise<void> {
   if (error) throw error
 }
 
-export async function clockShift(shiftId: string, action: 'in' | 'out'): Promise<void> {
-  const { error } = await supabase.rpc('clock_shift', {
+export async function clockShiftWithClient(
+  client: SupabaseClient<Database>,
+  shiftId: string,
+  action: 'in' | 'out',
+): Promise<void> {
+  const { error } = await client.rpc('clock_shift', {
     p_shift_id: shiftId,
     p_action: action,
   })
   if (error) throw error
+}
+
+export async function clockShift(shiftId: string, action: 'in' | 'out'): Promise<void> {
+  return clockShiftWithClient(supabase, shiftId, action)
 }
 
 export type SwapRequestListEntry = ShiftSwapRequestRow & {
