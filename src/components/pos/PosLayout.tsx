@@ -1,7 +1,8 @@
 import { Space, Spin, Tabs, Typography } from "antd";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { listBoothsForPos } from "../../api/boothsPos";
+import { fetchActiveStaffNamesForBooth, formatPosActiveStaffLine } from "../../api/posActiveStaff";
 import { fetchProducts } from "../../api/fetchProducts";
 import { fetchPromotions } from "../../api/fetchPromotions";
 import { PosCashierProvider } from "../../context/PosCashierContext";
@@ -71,6 +72,33 @@ function PosLayoutInner() {
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
   const [promotionsError, setPromotionsError] = useState<string | null>(null);
+  const [activeStaffLine, setActiveStaffLine] = useState(
+    () => `${zhtw.pos.activeStaffPrefix}${zhtw.common.dash}`,
+  );
+
+  const refreshActiveStaff = useCallback(async () => {
+    if (!boothId) return;
+    try {
+      const names = await fetchActiveStaffNamesForBooth(boothId);
+      setActiveStaffLine(
+        formatPosActiveStaffLine(
+          names,
+          zhtw.pos.activeStaffPrefix,
+          zhtw.common.dash,
+          zhtw.pos.activeStaffTotal,
+        ),
+      );
+    } catch {
+      setActiveStaffLine(
+        `${zhtw.pos.activeStaffPrefix}${zhtw.common.dash}`,
+      );
+    }
+  }, [boothId]);
+
+  useEffect(() => {
+    if (boothOk !== true || !boothId) return;
+    void refreshActiveStaff();
+  }, [boothOk, boothId, refreshActiveStaff]);
 
   useManualFreeLineSync(promotions, products);
   useThresholdGiftSync(promotions);
@@ -229,7 +257,7 @@ function PosLayoutInner() {
             <Space wrap size={12} align="center">
               {boothId ? (
                 <div className="pos-header-clock">
-                  <PosTabletClockButtons boothId={boothId} />
+                  <PosTabletClockButtons boothId={boothId} onClockRecordsChanged={refreshActiveStaff} />
                 </div>
               ) : null}
             </Space>
@@ -238,6 +266,11 @@ function PosLayoutInner() {
             <p className="pos-main__hint" style={{ marginBottom: 4 }}>
               {zhtw.pos.currentBooth(boothLabel)}
             </p>
+          ) : null}
+          {boothOk === true && boothId ? (
+            <div className="pos-main__active-staff-wrap">
+              <p className="pos-main__active-staff">{activeStaffLine}</p>
+            </div>
           ) : null}
           <p className="pos-main__hint" style={boothLabel ? { marginTop: 0 } : undefined}>
             {zhtw.pos.hint}

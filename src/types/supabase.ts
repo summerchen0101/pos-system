@@ -505,6 +505,10 @@ export type Database = {
         Args: { p_booth_id: string }
         Returns: undefined
       }
+      pos_list_active_staff_names: {
+        Args: { p_booth_id: string }
+        Returns: string[]
+      }
       clock_shift: {
         Args: { p_shift_id: string; p_action: string }
         Returns: undefined

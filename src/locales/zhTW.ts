@@ -122,6 +122,8 @@ export const zhtw = {
     boothInvalidHint: "網址中的攤位可能已刪除或無效，請重新選擇。",
     boothPickerBack: "返回攤位選擇",
     currentBooth: (label: string) => `目前攤位：${label}`,
+    activeStaffPrefix: "在班人員：",
+    activeStaffTotal: (n: number) => `共 ${n} 人`,
     clockOpen: "打卡",
     swapClockOpen: "換班打卡",
     clockModalTitle: "打卡紀錄",

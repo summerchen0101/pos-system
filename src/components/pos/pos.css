@@ -57,6 +57,19 @@
   color: var(--pos-text-muted);
 }
 
+.pos-main__active-staff-wrap {
+  text-align: center;
+  margin: 0.2rem 0 0;
+}
+
+.pos-main__active-staff {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--pos-text-muted);
+  opacity: 0.88;
+}
+
 .pos-category-tabs {
   margin-bottom: 1rem;
 }

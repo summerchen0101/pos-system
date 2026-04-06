@@ -49,7 +49,14 @@ async function ephemeralSignIn(username: string, password: string) {
   return { client, userId: user.id, name: urow?.name ?? user.id };
 }
 
-export function PosTabletClockButtons({ boothId }: { boothId: string }) {
+export function PosTabletClockButtons({
+  boothId,
+  onClockRecordsChanged,
+}: {
+  boothId: string;
+  /** Called after a successful clock-in or clock-out (modal closed). */
+  onClockRecordsChanged?: () => void;
+}) {
   const { message } = App.useApp();
   const { setCashier } = usePosCashier();
 
@@ -117,6 +124,7 @@ export function PosTabletClockButtons({ boothId }: { boothId: string }) {
       message.success(p.tabletClockInOk(name, formatHmTaipei()));
       inForm.resetFields();
       setInOpen(false);
+      onClockRecordsChanged?.();
     } finally {
       await client?.auth.signOut({ scope: "local" }).catch(() => undefined);
       setInLoading(false);
@@ -198,6 +206,7 @@ export function PosTabletClockButtons({ boothId }: { boothId: string }) {
       message.success(p.tabletClockOutOk(name, formatHmTaipei()));
       outForm.resetFields();
       setOutOpen(false);
+      onClockRecordsChanged?.();
     } finally {
       await client?.auth.signOut({ scope: "local" }).catch(() => undefined);
       setOutLoading(false);
