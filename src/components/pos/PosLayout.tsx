@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { listBoothsForPos } from "../../api/boothsPos";
 import { fetchActiveStaffNamesForBooth, formatPosActiveStaffLine } from "../../api/posActiveStaff";
-import { fetchProducts } from "../../api/fetchProducts";
+import { fetchProductsForPosBooth } from "../../api/fetchProducts";
 import { fetchPromotions } from "../../api/fetchPromotions";
 import { PosCashierProvider } from "../../context/PosCashierContext";
 import { useManualFreeLineSync } from "../../hooks/useManualFreeLineSync";
@@ -185,7 +185,7 @@ function PosLayoutInner() {
       }
 
       const [pRes, prRes] = await Promise.allSettled([
-        fetchProducts(),
+        fetchProductsForPosBooth(boothId),
         fetchPromotions(boothId),
       ]);
 

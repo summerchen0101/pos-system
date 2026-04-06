@@ -7,6 +7,7 @@ import {
   Form,
   Input,
   Modal,
+  Select,
   Space,
   Table,
   Typography,
@@ -23,6 +24,7 @@ import {
   updateBooth,
   type AdminBooth,
 } from "../api/boothsAdmin";
+import { listWarehousesAdmin } from "../api/inventoryAdmin";
 import { formatBoothActivityRangeLabel } from "../lib/boothActivity";
 import { zhtw } from "../locales/zhTW";
 
@@ -35,6 +37,7 @@ type FormValues = {
   location?: string;
   start_date?: Dayjs | null;
   end_date?: Dayjs | null;
+  warehouse_id?: string | null;
 };
 
 type CopyFormValues = {
@@ -62,6 +65,7 @@ export function AdminBoothsPage() {
   const [form] = Form.useForm<FormValues>();
   const [copyForm] = Form.useForm<CopyFormValues>();
   const [rows, setRows] = useState<AdminBooth[]>([]);
+  const [warehouseOptions, setWarehouseOptions] = useState<{ value: string; label: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -73,7 +77,9 @@ export function AdminBoothsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setRows(await listBoothsAdmin());
+      const [boothList, wh] = await Promise.all([listBoothsAdmin(), listWarehousesAdmin()]);
+      setRows(boothList);
+      setWarehouseOptions(wh.map((w) => ({ value: w.id, label: w.name })));
     } catch (e) {
       message.error(e instanceof Error ? e.message : b.loadError);
       setRows([]);
@@ -89,7 +95,13 @@ export function AdminBoothsPage() {
   const openCreate = () => {
     setEditingId(null);
     form.resetFields();
-    form.setFieldsValue({ name: "", location: "", start_date: undefined, end_date: undefined });
+    form.setFieldsValue({
+      name: "",
+      location: "",
+      start_date: undefined,
+      end_date: undefined,
+      warehouse_id: undefined,
+    });
     setModalOpen(true);
   };
 
@@ -119,6 +131,7 @@ export function AdminBoothsPage() {
       location: row.location ?? "",
       start_date: row.start_date ? dayjs(row.start_date) : undefined,
       end_date: row.end_date ? dayjs(row.end_date) : undefined,
+      warehouse_id: row.warehouse_id ?? undefined,
     });
     setModalOpen(true);
   };
@@ -163,6 +176,7 @@ export function AdminBoothsPage() {
           location: v.location?.trim() ? v.location.trim() : null,
           startDate,
           endDate,
+          warehouseId: v.warehouse_id ?? null,
         });
         message.success(b.updated);
       } else {
@@ -171,6 +185,7 @@ export function AdminBoothsPage() {
           location: v.location?.trim() ? v.location.trim() : null,
           startDate,
           endDate,
+          warehouseId: v.warehouse_id ?? null,
         });
         message.success(b.created);
       }
@@ -227,8 +242,19 @@ export function AdminBoothsPage() {
     return Promise.resolve();
   };
 
+  const warehouseLabel = (id: string | null): string => {
+    if (!id) return common.dash;
+    return warehouseOptions.find((o) => o.value === id)?.label ?? id;
+  };
+
   const columns: ColumnsType<AdminBooth> = [
     { title: b.colName, dataIndex: "name", key: "name" },
+    {
+      title: b.colWarehouse,
+      key: "wh",
+      width: 160,
+      render: (_, row) => warehouseLabel(row.warehouse_id),
+    },
     {
       title: b.colLocation,
       dataIndex: "location",
@@ -317,6 +343,18 @@ export function AdminBoothsPage() {
             dependencies={["start_date"]}
             rules={[{ validator: dateOrderValidator }]}>
             <DatePicker style={{ width: "100%" }} allowClear />
+          </Form.Item>
+          <Form.Item
+            name="warehouse_id"
+            label={b.labelWarehouse}
+            extra={<Text type="secondary">{b.warehousePh}</Text>}>
+            <Select
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder={b.labelWarehouse}
+              options={warehouseOptions}
+            />
           </Form.Item>
         </Form>
       </Modal>

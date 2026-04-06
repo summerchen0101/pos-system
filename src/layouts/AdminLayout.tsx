@@ -5,6 +5,7 @@ import {
   DashboardOutlined,
   GiftOutlined,
   HistoryOutlined,
+  InboxOutlined,
   ScheduleOutlined,
   ShopOutlined,
   ShoppingOutlined,
@@ -12,8 +13,9 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import { Button, Layout, Menu, Space, Typography, theme } from "antd";
+import type { ItemType } from "antd/es/menu/interface";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Link,
   Navigate,
@@ -41,6 +43,9 @@ const ADMIN_MENU_KEYS = new Set([
   "/admin/categories",
   "/admin/products",
   "/admin/booths",
+  "/admin/inventory",
+  "/admin/inventory/warehouses",
+  "/admin/inventory/logs",
   "/admin/promotions",
   "/admin/gifts",
   "/admin/shifts",
@@ -77,11 +82,40 @@ function pathAllowedForRole(pathname: string, role: AppRole): boolean {
 
 type MenuDef = { key: string; icon: ReactNode; label: string };
 
+function collectLeafKeys(items: ItemType[]): string[] {
+  const keys: string[] = [];
+  for (const it of items) {
+    if (!it || typeof it !== "object") continue;
+    if ("type" in it && it.type === "divider") continue;
+    if ("children" in it && it.children) {
+      for (const ch of it.children) {
+        if (ch && typeof ch === "object" && "key" in ch && typeof ch.key === "string") {
+          keys.push(ch.key);
+        }
+      }
+    } else if ("key" in it && typeof it.key === "string" && !it.key.startsWith("sub:")) {
+      keys.push(it.key);
+    }
+  }
+  return keys;
+}
+
+function matchSelectedMenuKey(pathname: string, items: ItemType[]): string[] {
+  const leaves = collectLeafKeys(items);
+  const hit = [...leaves]
+    .filter((k) => pathname === k || pathname.startsWith(`${k}/`))
+    .sort((a, b) => b.length - a.length)[0];
+  if (hit) return [hit];
+  return leaves.length > 0 ? [leaves[0]] : ["/admin/dashboard"];
+}
+
 export function AdminLayout() {
   const { token } = theme.useToken();
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
+
+  const [openKeys, setOpenKeys] = useState<string[]>([]);
 
   const fullMenuItems: MenuDef[] = useMemo(
     () => [
@@ -149,20 +183,42 @@ export function AdminLayout() {
     [],
   );
 
-  const menuItems = useMemo(() => {
+  const menuItems: ItemType[] = useMemo(() => {
     if (!profile) return [];
     const allowed = menuKeysForRole(profile.role);
-    return fullMenuItems.filter((m) => allowed.has(m.key));
+    const filtered = fullMenuItems.filter((m) => allowed.has(m.key));
+    const flat: ItemType[] = filtered.map((m) => ({
+      key: m.key,
+      icon: m.icon,
+      label: m.label,
+    }));
+    if (!isAdminRole(profile.role)) return flat;
+    const idx = flat.findIndex((x) => x && typeof x === "object" && "key" in x && x.key === "/admin/booths");
+    const invMenu: ItemType = {
+      key: "sub:inv",
+      icon: <InboxOutlined />,
+      label: zhtw.admin.layout.menuInventoryGroup,
+      children: [
+        { key: "/admin/inventory", label: zhtw.admin.layout.menuInventoryOverview },
+        { key: "/admin/inventory/warehouses", label: zhtw.admin.layout.menuWarehouses },
+        { key: "/admin/inventory/logs", label: zhtw.admin.layout.menuInventoryLogs },
+      ],
+    };
+    const out = [...flat];
+    out.splice(idx >= 0 ? idx + 1 : out.length, 0, invMenu);
+    return out;
   }, [fullMenuItems, profile]);
 
-  const selectedKeys = useMemo(() => {
-    const match = menuItems.find((m) => location.pathname.startsWith(m.key));
-    return match
-      ? [match.key]
-      : menuItems.length > 0
-        ? [menuItems[0].key]
-        : ["/admin/dashboard"];
-  }, [location.pathname, menuItems]);
+  const selectedKeys = useMemo(
+    () => matchSelectedMenuKey(location.pathname, menuItems),
+    [location.pathname, menuItems],
+  );
+
+  useEffect(() => {
+    if (location.pathname.startsWith("/admin/inventory")) {
+      setOpenKeys((prev) => (prev.includes("sub:inv") ? prev : [...prev, "sub:inv"]));
+    }
+  }, [location.pathname]);
 
   const blocked =
     profile &&
@@ -189,12 +245,12 @@ export function AdminLayout() {
           mode="inline"
           theme="dark"
           selectedKeys={selectedKeys}
-          items={menuItems.map((m) => ({
-            key: m.key,
-            icon: m.icon,
-            label: m.label,
-          }))}
-          onClick={({ key }) => navigate(key)}
+          openKeys={openKeys}
+          onOpenChange={setOpenKeys}
+          items={menuItems}
+          onClick={({ key }) => {
+            if (key.startsWith("/admin")) navigate(key);
+          }}
           style={{ borderRight: 0, background: "transparent" }}
         />
       </Sider>

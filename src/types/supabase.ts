@@ -40,6 +40,35 @@ export type BoothRow = {
   location: string | null
   start_date: string | null
   end_date: string | null
+  warehouse_id: string | null
+}
+
+export type WarehouseRow = {
+  id: string
+  name: string
+  type: 'warehouse' | 'booth'
+  booth_id: string | null
+  note: string | null
+  created_at: string
+}
+
+export type InventoryRow = {
+  id: string
+  warehouse_id: string
+  product_id: string
+  stock: number
+}
+
+export type InventoryLogRow = {
+  id: string
+  warehouse_id: string | null
+  product_id: string | null
+  type: 'in' | 'out' | 'transfer_in' | 'transfer_out' | 'adjust'
+  quantity: number
+  note: string | null
+  related_order_id: string | null
+  created_by: string | null
+  created_at: string
 }
 
 export type PromotionRow = {
@@ -218,6 +247,24 @@ export type Database = {
         Row: BoothRow
         Insert: Omit<BoothRow, 'id'> & { id?: string }
         Update: Partial<BoothRow>
+        Relationships: []
+      }
+      warehouses: {
+        Row: WarehouseRow
+        Insert: Omit<WarehouseRow, 'id' | 'created_at'> & { id?: string; created_at?: string }
+        Update: Partial<Omit<WarehouseRow, 'id'>>
+        Relationships: []
+      }
+      inventory: {
+        Row: InventoryRow
+        Insert: Omit<InventoryRow, 'id'> & { id?: string }
+        Update: Partial<Omit<InventoryRow, 'id'>>
+        Relationships: []
+      }
+      inventory_logs: {
+        Row: InventoryLogRow
+        Insert: Omit<InventoryLogRow, 'id' | 'created_at'> & { id?: string; created_at?: string }
+        Update: Partial<Omit<InventoryLogRow, 'id'>>
         Relationships: []
       }
       categories: {
@@ -518,6 +565,30 @@ export type Database = {
       pos_list_active_staff_names: {
         Args: { p_booth_id: string }
         Returns: string[]
+      }
+      pos_inventory_stocks_for_booth: {
+        Args: { p_booth_id: string }
+        Returns: { product_id: string; stock: number }[]
+      }
+      inventory_apply_adjustment: {
+        Args: {
+          p_warehouse_id: string
+          p_product_id: string
+          p_delta: number
+          p_log_type: string
+          p_note?: string | null
+        }
+        Returns: number
+      }
+      inventory_transfer: {
+        Args: {
+          p_from_warehouse_id: string
+          p_to_warehouse_id: string
+          p_product_id: string
+          p_quantity: number
+          p_note?: string | null
+        }
+        Returns: undefined
       }
       clock_shift: {
         Args: { p_shift_id: string; p_action: string }

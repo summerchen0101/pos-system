@@ -9,7 +9,10 @@ import { AdminLayout } from "./layouts/AdminLayout";
 import { AdminBoothsPage } from "./pages/AdminBoothsPage";
 import { AdminCategoriesPage } from "./pages/AdminCategoriesPage";
 import { AdminDashboardPage } from "./pages/AdminDashboardPage";
+import { AdminInventoryLogsPage } from "./pages/AdminInventoryLogsPage";
+import { AdminInventoryOverviewPage } from "./pages/AdminInventoryOverviewPage";
 import { AdminOrdersPage } from "./pages/AdminOrdersPage";
+import { AdminWarehousesPage } from "./pages/AdminWarehousesPage";
 import { AdminProductsPage } from "./pages/AdminProductsPage";
 import { AdminGiftsPage } from "./pages/AdminGiftsPage";
 import { AdminPromotionsPage } from "./pages/AdminPromotionsPage";
@@ -91,6 +94,9 @@ export default function App() {
                 <Route path="booths" element={<AdminBoothsPage />} />
                 <Route path="categories" element={<AdminCategoriesPage />} />
                 <Route path="products" element={<AdminProductsPage />} />
+                <Route path="inventory" element={<AdminInventoryOverviewPage />} />
+                <Route path="inventory/warehouses" element={<AdminWarehousesPage />} />
+                <Route path="inventory/logs" element={<AdminInventoryLogsPage />} />
                 <Route path="gifts" element={<AdminGiftsPage />} />
                 <Route path="promotions" element={<AdminPromotionsPage />} />
                 <Route path="my-shifts" element={<MyShiftsPage />} />
