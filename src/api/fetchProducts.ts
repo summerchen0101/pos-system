@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { fetchBoothVisibilityForPos } from './boothVisibilityAdmin'
 import { mapProductRow, productSelectWithCategory, type ProductRowWithCategory } from './productMapper'
 import type { Product } from '../types/pos'
 
@@ -16,7 +17,7 @@ export async function fetchProducts(): Promise<Product[]> {
 
 /** POS: merge per-booth warehouse stock (or legacy products.stock). */
 export async function fetchProductsForPosBooth(boothId: string): Promise<Product[]> {
-  const [{ data, error }, stockRes] = await Promise.all([
+  const [{ data, error }, stockRes, vis] = await Promise.all([
     supabase
       .from('products')
       .select(productSelectWithCategory)
@@ -24,6 +25,7 @@ export async function fetchProductsForPosBooth(boothId: string): Promise<Product
       .in('kind', ['STANDARD', 'CUSTOM_BUNDLE'])
       .order('name', { ascending: true }),
     supabase.rpc('pos_inventory_stocks_for_booth', { p_booth_id: boothId }),
+    fetchBoothVisibilityForPos(boothId),
   ])
   if (error) throw error
   if (stockRes.error) throw stockRes.error
@@ -32,10 +34,16 @@ export async function fetchProductsForPosBooth(boothId: string): Promise<Product
   for (const r of rows ?? []) {
     stockMap.set(r.product_id, r.stock)
   }
-  return (data ?? []).map((row) => {
+  const { hiddenCategoryIds, hiddenProductIds } = vis
+  const mapped = (data ?? []).map((row) => {
     const p = mapProductRow(row as ProductRowWithCategory)
     const st = stockMap.get(p.id)
     if (st !== undefined) return { ...p, stock: st }
     return p
+  })
+  return mapped.filter((p) => {
+    if (p.categoryId && hiddenCategoryIds.has(p.categoryId)) return false
+    if (hiddenProductIds.has(p.id)) return false
+    return true
   })
 }

@@ -10,12 +10,14 @@ import {
   Select,
   Space,
   Table,
+  Tabs,
+  Tag,
   Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { Dayjs } from "dayjs";
 import dayjs from "dayjs";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   copyBoothAdmin,
   createBooth,
@@ -24,9 +26,13 @@ import {
   updateBooth,
   type AdminBooth,
 } from "../api/boothsAdmin";
+import { fetchBoothVisibilityForPos, replaceBoothVisibilityAdmin } from "../api/boothVisibilityAdmin";
+import { listCategoriesAdmin } from "../api/categoriesAdmin";
 import { listWarehousesAdmin } from "../api/inventoryAdmin";
+import { listProductsAdmin } from "../api/productsAdmin";
 import { formatBoothActivityRangeLabel } from "../lib/boothActivity";
 import { zhtw } from "../locales/zhTW";
+import type { Category, Product } from "../types/pos";
 
 const { Title, Text } = Typography;
 const b = zhtw.admin.booths;
@@ -73,6 +79,13 @@ export function AdminBoothsPage() {
   const [copyModalOpen, setCopyModalOpen] = useState(false);
   const [copySource, setCopySource] = useState<AdminBooth | null>(null);
   const [copySaving, setCopySaving] = useState(false);
+  const [modalTab, setModalTab] = useState<string>("basic");
+  const [catalogCategories, setCatalogCategories] = useState<Category[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
+  const [visibilityLoading, setVisibilityLoading] = useState(false);
+  const [hiddenCategoryIds, setHiddenCategoryIds] = useState<string[]>([]);
+  const [hiddenProductIds, setHiddenProductIds] = useState<string[]>([]);
+  const [productSearch, setProductSearch] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -92,8 +105,29 @@ export function AdminBoothsPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    void (async () => {
+      try {
+        const [cats, prods] = await Promise.all([listCategoriesAdmin(), listProductsAdmin()]);
+        setCatalogCategories(cats);
+        setCatalogProducts(
+          prods.filter((p) => p.isActive && (p.kind === "STANDARD" || p.kind === "CUSTOM_BUNDLE")),
+        );
+      } catch {
+        message.error(b.visibilityLoadCatalogError);
+        setCatalogCategories([]);
+        setCatalogProducts([]);
+      }
+    })();
+  }, [message]);
+
   const openCreate = () => {
     setEditingId(null);
+    setModalTab("basic");
+    setHiddenCategoryIds([]);
+    setHiddenProductIds([]);
+    setProductSearch("");
+    setVisibilityLoading(false);
     form.resetFields();
     form.setFieldsValue({
       name: "",
@@ -124,8 +158,12 @@ export function AdminBoothsPage() {
     });
   };
 
-  const openEdit = (row: AdminBooth) => {
+  const openEdit = async (row: AdminBooth) => {
     setEditingId(row.id);
+    setModalTab("basic");
+    setHiddenCategoryIds([]);
+    setHiddenProductIds([]);
+    setProductSearch("");
     form.setFieldsValue({
       name: row.name,
       location: row.location ?? "",
@@ -134,6 +172,18 @@ export function AdminBoothsPage() {
       warehouse_id: row.warehouse_id ?? undefined,
     });
     setModalOpen(true);
+    setVisibilityLoading(true);
+    try {
+      const vis = await fetchBoothVisibilityForPos(row.id);
+      setHiddenCategoryIds([...vis.hiddenCategoryIds]);
+      setHiddenProductIds([...vis.hiddenProductIds]);
+    } catch {
+      message.error(b.visibilityLoadBoothError);
+      setHiddenCategoryIds([]);
+      setHiddenProductIds([]);
+    } finally {
+      setVisibilityLoading(false);
+    }
   };
 
   const openCopy = (row: AdminBooth) => {
@@ -152,8 +202,52 @@ export function AdminBoothsPage() {
   const closeModal = () => {
     setModalOpen(false);
     setEditingId(null);
+    setModalTab("basic");
+    setHiddenCategoryIds([]);
+    setHiddenProductIds([]);
+    setProductSearch("");
     form.resetFields();
   };
+
+  const toggleHiddenCategory = (categoryId: string, hide: boolean) => {
+    setHiddenCategoryIds((prev) => {
+      const next = hide ? [...new Set([...prev, categoryId])] : prev.filter((x) => x !== categoryId);
+      if (hide) {
+        setHiddenProductIds((hp) =>
+          hp.filter((pid) => {
+            const p = catalogProducts.find((x) => x.id === pid);
+            return !p?.categoryId || p.categoryId !== categoryId;
+          }),
+        );
+      }
+      return next;
+    });
+  };
+
+  const toggleHiddenProduct = (productId: string, hide: boolean) => {
+    setHiddenProductIds((prev) =>
+      hide ? [...new Set([...prev, productId])] : prev.filter((x) => x !== productId),
+    );
+  };
+
+  const cleanedHiddenProductIds = useMemo(() => {
+    const cat = new Set(hiddenCategoryIds);
+    return hiddenProductIds.filter((pid) => {
+      const p = catalogProducts.find((x) => x.id === pid);
+      if (!p?.categoryId) return true;
+      return !cat.has(p.categoryId);
+    });
+  }, [hiddenCategoryIds, hiddenProductIds, catalogProducts]);
+
+  const filteredProductsForVisibility = useMemo(() => {
+    const q = productSearch.trim().toLowerCase();
+    const list = [...catalogProducts].sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"));
+    if (!q) return list;
+    return list.filter((p) => {
+      const cn = (p.categoryName ?? "").toLowerCase();
+      return p.name.toLowerCase().includes(q) || cn.includes(q);
+    });
+  }, [catalogProducts, productSearch]);
 
   const closeCopyModal = () => {
     setCopyModalOpen(false);
@@ -178,6 +272,12 @@ export function AdminBoothsPage() {
           endDate,
           warehouseId: v.warehouse_id ?? null,
         });
+        try {
+          await replaceBoothVisibilityAdmin(editingId, hiddenCategoryIds, cleanedHiddenProductIds);
+        } catch (ve) {
+          message.error(ve instanceof Error ? ve.message : b.visibilitySaveError);
+          throw ve;
+        }
         message.success(b.updated);
       } else {
         await createBooth({
@@ -273,7 +373,7 @@ export function AdminBoothsPage() {
       width: 200,
       render: (_, row) => (
         <Space size={0} wrap>
-          <Button type="link" size="small" onClick={() => openEdit(row)}>
+          <Button type="link" size="small" onClick={() => void openEdit(row)}>
             {common.edit}
           </Button>
           <Button type="link" size="small" onClick={() => openCopy(row)}>
@@ -323,40 +423,157 @@ export function AdminBoothsPage() {
         onOk={() => void submit()}
         confirmLoading={saving}
         destroyOnClose
-        okText={common.save}>
-        <Form form={form} layout="vertical" style={{ marginTop: 8 }}>
-          <Form.Item
-            name="name"
-            label={b.labelName}
-            rules={[{ required: true, message: common.required }]}>
-            <Input placeholder={b.namePh} />
-          </Form.Item>
-          <Form.Item name="location" label={b.labelLocation}>
-            <Input placeholder={b.locationPh} />
-          </Form.Item>
-          <Form.Item name="start_date" label={b.labelStartDate}>
-            <DatePicker style={{ width: "100%" }} allowClear />
-          </Form.Item>
-          <Form.Item
-            name="end_date"
-            label={b.labelEndDate}
-            dependencies={["start_date"]}
-            rules={[{ validator: dateOrderValidator }]}>
-            <DatePicker style={{ width: "100%" }} allowClear />
-          </Form.Item>
-          <Form.Item
-            name="warehouse_id"
-            label={b.labelWarehouse}
-            extra={<Text type="secondary">{b.warehousePh}</Text>}>
-            <Select
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              placeholder={b.labelWarehouse}
-              options={warehouseOptions}
-            />
-          </Form.Item>
-        </Form>
+        okText={common.save}
+        width={editingId ? 720 : 520}>
+        <Tabs
+          activeKey={editingId ? modalTab : "basic"}
+          onChange={editingId ? setModalTab : undefined}
+          items={[
+            {
+              key: "basic",
+              label: b.tabBasic,
+              children: (
+                <Form form={form} layout="vertical" style={{ marginTop: 8 }}>
+                  <Form.Item
+                    name="name"
+                    label={b.labelName}
+                    rules={[{ required: true, message: common.required }]}>
+                    <Input placeholder={b.namePh} />
+                  </Form.Item>
+                  <Form.Item name="location" label={b.labelLocation}>
+                    <Input placeholder={b.locationPh} />
+                  </Form.Item>
+                  <Form.Item name="start_date" label={b.labelStartDate}>
+                    <DatePicker style={{ width: "100%" }} allowClear />
+                  </Form.Item>
+                  <Form.Item
+                    name="end_date"
+                    label={b.labelEndDate}
+                    dependencies={["start_date"]}
+                    rules={[{ validator: dateOrderValidator }]}>
+                    <DatePicker style={{ width: "100%" }} allowClear />
+                  </Form.Item>
+                  <Form.Item
+                    name="warehouse_id"
+                    label={b.labelWarehouse}
+                    extra={<Text type="secondary">{b.warehousePh}</Text>}>
+                    <Select
+                      allowClear
+                      showSearch
+                      optionFilterProp="label"
+                      placeholder={b.labelWarehouse}
+                      options={warehouseOptions}
+                    />
+                  </Form.Item>
+                </Form>
+              ),
+            },
+            ...(editingId
+              ? [
+                  {
+                    key: "visibility",
+                    label: b.tabVisibility,
+                    children: (
+                      <div style={{ marginTop: 8 }}>
+                        <Text type="secondary" style={{ display: "block", marginBottom: 12 }}>
+                          {b.visibilityHint}
+                        </Text>
+                        {visibilityLoading ? (
+                          <Text type="secondary">{common.loading}</Text>
+                        ) : (
+                          <>
+                            <Title level={5} style={{ marginTop: 0, marginBottom: 8 }}>
+                              {b.visibilityHiddenCategories}
+                            </Title>
+                            <Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
+                              {b.visibilityHiddenCategoriesHint}
+                            </Text>
+                            <div
+                              style={{
+                                maxHeight: 200,
+                                overflowY: "auto",
+                                marginBottom: 20,
+                                padding: 8,
+                                border: "1px solid rgba(255,255,255,0.12)",
+                                borderRadius: 8,
+                              }}>
+                              <Space direction="vertical" size={4} style={{ width: "100%" }}>
+                                {catalogCategories.map((c) => (
+                                  <Checkbox
+                                    key={c.id}
+                                    checked={hiddenCategoryIds.includes(c.id)}
+                                    onChange={(e) => toggleHiddenCategory(c.id, e.target.checked)}>
+                                    {c.name}
+                                  </Checkbox>
+                                ))}
+                              </Space>
+                            </div>
+                            <Title level={5} style={{ marginBottom: 8 }}>
+                              {b.visibilityHiddenProducts}
+                            </Title>
+                            <Input
+                              allowClear
+                              placeholder={b.visibilityProductSearchPh}
+                              value={productSearch}
+                              onChange={(e) => setProductSearch(e.target.value)}
+                              style={{ marginBottom: 12 }}
+                            />
+                            <div
+                              style={{
+                                maxHeight: 280,
+                                overflowY: "auto",
+                                padding: 8,
+                                border: "1px solid rgba(255,255,255,0.12)",
+                                borderRadius: 8,
+                              }}>
+                              <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                {filteredProductsForVisibility.map((p) => {
+                                  const hiddenByCat = Boolean(
+                                    p.categoryId && hiddenCategoryIds.includes(p.categoryId),
+                                  );
+                                  const checked = hiddenByCat || hiddenProductIds.includes(p.id);
+                                  const catLabel = p.categoryName?.trim() || b.visibilityUncategorized;
+                                  return (
+                                    <div
+                                      key={p.id}
+                                      style={{
+                                        opacity: hiddenByCat ? 0.55 : 1,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                        flexWrap: "wrap",
+                                      }}>
+                                      <Checkbox
+                                        checked={checked}
+                                        disabled={hiddenByCat}
+                                        onChange={(e) => {
+                                          if (hiddenByCat) return;
+                                          toggleHiddenProduct(p.id, e.target.checked);
+                                        }}
+                                      />
+                                      <span>
+                                        {p.name}
+                                        <Text type="secondary" style={{ marginLeft: 8 }}>
+                                          （{catLabel}）
+                                        </Text>
+                                      </span>
+                                      {hiddenByCat ? (
+                                        <Tag>{b.visibilityHiddenByCategoryTag}</Tag>
+                                      ) : null}
+                                    </div>
+                                  );
+                                })}
+                              </Space>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ),
+                  },
+                ]
+              : []),
+          ]}
+        />
       </Modal>
 
       <Modal

@@ -189,6 +189,23 @@ export async function copyBoothAdmin(
     promotionsCopied = promoIds.length
   }
 
+  {
+    const [{ data: hCat }, { data: hProd }] = await Promise.all([
+      supabase.from('booth_hidden_categories').select('category_id').eq('booth_id', input.sourceBoothId),
+      supabase.from('booth_hidden_products').select('product_id').eq('booth_id', input.sourceBoothId),
+    ])
+    const catRows = (hCat ?? []).map((r) => ({ booth_id: booth.id, category_id: r.category_id as string }))
+    const prodRows = (hProd ?? []).map((r) => ({ booth_id: booth.id, product_id: r.product_id as string }))
+    if (catRows.length > 0) {
+      const { error: he } = await supabase.from('booth_hidden_categories').insert(catRows)
+      if (he) throw he
+    }
+    if (prodRows.length > 0) {
+      const { error: he } = await supabase.from('booth_hidden_products').insert(prodRows)
+      if (he) throw he
+    }
+  }
+
   if (input.copyProductSettings && booth.warehouse_id) {
     const { data: srcBooth, error: se } = await supabase
       .from('booths')

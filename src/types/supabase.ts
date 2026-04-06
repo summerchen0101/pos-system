@@ -43,6 +43,16 @@ export type BoothRow = {
   warehouse_id: string | null
 }
 
+export type BoothHiddenCategoryRow = {
+  booth_id: string
+  category_id: string
+}
+
+export type BoothHiddenProductRow = {
+  booth_id: string
+  product_id: string
+}
+
 export type WarehouseRow = {
   id: string
   name: string
@@ -267,6 +277,18 @@ export type Database = {
         Row: BoothRow
         Insert: Omit<BoothRow, 'id'> & { id?: string }
         Update: Partial<BoothRow>
+        Relationships: []
+      }
+      booth_hidden_categories: {
+        Row: BoothHiddenCategoryRow
+        Insert: BoothHiddenCategoryRow
+        Update: Partial<BoothHiddenCategoryRow>
+        Relationships: []
+      }
+      booth_hidden_products: {
+        Row: BoothHiddenProductRow
+        Insert: BoothHiddenProductRow
+        Update: Partial<BoothHiddenProductRow>
         Relationships: []
       }
       warehouses: {
