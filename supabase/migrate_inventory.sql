@@ -869,3 +869,176 @@ end;
 $$;
 
 grant execute on function public.complete_stocktake(uuid, jsonb) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- POS: list today's orders per booth + delete order with stock restore (security definer)
+-- ---------------------------------------------------------------------------
+
+create or replace function public.pos_list_orders_for_booth_day(
+  p_booth_id uuid,
+  p_day date default null
+) returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', o.id,
+        'created_at', o.created_at,
+        'final_amount', o.final_amount,
+        'discount_amount', o.discount_amount,
+        'total_amount', o.total_amount,
+        'items', (
+          select coalesce(
+            jsonb_agg(
+              jsonb_build_object(
+                'id', oi.id,
+                'product_id', oi.product_id,
+                'product_name', oi.product_name,
+                'size', oi.size,
+                'quantity', oi.quantity,
+                'unit_price_cents', oi.unit_price_cents,
+                'line_total_cents', oi.line_total_cents,
+                'is_gift', oi.is_gift,
+                'is_manual_free', oi.is_manual_free,
+                'gift_id', oi.gift_id,
+                'source', oi.source
+              )
+              order by oi.sort_order
+            ),
+            '[]'::jsonb
+          )
+          from public.order_items oi
+          where oi.order_id = o.id
+        )
+      )
+      order by o.created_at desc
+    ),
+    '[]'::jsonb
+  )
+  from public.orders o
+  where o.booth_id = p_booth_id
+    and (timezone('Asia/Taipei', o.created_at))::date = coalesce(
+      p_day,
+      (timezone('Asia/Taipei', now()))::date
+    );
+$$;
+
+grant execute on function public.pos_list_orders_for_booth_day(uuid, date) to anon;
+grant execute on function public.pos_list_orders_for_booth_day(uuid, date) to authenticated;
+
+-- Delete order: restore gift_inventory + inventory/products.stock; log product restores to inventory_logs.
+-- POS (anon/staff): pass p_booth_id matching order and order must be same calendar day (Asia/Taipei).
+-- ADMIN/MANAGER when logged in: p_booth_id may be null; any order date.
+create or replace function public.delete_order_restore_inventory(
+  p_order_id uuid,
+  p_booth_id uuid default null
+) returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_booth_id uuid;
+  v_created timestamptz;
+  v_wh uuid;
+  v_elevated boolean;
+  v_item record;
+  v_note constant text := '訂單刪除退回庫存';
+begin
+  select o.booth_id, o.created_at
+  into v_booth_id, v_created
+  from public.orders o
+  where o.id = p_order_id
+  for update;
+
+  if not found then
+    raise exception 'order_not_found';
+  end if;
+
+  v_elevated := auth.uid() is not null and (public.is_admin() or public.is_manager());
+
+  if not v_elevated then
+    if p_booth_id is null or p_booth_id <> v_booth_id then
+      raise exception 'booth_mismatch';
+    end if;
+    if (timezone('Asia/Taipei', v_created))::date <> (timezone('Asia/Taipei', now()))::date then
+      raise exception 'order_not_today';
+    end if;
+  end if;
+
+  select b.warehouse_id into v_wh from public.booths b where b.id = v_booth_id;
+
+  for v_item in
+    select * from public.order_items where order_id = p_order_id order by sort_order
+  loop
+    if v_item.gift_id is not null then
+      insert into public.gift_inventory (gift_id, stock)
+      values (v_item.gift_id, v_item.quantity)
+      on conflict (gift_id) do update
+      set stock = public.gift_inventory.stock + excluded.stock;
+    elsif v_item.product_id is not null then
+      if v_wh is not null then
+        insert into public.inventory (warehouse_id, product_id, stock)
+        values (v_wh, v_item.product_id, 0)
+        on conflict (warehouse_id, product_id) do nothing;
+
+        update public.inventory
+        set stock = stock + v_item.quantity
+        where warehouse_id = v_wh and product_id = v_item.product_id;
+
+        insert into public.inventory_logs (
+          warehouse_id,
+          product_id,
+          type,
+          quantity,
+          note,
+          related_order_id,
+          created_by
+        )
+        values (
+          v_wh,
+          v_item.product_id,
+          'in',
+          v_item.quantity,
+          v_note,
+          p_order_id,
+          auth.uid()
+        );
+      else
+        update public.products
+        set stock = stock + v_item.quantity
+        where id = v_item.product_id;
+
+        insert into public.inventory_logs (
+          warehouse_id,
+          product_id,
+          type,
+          quantity,
+          note,
+          related_order_id,
+          created_by
+        )
+        values (
+          null,
+          v_item.product_id,
+          'in',
+          v_item.quantity,
+          v_note,
+          p_order_id,
+          auth.uid()
+        );
+      end if;
+    end if;
+  end loop;
+
+  delete from public.orders where id = p_order_id;
+end;
+$$;
+
+grant execute on function public.delete_order_restore_inventory(uuid, uuid) to anon;
+grant execute on function public.delete_order_restore_inventory(uuid, uuid) to authenticated;
+grant execute on function public.delete_order_restore_inventory(uuid, uuid) to service_role;

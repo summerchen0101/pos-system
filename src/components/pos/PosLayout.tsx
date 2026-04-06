@@ -1,4 +1,4 @@
-import { Space, Spin, Tabs, Typography } from "antd";
+import { Button, Space, Spin, Tabs, Typography } from "antd";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { listBoothsForPos } from "../../api/boothsPos";
@@ -15,6 +15,7 @@ import { BundleApplyModal } from "./BundleApplyModal";
 import { CartPanel } from "./CartPanel";
 import { PosTabletClockButtons } from "./PosTabletClockButtons";
 import { ProductGrid } from "./ProductGrid";
+import { PosTodayOrdersDrawer } from "./PosTodayOrdersDrawer";
 import "./pos.css";
 
 /** Tab key for products without `category_id`. */
@@ -75,6 +76,7 @@ function PosLayoutInner() {
   const [activeStaffLine, setActiveStaffLine] = useState(
     () => `${zhtw.pos.activeStaffPrefix}${zhtw.common.dash}`,
   );
+  const [todayOrdersOpen, setTodayOrdersOpen] = useState(false);
 
   const refreshActiveStaff = useCallback(async () => {
     if (!boothId) return;
@@ -256,6 +258,11 @@ function PosLayoutInner() {
             <h1>{zhtw.pos.registerTitle}</h1>
             <Space wrap size={12} align="center">
               {boothId ? (
+                <Button type="default" onClick={() => setTodayOrdersOpen(true)}>
+                  {zhtw.pos.todayOrders.openButton}
+                </Button>
+              ) : null}
+              {boothId ? (
                 <div className="pos-header-clock">
                   <PosTabletClockButtons boothId={boothId} onClockRecordsChanged={refreshActiveStaff} />
                 </div>
@@ -310,6 +317,13 @@ function PosLayoutInner() {
           setBundleModalProduct(null);
         }}
       />
+      {boothId ? (
+        <PosTodayOrdersDrawer
+          boothId={boothId}
+          open={todayOrdersOpen}
+          onClose={() => setTodayOrdersOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -634,6 +634,14 @@ export type Database = {
         Args: { p_stocktake_id: string; p_items?: unknown }
         Returns: Record<string, unknown>
       }
+      pos_list_orders_for_booth_day: {
+        Args: { p_booth_id: string; p_day?: string | null }
+        Returns: unknown
+      }
+      delete_order_restore_inventory: {
+        Args: { p_order_id: string; p_booth_id?: string | null }
+        Returns: undefined
+      }
       clock_shift: {
         Args: { p_shift_id: string; p_action: string }
         Returns: undefined

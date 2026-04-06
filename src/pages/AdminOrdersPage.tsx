@@ -1,4 +1,5 @@
 import {
+  App,
   Button,
   DatePicker,
   Descriptions,
@@ -12,8 +13,11 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import dayjs, { type Dayjs } from "dayjs";
 import { useCallback, useEffect, useState } from "react";
+import { isAdminRole, isManagerRole } from "../api/authProfile";
 import { listBoothsAdmin, type AdminBooth } from "../api/boothsAdmin";
 import { fetchOrderDetail, fetchOrdersForDateRange } from "../api/ordersApi";
+import { deleteOrderRestoreInventoryAdmin } from "../api/posOrdersApi";
+import { useAuth } from "../auth/AuthContext";
 import { zhtw } from "../locales/zhTW";
 import { formatMoney } from "../lib/money";
 import type { OrderDetail, OrderItem, OrderListEntry } from "../types/order";
@@ -47,6 +51,11 @@ function lineTags(item: OrderItem) {
 }
 
 export function AdminOrdersPage() {
+  const { message, modal } = App.useApp();
+  const { profile } = useAuth();
+  const canDeleteOrder =
+    profile != null && (isAdminRole(profile.role) || isManagerRole(profile.role));
+
   const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>(() => [
     dayjs(),
     dayjs(),
@@ -86,6 +95,32 @@ export function AdminOrdersPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const confirmDeleteOrder = (orderId: string) => {
+    modal.confirm({
+      title: o.deleteConfirmTitle,
+      content: o.deleteConfirmBody,
+      okText: o.deleteOrder,
+      okButtonProps: { danger: true },
+      cancelText: zhtw.common.cancel,
+      onOk: async () => {
+        try {
+          await deleteOrderRestoreInventoryAdmin(orderId);
+          message.success(o.deleteSuccess);
+          await load();
+          setDetailOpen(false);
+          setDetail(null);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "";
+          if (msg.includes("forbidden") || msg.includes("booth_mismatch")) {
+            message.error(o.deleteForbidden);
+          } else {
+            message.error(msg || o.deleteError);
+          }
+        }
+      },
+    });
+  };
 
   const openDetail = (orderId: string) => {
     setDetailOpen(true);
@@ -149,11 +184,22 @@ export function AdminOrdersPage() {
     {
       title: o.colActions,
       key: "actions",
-      width: 120,
+      width: canDeleteOrder ? 168 : 120,
       render: (_, row) => (
-        <Button type="link" size="small" onClick={() => openDetail(row.id)}>
-          {o.viewDetails}
-        </Button>
+        <Space size={0} wrap>
+          <Button type="link" size="small" onClick={() => openDetail(row.id)}>
+            {o.viewDetails}
+          </Button>
+          {canDeleteOrder ? (
+            <Button
+              type="link"
+              size="small"
+              danger
+              onClick={() => confirmDeleteOrder(row.id)}>
+              {o.deleteOrder}
+            </Button>
+          ) : null}
+        </Space>
       ),
     },
   ];
@@ -248,6 +294,16 @@ export function AdminOrdersPage() {
         open={detailOpen}
         onCancel={() => setDetailOpen(false)}
         footer={[
+          ...(canDeleteOrder && detail
+            ? [
+                <Button
+                  key="del"
+                  danger
+                  onClick={() => confirmDeleteOrder(detail.id)}>
+                  {o.deleteOrder}
+                </Button>,
+              ]
+            : []),
           <Button
             key="close"
             type="primary"
