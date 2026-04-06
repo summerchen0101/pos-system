@@ -2,11 +2,14 @@ import {
   CalendarOutlined,
   LeftOutlined,
   RightOutlined,
+  UploadOutlined,
 } from "@ant-design/icons";
 import {
+  Alert,
   App,
   Button,
   Card,
+  Checkbox,
   Col,
   DatePicker,
   Form,
@@ -19,6 +22,7 @@ import {
   Tag,
   TimePicker,
   Typography,
+  Upload,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { Dayjs } from "dayjs";
@@ -32,7 +36,9 @@ import {
   buildShiftsClockCsv,
   createShiftAdmin,
   deleteShiftAdmin,
+  deleteShiftsByUserBoothDate,
   getShiftsByIds,
+  insertShiftsAdmin,
   listClockLogsForShiftIds,
   listShiftsInRange,
   listSwapRequestsForAdmin,
@@ -42,6 +48,15 @@ import {
 } from "../api/shifts";
 import { listUsersAdmin, type AdminUserListEntry } from "../api/usersAdmin";
 import { formatShiftTime, weekRangeIso } from "../lib/shiftCalendar";
+import {
+  downloadShiftImportTemplate,
+  existingShiftKey,
+  parseImportDate,
+  parseShiftImportXlsx,
+  SHIFT_IMPORT_HEADERS,
+  type ShiftImportPreviewRow,
+  type ShiftImportValidateMessages,
+} from "../lib/shiftXlsxImport";
 import { zhtw } from "../locales/zhTW";
 import { isAdminRole } from "../api/authProfile";
 import { useAuth } from "../auth/AuthContext";
@@ -49,6 +64,27 @@ import { useAuth } from "../auth/AuthContext";
 const { Title, Text } = Typography;
 const s = zhtw.admin.shifts;
 const common = zhtw.common;
+
+function shiftImportValidateMessages(): ShiftImportValidateMessages {
+  return {
+    errNameRequired: s.importNameRequired,
+    errBoothRequired: s.importBoothRequired,
+    errUserNotFound: s.importUserNotFound,
+    errUserAmbiguous: s.importUserAmbiguous,
+    errBoothNotFound: s.importBoothNotFound,
+    errBoothAmbiguous: s.importBoothAmbiguous,
+    errStaffBooth: s.importStaffBooth,
+    errDateInvalid: s.importDateInvalid,
+    errTimeStart: s.importTimeStartInvalid,
+    errTimeEnd: s.importTimeEndInvalid,
+    errTimeOrder: s.importTimeOrder,
+    errDuplicateFile: s.importDupFile,
+    warnDuplicateDb: s.importDupDb,
+    errEmptyRow: s.importEmptyRows,
+    errMissingHeader: s.importMissingHeader,
+    errNoDataRows: s.importNoRows,
+  };
+}
 
 type ShiftFormValues = {
   user_id: string;
@@ -117,6 +153,12 @@ export function AdminShiftsPage() {
     dayjs().endOf("isoWeek"),
   ]);
   const [exportBoothId, setExportBoothId] = useState<string | null>(null);
+
+  const [importOpen, setImportOpen] = useState(false);
+  const [importPreview, setImportPreview] = useState<ShiftImportPreviewRow[]>([]);
+  const [importOverrideDup, setImportOverrideDup] = useState(false);
+  const [importUploadKey, setImportUploadKey] = useState(0);
+  const [importBusy, setImportBusy] = useState(false);
 
   const loadCore = useCallback(async () => {
     const [b, u, sh, sw] = await Promise.all([
@@ -343,6 +385,176 @@ export function AdminShiftsPage() {
     },
   ];
 
+  const openImportModal = () => {
+    setImportOverrideDup(false);
+    setImportPreview([]);
+    setImportUploadKey((k) => k + 1);
+    setImportOpen(true);
+  };
+
+  const closeImportModal = () => {
+    setImportOpen(false);
+    setImportPreview([]);
+    setImportOverrideDup(false);
+    setImportUploadKey((k) => k + 1);
+  };
+
+  const handleImportBeforeUpload = (file: File) => {
+    void (async () => {
+      const lower = file.name.toLowerCase();
+      if (!lower.endsWith(".xlsx")) {
+        message.error(s.importAcceptXlsx);
+        return;
+      }
+      setImportOverrideDup(false);
+      try {
+        const ab = await file.arrayBuffer();
+        const im = shiftImportValidateMessages();
+        const pass1 = parseShiftImportXlsx(ab, users, booths, new Set(), im);
+        const dates: string[] = [];
+        for (const p of pass1) {
+          const d =
+            p.payload?.shift_date ??
+            parseImportDate(p.raw[SHIFT_IMPORT_HEADERS.date] ?? "") ??
+            null;
+          if (d) dates.push(d);
+        }
+        let keySet = new Set<string>();
+        if (dates.length > 0) {
+          dates.sort();
+          const from = dates[0];
+          const to = dates[dates.length - 1];
+          const ex = await listShiftsInRange(null, from, to);
+          keySet = new Set(
+            ex.map((x) => existingShiftKey(x.user_id, x.booth_id, x.shift_date)),
+          );
+        }
+        setImportPreview(parseShiftImportXlsx(ab, users, booths, keySet, im));
+      } catch {
+        message.error(s.importParseFailed);
+        setImportPreview([]);
+      }
+    })();
+    return false;
+  };
+
+  const onConfirmImport = async () => {
+    const validRows = importPreview.filter((r) => r.payload && r.errors.length === 0);
+    if (validRows.length === 0) return;
+    setImportBusy(true);
+    try {
+      if (importOverrideDup) {
+        const dupLabel = s.importDupDb;
+        const keysDone = new Set<string>();
+        for (const r of validRows) {
+          if (!r.warnings.some((w) => w === dupLabel)) continue;
+          const p = r.payload!;
+          const k = existingShiftKey(p.user_id, p.booth_id, p.shift_date);
+          if (keysDone.has(k)) continue;
+          keysDone.add(k);
+          await deleteShiftsByUserBoothDate(p.user_id, p.booth_id, p.shift_date);
+        }
+      }
+      await insertShiftsAdmin(validRows.map((r) => r.payload!));
+      message.success(s.importSuccess(validRows.length));
+      closeImportModal();
+      await load();
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : s.importFailed);
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  const importHasErrors = importPreview.some((r) => r.errors.length > 0);
+  const importHasDbDupWarning = importPreview.some(
+    (r) => r.payload && r.warnings.length > 0,
+  );
+  const importValidCount = importPreview.filter((r) => r.payload && r.errors.length === 0).length;
+  const importConfirmDisabled =
+    importBusy ||
+    importValidCount === 0 ||
+    importHasErrors ||
+    (importHasDbDupWarning && !importOverrideDup);
+
+  const importPreviewColumns: ColumnsType<ShiftImportPreviewRow> = [
+    { title: "#", dataIndex: "rowIndex", width: 52 },
+    {
+      title: SHIFT_IMPORT_HEADERS.name,
+      key: "n",
+      width: 100,
+      render: (_, r) => r.raw[SHIFT_IMPORT_HEADERS.name],
+    },
+    {
+      title: SHIFT_IMPORT_HEADERS.booth,
+      key: "b",
+      width: 100,
+      render: (_, r) => r.raw[SHIFT_IMPORT_HEADERS.booth],
+    },
+    {
+      title: SHIFT_IMPORT_HEADERS.date,
+      key: "d",
+      width: 108,
+      render: (_, r) => r.raw[SHIFT_IMPORT_HEADERS.date],
+    },
+    {
+      title: SHIFT_IMPORT_HEADERS.start,
+      key: "s",
+      width: 88,
+      render: (_, r) => r.raw[SHIFT_IMPORT_HEADERS.start],
+    },
+    {
+      title: SHIFT_IMPORT_HEADERS.end,
+      key: "e",
+      width: 88,
+      render: (_, r) => r.raw[SHIFT_IMPORT_HEADERS.end],
+    },
+    {
+      title: SHIFT_IMPORT_HEADERS.note,
+      key: "note",
+      ellipsis: true,
+      render: (_, r) => r.raw[SHIFT_IMPORT_HEADERS.note],
+    },
+    {
+      title: s.importValidationCol,
+      key: "st",
+      width: 200,
+      render: (_, r) => (
+        <Space direction="vertical" size={4}>
+          {r.errors.map((e, i) => (
+            <Tag key={`e${i}`} color="red">
+              {e}
+            </Tag>
+          ))}
+          {r.warnings.map((w, i) => (
+            <Tag key={`w${i}`} color="orange">
+              {w}
+            </Tag>
+          ))}
+          {r.payload && r.errors.length === 0 ? (
+            <Tag color="green">{s.importRowOk}</Tag>
+          ) : null}
+        </Space>
+      ),
+    },
+  ];
+
+  const importFlatErrors = useMemo(
+    () =>
+      importPreview.flatMap((r) =>
+        r.errors.map((e) => (r.rowIndex > 0 ? `第 ${r.rowIndex} 列：${e}` : e)),
+      ),
+    [importPreview],
+  );
+
+  const importFlatWarnings = useMemo(
+    () =>
+      importPreview.flatMap((r) =>
+        r.warnings.map((w) => (r.rowIndex > 0 ? `第 ${r.rowIndex} 列：${w}` : w)),
+      ),
+    [importPreview],
+  );
+
   const onExportCsv = async () => {
     try {
       const from = exportRange[0].format("YYYY-MM-DD");
@@ -377,11 +589,25 @@ export function AdminShiftsPage() {
 
   return (
     <div style={{ padding: 24 }}>
-      <Title level={3} style={{ marginTop: 0 }}>
-        <CalendarOutlined style={{ marginRight: 8 }} />
-        {s.pageTitle}
-      </Title>
-      <Text type="secondary">{s.hint}</Text>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 16,
+        }}>
+        <div>
+          <Title level={3} style={{ marginTop: 0 }}>
+            <CalendarOutlined style={{ marginRight: 8 }} />
+            {s.pageTitle}
+          </Title>
+          <Text type="secondary">{s.hint}</Text>
+        </div>
+        <Button type="default" icon={<UploadOutlined />} onClick={openImportModal}>
+          {s.importShifts}
+        </Button>
+      </div>
 
       <Card style={{ marginTop: 16 }} loading={loading}>
         <Space wrap style={{ marginBottom: 16 }}>
@@ -527,6 +753,95 @@ export function AdminShiftsPage() {
             <Input.TextArea rows={2} />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title={s.importModalTitle}
+        open={importOpen}
+        onCancel={closeImportModal}
+        width={960}
+        destroyOnClose
+        footer={
+          <Space>
+            <Button onClick={closeImportModal}>{common.cancel}</Button>
+            <Button
+              type="primary"
+              loading={importBusy}
+              disabled={importConfirmDisabled}
+              onClick={() => void onConfirmImport()}>
+              {s.importConfirm}
+            </Button>
+          </Space>
+        }>
+        <Space direction="vertical" style={{ width: "100%" }} size="middle">
+          <Space wrap>
+            <Upload
+              key={importUploadKey}
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              showUploadList={false}
+              beforeUpload={handleImportBeforeUpload}>
+              <Button icon={<UploadOutlined />}>{s.importPickFile}</Button>
+            </Upload>
+            <Button
+              onClick={() => {
+                downloadShiftImportTemplate();
+              }}>
+              {s.importTemplateDownload}
+            </Button>
+            <Text type="secondary">{s.importAcceptXlsx}</Text>
+          </Space>
+
+          {importFlatErrors.length > 0 ? (
+            <Alert
+              type="error"
+              showIcon
+              message={s.importErrorsTitle}
+              description={
+                <ul style={{ margin: 0, paddingLeft: 20 }}>
+                  {importFlatErrors.map((e, i) => (
+                    <li key={i}>{e}</li>
+                  ))}
+                </ul>
+              }
+            />
+          ) : null}
+
+          {importFlatWarnings.length > 0 ? (
+            <Alert
+              type="warning"
+              showIcon
+              message={s.importWarningsTitle}
+              description={
+                <ul style={{ margin: 0, paddingLeft: 20 }}>
+                  {importFlatWarnings.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+              }
+            />
+          ) : null}
+
+          <Checkbox
+            checked={importOverrideDup}
+            onChange={(e) => setImportOverrideDup(e.target.checked)}
+            disabled={!importHasDbDupWarning}>
+            {s.importOverrideDup}
+          </Checkbox>
+
+          <div>
+            <Text strong>{s.importPreviewTitle}</Text>
+            <Table<ShiftImportPreviewRow>
+              style={{ marginTop: 8 }}
+              size="small"
+              rowKey="rowIndex"
+              columns={importPreviewColumns}
+              dataSource={importPreview}
+              pagination={false}
+              scroll={{ x: "max-content" }}
+              locale={{ emptyText: s.importNoRows }}
+            />
+          </div>
+        </Space>
       </Modal>
     </div>
   );

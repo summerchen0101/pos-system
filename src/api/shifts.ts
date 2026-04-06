@@ -110,6 +110,36 @@ export async function deleteShiftAdmin(id: string): Promise<void> {
   if (error) throw error
 }
 
+/** Delete all shifts matching user + booth + calendar date (admin import override). */
+export async function deleteShiftsByUserBoothDate(
+  userId: string,
+  boothId: string,
+  shiftDate: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('shifts')
+    .delete()
+    .eq('user_id', userId)
+    .eq('booth_id', boothId)
+    .eq('shift_date', shiftDate)
+  if (error) throw error
+}
+
+export async function insertShiftsAdmin(inputs: ShiftUpsertInput[]): Promise<void> {
+  if (inputs.length === 0) return
+  const { error } = await supabase.from('shifts').insert(
+    inputs.map((i) => ({
+      user_id: i.user_id,
+      booth_id: i.booth_id,
+      shift_date: i.shift_date,
+      start_time: i.start_time,
+      end_time: i.end_time,
+      note: i.note?.trim() ? i.note.trim() : null,
+    })),
+  )
+  if (error) throw error
+}
+
 export async function listColleagueShiftsForSwap(
   boothId: string,
   fromDate: string,
