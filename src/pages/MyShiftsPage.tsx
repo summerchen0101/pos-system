@@ -1,0 +1,412 @@
+import {
+  CalendarOutlined,
+  LeftOutlined,
+  RightOutlined,
+} from "@ant-design/icons";
+import {
+  App,
+  Button,
+  Card,
+  Col,
+  DatePicker,
+  Form,
+  Modal,
+  Row,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+} from "antd";
+import type { ColumnsType } from "antd/es/table";
+import dayjs from "dayjs";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  cancelShiftSwapRequest,
+  clockShift,
+  createShiftSwapRequest,
+  listClockLogsForShiftIds,
+  listColleagueShiftsForSwap,
+  listShiftsInRange,
+  listSwapRequestsForUser,
+  shiftSwapTargetRespond,
+  type ShiftWithNames,
+  type SwapRequestListEntry,
+} from "../api/shifts";
+import { listUsersAdmin } from "../api/usersAdmin";
+import {
+  canClockInTaipei,
+  canClockOutTaipei,
+  formatShiftTime,
+  weekRangeIso,
+} from "../lib/shiftCalendar";
+import { zhtw } from "../locales/zhTW";
+import { useAuth } from "../auth/AuthContext";
+import type { ShiftRow } from "../types/supabase";
+
+const { Title, Text } = Typography;
+const m = zhtw.admin.myShifts;
+const common = zhtw.common;
+
+function clockLabel(
+  shiftId: string,
+  logs: { shift_id: string; clock_in_at: string | null; clock_out_at: string | null }[],
+): string {
+  const l = logs.find((x) => x.shift_id === shiftId);
+  if (!l || !l.clock_in_at) return m.clockNone;
+  if (!l.clock_out_at) return m.clockInAt(l.clock_in_at);
+  return m.clockDoneAt(l.clock_out_at);
+}
+
+export function MyShiftsPage() {
+  const { message } = App.useApp();
+  const { profile, session } = useAuth();
+  const userId = session?.user.id;
+
+  const [weekAnchor, setWeekAnchor] = useState(() => dayjs());
+  const { start: weekStart, end: weekEnd, days } = useMemo(
+    () => weekRangeIso(weekAnchor),
+    [weekAnchor],
+  );
+
+  const [shifts, setShifts] = useState<ShiftWithNames[]>([]);
+  const [logs, setLogs] = useState<
+    { shift_id: string; clock_in_at: string | null; clock_out_at: string | null }[]
+  >([]);
+  const [swaps, setSwaps] = useState<SwapRequestListEntry[]>([]);
+  const [userNameById, setUserNameById] = useState<Map<string, string>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(() => dayjs());
+
+  const [swapOpen, setSwapOpen] = useState(false);
+  const [swapForm] = Form.useForm<{ mine: string; theirs: string }>();
+  const [colleagueShifts, setColleagueShifts] = useState<ShiftRow[]>([]);
+  const [loadingColleagues, setLoadingColleagues] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!userId) return;
+    setLoading(true);
+    try {
+      const [sh, urows, sw] = await Promise.all([
+        listShiftsInRange(null, weekStart, weekEnd),
+        listUsersAdmin(),
+        listSwapRequestsForUser(userId),
+      ]);
+      setShifts(sh);
+      setSwaps(sw);
+      setUserNameById(new Map(urows.map((u) => [u.id, u.name])));
+      const logRows = await listClockLogsForShiftIds(sh.map((x) => x.id));
+      setLogs(logRows);
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : m.loadError);
+      setShifts([]);
+      setLogs([]);
+      setSwaps([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [message, userId, weekEnd, weekStart]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(dayjs()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const byDate = useMemo(() => {
+    const map = new Map<string, ShiftWithNames[]>();
+    for (const r of shifts) {
+      const list = map.get(r.shift_date) ?? [];
+      list.push(r);
+      map.set(r.shift_date, list);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => a.start_time.localeCompare(b.start_time));
+    }
+    return map;
+  }, [shifts]);
+
+  const openSwap = () => {
+    swapForm.resetFields();
+    setColleagueShifts([]);
+    setSwapOpen(true);
+  };
+
+  const onMyShiftPicked = async (shiftId: string) => {
+    const mine = shifts.find((x) => x.id === shiftId);
+    if (!mine) return;
+    swapForm.setFieldValue("theirs", undefined);
+    setLoadingColleagues(true);
+    try {
+      const rows = await listColleagueShiftsForSwap(mine.booth_id, weekStart, weekEnd);
+      setColleagueShifts(rows);
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : common.requestFailed);
+      setColleagueShifts([]);
+    } finally {
+      setLoadingColleagues(false);
+    }
+  };
+
+  const submitSwap = async () => {
+    try {
+      const v = await swapForm.validateFields();
+      await createShiftSwapRequest(v.mine, v.theirs);
+      message.success(m.swapSent);
+      setSwapOpen(false);
+      await load();
+    } catch (e) {
+      if (e && typeof e === "object" && "errorFields" in e) return;
+      message.error(e instanceof Error ? e.message : m.swapError);
+    }
+  };
+
+  const sortedSwaps = useMemo(() => {
+    const cp = [...swaps];
+    const score = (r: SwapRequestListEntry) => {
+      if (userId && r.target_id === userId && r.status === "pending") return 0;
+      if (r.status === "pending" || r.status === "accepted") return 1;
+      return 2;
+    };
+    cp.sort((a, b) => {
+      const d = score(a) - score(b);
+      if (d !== 0) return d;
+      return b.created_at.localeCompare(a.created_at);
+    });
+    return cp;
+  }, [swaps, userId]);
+
+  const swapTableCols: ColumnsType<SwapRequestListEntry> = [
+    {
+      title: m.colRole,
+      key: "role",
+      render: (_, r) =>
+        r.target_id === userId ? <Tag>{m.youAreTarget}</Tag> : <Tag>{m.youAreRequester}</Tag>,
+    },
+    {
+      title: m.colCounterparty,
+      key: "cp",
+      render: (_, r) =>
+        r.target_id === userId ? r.requester_name ?? "—" : r.target_name ?? "—",
+    },
+    {
+      title: m.colStatus,
+      key: "st",
+      render: (_, r) => {
+        if (r.status === "pending") return <Tag>{m.statusPending}</Tag>;
+        if (r.status === "accepted") return <Tag color="blue">{m.statusAccepted}</Tag>;
+        if (r.status === "approved") return <Tag color="green">{m.statusApproved}</Tag>;
+        if (r.status === "rejected") return <Tag color="red">{m.statusRejected}</Tag>;
+        if (r.status === "cancelled") return <Tag>{m.statusCancelled}</Tag>;
+        return <Tag>{r.status}</Tag>;
+      },
+    },
+    {
+      title: m.colActions,
+      key: "act",
+      width: 280,
+      render: (_, r) => (
+        <Space wrap>
+          {r.target_id === userId && r.status === "pending" ? (
+            <>
+              <Button
+                size="small"
+                type="primary"
+                onClick={async () => {
+                  try {
+                    await shiftSwapTargetRespond(r.id, true);
+                    message.success(m.accepted);
+                    await load();
+                  } catch (e) {
+                    message.error(e instanceof Error ? e.message : common.requestFailed);
+                  }
+                }}>
+                {m.accept}
+              </Button>
+              <Button
+                size="small"
+                danger
+                onClick={async () => {
+                  try {
+                    await shiftSwapTargetRespond(r.id, false);
+                    message.success(m.rejected);
+                    await load();
+                  } catch (e) {
+                    message.error(e instanceof Error ? e.message : common.requestFailed);
+                  }
+                }}>
+                {m.reject}
+              </Button>
+            </>
+          ) : null}
+          {r.requester_id === userId && (r.status === "pending" || r.status === "accepted") ? (
+            <Button
+              size="small"
+              onClick={async () => {
+                try {
+                  await cancelShiftSwapRequest(r.id);
+                  message.success(m.cancelled);
+                  await load();
+                } catch (e) {
+                  message.error(e instanceof Error ? e.message : common.requestFailed);
+                }
+              }}>
+              {m.cancelRequest}
+            </Button>
+          ) : null}
+        </Space>
+      ),
+    },
+  ];
+
+  if (!profile || !userId) {
+    return (
+      <div style={{ padding: 24 }}>
+        <Text type="secondary">{common.loading}</Text>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: 24 }}>
+      <Title level={3} style={{ marginTop: 0 }}>
+        <CalendarOutlined style={{ marginRight: 8 }} />
+        {m.pageTitle}
+      </Title>
+      <Text type="secondary">{m.hint}</Text>
+
+      <Card style={{ marginTop: 16 }} loading={loading}>
+        <Space wrap style={{ marginBottom: 16 }}>
+          <Button icon={<LeftOutlined />} onClick={() => setWeekAnchor((w) => w.subtract(1, "week"))} />
+          <Button icon={<RightOutlined />} onClick={() => setWeekAnchor((w) => w.add(1, "week"))} />
+          <DatePicker
+            picker="week"
+            value={weekAnchor}
+            onChange={(d) => d && setWeekAnchor(d.startOf("isoWeek"))}
+          />
+          <Text type="secondary">
+            {weekStart} — {weekEnd}
+          </Text>
+          <Button type="primary" onClick={openSwap}>
+            {m.proposeSwap}
+          </Button>
+        </Space>
+
+        <Row gutter={[12, 12]}>
+          {days.map((d) => {
+            const key = d.format("YYYY-MM-DD");
+            const list = byDate.get(key) ?? [];
+            return (
+              <Col xs={24} sm={12} md={8} lg={6} xl={4} key={key}>
+                <Card size="small" title={d.format("ddd MM/DD")}>
+                  {list.length === 0 ? (
+                    <Text type="secondary">{m.emptyDay}</Text>
+                  ) : (
+                    <Space direction="vertical" style={{ width: "100%" }} size={8}>
+                      {list.map((sh) => {
+                        const canIn = canClockInTaipei(sh, now);
+                        const canOut = canClockOutTaipei(sh, now);
+                        const log = logs.find((l) => l.shift_id === sh.id);
+                        const clockedIn = Boolean(log?.clock_in_at);
+                        const clockedOut = Boolean(log?.clock_out_at);
+                        return (
+                          <Card key={sh.id} size="small" styles={{ body: { padding: 8 } }}>
+                            <div style={{ fontWeight: 600 }}>{sh.booth_name ?? m.booth}</div>
+                            <div style={{ fontSize: 13 }}>
+                              {formatShiftTime(sh.start_time)} – {formatShiftTime(sh.end_time)}
+                            </div>
+                            {sh.note ? (
+                              <div style={{ fontSize: 12, marginTop: 4 }}>{sh.note}</div>
+                            ) : null}
+                            <div style={{ fontSize: 12, marginTop: 6, opacity: 0.9 }}>
+                              {m.clockStatus}：{clockLabel(sh.id, logs)}
+                            </div>
+                            <Space style={{ marginTop: 8 }} wrap>
+                              <Button
+                                size="small"
+                                type="primary"
+                                disabled={!canIn || clockedIn}
+                                onClick={async () => {
+                                  try {
+                                    await clockShift(sh.id, "in");
+                                    message.success(m.clockInOk);
+                                    await load();
+                                  } catch (e) {
+                                    message.error(e instanceof Error ? e.message : m.clockError);
+                                  }
+                                }}>
+                                {m.clockIn}
+                              </Button>
+                              <Button
+                                size="small"
+                                disabled={!canOut || !clockedIn || clockedOut}
+                                onClick={async () => {
+                                  try {
+                                    await clockShift(sh.id, "out");
+                                    message.success(m.clockOutOk);
+                                    await load();
+                                  } catch (e) {
+                                    message.error(e instanceof Error ? e.message : m.clockError);
+                                  }
+                                }}>
+                                {m.clockOut}
+                              </Button>
+                            </Space>
+                          </Card>
+                        );
+                      })}
+                    </Space>
+                  )}
+                </Card>
+              </Col>
+            );
+          })}
+        </Row>
+      </Card>
+
+      <Card title={m.swapRequestsTitle} style={{ marginTop: 24 }}>
+        <Table
+          rowKey="id"
+          size="small"
+          pagination={{ pageSize: 10 }}
+          columns={swapTableCols}
+          dataSource={sortedSwaps}
+          locale={{ emptyText: m.swapEmpty }}
+        />
+      </Card>
+
+      <Modal
+        title={m.swapModalTitle}
+        open={swapOpen}
+        onCancel={() => setSwapOpen(false)}
+        onOk={() => void submitSwap()}
+        destroyOnClose>
+        <Form form={swapForm} layout="vertical">
+          <Form.Item name="mine" label={m.pickMyShift} rules={[{ required: true }]}>
+            <Select
+              placeholder={m.pickMyShiftPh}
+              options={shifts.map((sh) => ({
+                value: sh.id,
+                label: `${sh.shift_date} ${formatShiftTime(sh.start_time)}–${formatShiftTime(sh.end_time)} · ${sh.booth_name ?? ""}`,
+              }))}
+              onChange={(v) => void onMyShiftPicked(v)}
+            />
+          </Form.Item>
+          <Form.Item name="theirs" label={m.pickTheirShift} rules={[{ required: true }]}>
+            <Select
+              loading={loadingColleagues}
+              placeholder={m.pickTheirShiftPh}
+              options={colleagueShifts.map((sh) => ({
+                value: sh.id,
+                label: `${userNameById.get(sh.user_id) ?? sh.user_id} · ${sh.shift_date} ${formatShiftTime(sh.start_time)}–${formatShiftTime(sh.end_time)}`,
+              }))}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </div>
+  );
+}

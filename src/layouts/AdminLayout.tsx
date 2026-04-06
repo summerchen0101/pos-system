@@ -1,8 +1,10 @@
 import {
   AppstoreOutlined,
+  CalendarOutlined,
   DashboardOutlined,
   GiftOutlined,
   HistoryOutlined,
+  ScheduleOutlined,
   ShopOutlined,
   ShoppingOutlined,
   SkinOutlined,
@@ -25,7 +27,11 @@ import { zhtw } from "../locales/zhTW";
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 
-const STAFF_MENU_KEYS = new Set(["/admin/dashboard", "/admin/orders"]);
+const STAFF_MENU_KEYS = new Set([
+  "/admin/dashboard",
+  "/admin/orders",
+  "/admin/my-shifts",
+]);
 
 type MenuDef = { key: string; icon: ReactNode; label: string };
 
@@ -71,6 +77,16 @@ export function AdminLayout() {
         key: "/admin/promotions",
         icon: <GiftOutlined />,
         label: zhtw.admin.layout.menuPromotions,
+      },
+      {
+        key: "/admin/my-shifts",
+        icon: <CalendarOutlined />,
+        label: zhtw.admin.layout.menuMyShifts,
+      },
+      {
+        key: "/admin/shifts",
+        icon: <ScheduleOutlined />,
+        label: zhtw.admin.layout.menuShifts,
       },
       {
         key: "/admin/orders",

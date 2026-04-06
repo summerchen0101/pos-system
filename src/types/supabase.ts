@@ -136,6 +136,35 @@ export type UserBoothRow = {
   booth_id: string
 }
 
+export type ShiftRow = {
+  id: string
+  user_id: string
+  booth_id: string
+  shift_date: string
+  start_time: string
+  end_time: string
+  note: string | null
+  created_at: string
+}
+
+export type ShiftSwapRequestRow = {
+  id: string
+  requester_id: string
+  target_id: string
+  requester_shift_id: string
+  target_shift_id: string
+  status: 'pending' | 'accepted' | 'approved' | 'rejected' | 'cancelled'
+  created_at: string
+}
+
+export type ShiftClockLogRow = {
+  id: string
+  shift_id: string
+  user_id: string
+  clock_in_at: string | null
+  clock_out_at: string | null
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -380,6 +409,39 @@ export type Database = {
           },
         ]
       }
+      shifts: {
+        Row: ShiftRow
+        Insert: Omit<ShiftRow, 'id' | 'created_at'> & { id?: string; created_at?: string }
+        Update: Partial<Omit<ShiftRow, 'id'>>
+        Relationships: [
+          {
+            foreignKeyName: 'shifts_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'shifts_booth_id_fkey'
+            columns: ['booth_id']
+            isOneToOne: false
+            referencedRelation: 'booths'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      shift_swap_requests: {
+        Row: ShiftSwapRequestRow
+        Insert: Omit<ShiftSwapRequestRow, 'id' | 'created_at'> & { id?: string; created_at?: string }
+        Update: Partial<Pick<ShiftSwapRequestRow, 'status'>>
+        Relationships: []
+      }
+      shift_clock_logs: {
+        Row: ShiftClockLogRow
+        Insert: Omit<ShiftClockLogRow, 'id'> & { id?: string }
+        Update: Partial<Omit<ShiftClockLogRow, 'id'>>
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -393,6 +455,34 @@ export type Database = {
           p_booth_id?: string
         }
         Returns: string
+      }
+      clock_shift: {
+        Args: { p_shift_id: string; p_action: string }
+        Returns: undefined
+      }
+      create_shift_swap_request: {
+        Args: { p_requester_shift_id: string; p_target_shift_id: string }
+        Returns: string
+      }
+      shift_swap_target_respond: {
+        Args: { p_request_id: string; p_accept: boolean }
+        Returns: undefined
+      }
+      cancel_shift_swap_request: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
+      admin_approve_shift_swap: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
+      admin_reject_shift_swap: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
+      list_colleague_shifts_for_swap: {
+        Args: { p_booth_id: string; p_from: string; p_to: string }
+        Returns: ShiftRow[]
       }
     }
     Enums: Record<string, never>

@@ -14,7 +14,9 @@ import { AdminGiftsPage } from "./pages/AdminGiftsPage";
 import { AdminPromotionsPage } from "./pages/AdminPromotionsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { PosBoothPickerPage } from "./pages/PosBoothPickerPage";
+import { AdminShiftsPage } from "./pages/AdminShiftsPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
+import { MyShiftsPage } from "./pages/MyShiftsPage";
 
 const appTheme = {
   algorithm: theme.darkAlgorithm,
@@ -97,6 +99,8 @@ export default function App() {
                 <Route path="products" element={<AdminProductsPage />} />
                 <Route path="gifts" element={<AdminGiftsPage />} />
                 <Route path="promotions" element={<AdminPromotionsPage />} />
+                <Route path="my-shifts" element={<MyShiftsPage />} />
+                <Route path="shifts" element={<AdminShiftsPage />} />
                 <Route path="orders" element={<AdminOrdersPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
