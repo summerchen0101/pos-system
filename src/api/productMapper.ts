@@ -74,6 +74,7 @@ export function mapProductRow(row: ProductRowWithCategory): Product {
     categoryId: row.category_id,
     categoryName: row.categories?.name ?? null,
     kind: parseProductKind(row.kind),
+    imageUrl: row.image_url ?? null,
     bundleGroups: mapBundleGroups(row.bundle_groups ?? []),
   }
 }
@@ -91,6 +92,7 @@ export const productSelectWithCategory = `
   stock,
   is_active,
   kind,
+  image_url,
   categories ( name, sort_order ),
   bundle_groups!bundle_groups_bundle_product_id_fkey (
     id,

@@ -32,7 +32,8 @@ create table if not exists public.products (
   price integer not null check (price >= 0),
   stock integer not null default 0 check (stock >= 0),
   is_active boolean not null default true,
-  kind text not null default 'STANDARD' check (kind in ('STANDARD', 'CUSTOM_BUNDLE'))
+  kind text not null default 'STANDARD' check (kind in ('STANDARD', 'CUSTOM_BUNDLE')),
+  image_url text
 );
 
 create index if not exists products_category_id_idx on public.products (category_id);

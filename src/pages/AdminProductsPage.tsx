@@ -15,7 +15,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { HolderOutlined, MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
+import { HolderOutlined, MinusCircleOutlined, PlusOutlined, UploadOutlined } from "@ant-design/icons";
 import {
   App,
   AutoComplete,
@@ -34,9 +34,11 @@ import {
   Tabs,
   Tag,
   Typography,
+  Upload,
 } from "antd";
+import type { UploadFile } from "antd/es/upload/interface";
 import type { ColumnsType } from "antd/es/table";
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type Key } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type Key } from "react";
 import { listCategoriesAdmin } from "../api/categoriesAdmin";
 import {
   bulkPatchProducts,
@@ -44,6 +46,7 @@ import {
   deleteProduct,
   listDistinctProductSizes,
   listProductsAdmin,
+  setProductImageUrl,
   updateProduct,
   updateProductsOrder,
   type BundleGroupInput,
@@ -51,6 +54,7 @@ import {
   type ProductInput,
   type ProductListFilters,
 } from "../api/productsAdmin";
+import { removeProductImageFromUrl, uploadProductImage } from "../api/productImageStorage";
 import { ProductSelect } from "../components/admin/ProductSelect";
 import { zhtw } from "../locales/zhTW";
 import { formatMoney } from "../lib/money";
@@ -80,6 +84,8 @@ type FormValues = {
   isActive: boolean;
   productKind: ProductKind;
   bundleGroups?: BundleGroupFormRow[];
+  /** Committed public image URL; cleared in form means default tile in POS. */
+  imageUrl?: string | null;
 };
 
 type BulkStockMode = "set" | "adjust";
@@ -202,6 +208,7 @@ function toInput(values: FormValues): ProductInput {
     isActive: values.isActive,
     kind,
     bundleGroups: kind === "CUSTOM_BUNDLE" ? toBundleGroupsInput(values.bundleGroups) : [],
+    imageUrl: values.imageUrl?.trim() ? values.imageUrl.trim() : null,
   };
 }
 
@@ -228,6 +235,10 @@ export function AdminProductsPage() {
   const [saving, setSaving] = useState(false);
   const [bulkSaving, setBulkSaving] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
+  /** Image committed when modal opened (for storage cleanup on replace / clear). */
+  const initialImageUrlRef = useRef<string | null>(null);
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
+  const [pendingImageObjectUrl, setPendingImageObjectUrl] = useState<string | null>(null);
 
   const categoryOptions = categories.map((c) => ({
     label: c.name,
@@ -251,6 +262,35 @@ export function AdminProductsPage() {
   const productKindWatch = Form.useWatch("productKind", form) as
     | ProductKind
     | undefined;
+  const watchFormImageUrl = Form.useWatch("imageUrl", form) as string | null | undefined;
+
+  useEffect(() => {
+    if (!pendingImageFile) {
+      setPendingImageObjectUrl(null);
+      return;
+    }
+    const u = URL.createObjectURL(pendingImageFile);
+    setPendingImageObjectUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [pendingImageFile]);
+
+  const productImageFileList: UploadFile[] = useMemo(() => {
+    if (pendingImageFile && pendingImageObjectUrl) {
+      return [
+        {
+          uid: "pending",
+          name: pendingImageFile.name,
+          status: "done",
+          url: pendingImageObjectUrl,
+        },
+      ];
+    }
+    const u = typeof watchFormImageUrl === "string" ? watchFormImageUrl.trim() : "";
+    if (u) {
+      return [{ uid: "remote", name: "image", status: "done", url: u }];
+    }
+    return [];
+  }, [pendingImageFile, pendingImageObjectUrl, watchFormImageUrl]);
 
   const sortProductsById = useMemo(
     () => new Map(sortSnapshotProducts.map((p) => [p.id, p])),
@@ -391,6 +431,8 @@ export function AdminProductsPage() {
   };
 
   const openCreate = () => {
+    initialImageUrlRef.current = null;
+    setPendingImageFile(null);
     setEditingId(null);
     form.resetFields();
     form.setFieldsValue({
@@ -405,26 +447,30 @@ export function AdminProductsPage() {
       categoryId: categoryOptions[0]?.value,
       productKind: "STANDARD",
       bundleGroups: [],
+      imageUrl: null,
     });
     setModalOpen(true);
   };
 
-  const openEdit = (p: Product) => {
-    setEditingId(p.id);
+  const openEdit = (prod: Product) => {
+    initialImageUrlRef.current = prod.imageUrl?.trim() ?? null;
+    setPendingImageFile(null);
+    setEditingId(prod.id);
     form.setFieldsValue({
-      categoryId: p.categoryId ?? undefined,
-      name: p.name,
-      nameEn: p.nameEn ?? "",
-      description: p.description ?? "",
-      size: p.size ?? "",
-      sku: p.sku,
-      priceDollars: centsToDollars(p.price),
-      stock: p.stock,
-      isActive: p.isActive,
-      productKind: p.kind,
+      categoryId: prod.categoryId ?? undefined,
+      name: prod.name,
+      nameEn: prod.nameEn ?? "",
+      description: prod.description ?? "",
+      size: prod.size ?? "",
+      sku: prod.sku,
+      priceDollars: centsToDollars(prod.price),
+      stock: prod.stock,
+      isActive: prod.isActive,
+      productKind: prod.kind,
+      imageUrl: prod.imageUrl ?? null,
       bundleGroups:
-        p.kind === "CUSTOM_BUNDLE" && p.bundleGroups.length > 0
-          ? [...p.bundleGroups]
+        prod.kind === "CUSTOM_BUNDLE" && prod.bundleGroups.length > 0
+          ? [...prod.bundleGroups]
               .sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))
               .map((g) => ({
                 name: g.name,
@@ -439,6 +485,8 @@ export function AdminProductsPage() {
   const closeModal = () => {
     setModalOpen(false);
     setEditingId(null);
+    initialImageUrlRef.current = null;
+    setPendingImageFile(null);
     form.resetFields();
   };
 
@@ -473,13 +521,56 @@ export function AdminProductsPage() {
           }
         }
       }
-      const input = toInput(values);
       setSaving(true);
+      const initialImg = initialImageUrlRef.current;
+      const formImg = values.imageUrl?.trim() ? values.imageUrl.trim() : null;
+
+      let resolvedImageUrl: string | null = formImg;
+
+      if (editingId) {
+        if (pendingImageFile) {
+          try {
+            const url = await uploadProductImage(editingId, pendingImageFile);
+            resolvedImageUrl = url;
+            if (initialImg && initialImg !== url) {
+              try {
+                await removeProductImageFromUrl(initialImg);
+              } catch {
+                /* stale object in bucket; ignore */
+              }
+            }
+          } catch {
+            message.warning(p.imageUploadFailed);
+            resolvedImageUrl = initialImg;
+          }
+        } else if (initialImg && !formImg) {
+          try {
+            await removeProductImageFromUrl(initialImg);
+          } catch {
+            /* ignore */
+          }
+          resolvedImageUrl = null;
+        }
+      }
+
+      const input: ProductInput = {
+        ...toInput({ ...values, imageUrl: editingId ? resolvedImageUrl : null }),
+        imageUrl: editingId ? resolvedImageUrl : null,
+      };
+
       if (editingId) {
         await updateProduct(editingId, input);
         message.success(p.updated);
       } else {
-        await createProduct(input);
+        const created = await createProduct(input);
+        if (pendingImageFile) {
+          try {
+            const url = await uploadProductImage(created.id, pendingImageFile);
+            await setProductImageUrl(created.id, url);
+          } catch {
+            message.warning(p.imageUploadFailed);
+          }
+        }
         message.success(p.created);
       }
       closeModal();
@@ -950,6 +1041,34 @@ export function AdminProductsPage() {
           </Form.Item>
           <Form.Item name="description" label={p.labelDescription}>
             <Input.TextArea rows={3} />
+          </Form.Item>
+          <Form.Item name="imageUrl" hidden>
+            <Input type="hidden" />
+          </Form.Item>
+          <Form.Item label={p.labelImage} extra={p.imageExtra}>
+            <Upload
+              accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+              listType="picture-card"
+              maxCount={1}
+              fileList={productImageFileList}
+              beforeUpload={(file) => {
+                setPendingImageFile(file);
+                return false;
+              }}
+              onRemove={() => {
+                if (pendingImageFile) {
+                  setPendingImageFile(null);
+                  return true;
+                }
+                form.setFieldsValue({ imageUrl: null });
+                return true;
+              }}>
+              {productImageFileList.length >= 1 ? null : (
+                <button type="button" className="ant-btn ant-btn-default">
+                  <UploadOutlined /> {p.imageUploadPick}
+                </button>
+              )}
+            </Upload>
           </Form.Item>
           <Form.Item name="size" label={p.labelSize}>
             <Input placeholder={p.sizePh} />

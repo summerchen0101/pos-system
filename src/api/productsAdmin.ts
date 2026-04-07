@@ -21,6 +21,8 @@ export type ProductInput = {
   isActive: boolean
   kind: ProductKind
   bundleGroups: BundleGroupInput[]
+  /** Public Storage URL or null. */
+  imageUrl: string | null
 }
 
 async function nextProductSortOrder(categoryId: string | null): Promise<number> {
@@ -43,6 +45,7 @@ function rowPayload(input: ProductInput) {
     stock: input.stock,
     is_active: input.isActive,
     kind: input.kind,
+    image_url: input.imageUrl?.trim() ? input.imageUrl.trim() : null,
   }
 }
 
@@ -208,6 +211,12 @@ export async function deleteProduct(id: string): Promise<void> {
   if (error) throw error
 }
 
+/** Set only `image_url` (e.g. after Storage upload on create). */
+export async function setProductImageUrl(id: string, imageUrl: string | null): Promise<void> {
+  const { error } = await supabase.from('products').update({ image_url: imageUrl }).eq('id', id)
+  if (error) throw error
+}
+
 /** Only include fields the admin chose to change; omitted fields keep each product’s current value. */
 export type ProductBulkPatch = {
   categoryId?: string | null
@@ -249,6 +258,7 @@ function mergedProductInput(p: Product, patch: ProductBulkPatch): ProductInput {
     isActive: p.isActive,
     kind: p.kind,
     bundleGroups: p.kind === 'CUSTOM_BUNDLE' ? bundleGroupsToInput(p.bundleGroups) : [],
+    imageUrl: p.imageUrl ?? null,
   }
 }
 

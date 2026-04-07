@@ -31,7 +31,7 @@ type Props = {
 }
 
 export function CartPanel({ boothId, promotions, products, promotionsError }: Props) {
-  const { message, modal } = App.useApp()
+  const { message } = App.useApp()
   const { cashier } = usePosCashier()
   const lines = useCartStore((s) => s.lines)
   const manualPromotionIds = useCartStore((s) => s.manualPromotionIds)
@@ -206,16 +206,8 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
   }
 
   const handleClearCart = () => {
-    modal.confirm({
-      title: zhtw.pos.cartClearConfirmTitle,
-      okText: zhtw.pos.cartClearConfirmOk,
-      cancelText: zhtw.common.cancel,
-      okButtonProps: { danger: true },
-      onOk: () => {
-        clearCart()
-        setManualModalOpen(false)
-      },
-    })
+    clearCart()
+    setManualModalOpen(false)
   }
 
   return (

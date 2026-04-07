@@ -21,6 +21,7 @@ export type ProductRow = {
   stock: number
   is_active: boolean
   kind: string
+  image_url: string | null
 }
 
 export type BundleGroupRow = {
@@ -335,7 +336,11 @@ export type Database = {
       }
       products: {
         Row: ProductRow
-        Insert: Omit<ProductRow, 'id' | 'sort_order'> & { id?: string; sort_order?: number }
+        Insert: Omit<ProductRow, 'id' | 'sort_order' | 'image_url'> & {
+          id?: string
+          sort_order?: number
+          image_url?: string | null
+        }
         Update: Partial<ProductRow>
         Relationships: [
           {

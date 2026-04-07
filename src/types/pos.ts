@@ -36,6 +36,8 @@ export type Product = {
   categoryId: string | null
   categoryName: string | null
   kind: ProductKind
+  /** Public image URL (Supabase Storage); null = default tile in POS. */
+  imageUrl: string | null
   /** `CUSTOM_BUNDLE` only — ordered groups; each group has its own pool and required total qty. */
   bundleGroups: ProductBundleGroup[]
 }
