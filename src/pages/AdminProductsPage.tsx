@@ -55,6 +55,7 @@ import {
   type ProductListFilters,
 } from "../api/productsAdmin";
 import { removeProductImageFromUrl, uploadProductImage } from "../api/productImageStorage";
+import { ProductListImageCell } from "../components/admin/ProductListImageCell";
 import { ProductSelect } from "../components/admin/ProductSelect";
 import { zhtw } from "../locales/zhTW";
 import { formatMoney } from "../lib/money";
@@ -401,6 +402,10 @@ export function AdminProductsPage() {
     }
   }, [listFilters, message]);
 
+  const commitListImageUrl = useCallback((productId: string, imageUrl: string) => {
+    setProducts((prev) => prev.map((x) => (x.id === productId ? { ...x, imageUrl } : x)));
+  }, []);
+
   useEffect(() => {
     void refetchProducts();
   }, [refetchProducts]);
@@ -692,6 +697,15 @@ export function AdminProductsPage() {
   };
 
   const columns: ColumnsType<Product> = [
+    {
+      title: p.colImage,
+      key: "image",
+      width: 88,
+      align: "center",
+      render: (_, row) => (
+        <ProductListImageCell product={row} onImageUrlCommitted={commitListImageUrl} />
+      ),
+    },
     {
       title: p.colName,
       key: "name",
