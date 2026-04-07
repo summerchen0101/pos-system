@@ -302,6 +302,7 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
           promotionsFailed={promotionsError != null}
           thresholdGiftSummaries={totals.thresholdGiftSummaries}
           manualPromotionDetails={totals.manualPromotionDetails}
+          appliedDiscounts={totals.appliedDiscounts}
         />
 
         <div className="pos-cart-panel__checkout-row">

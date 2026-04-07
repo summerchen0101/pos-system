@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { buildAppliedDiscounts, type AppliedDiscount } from '../promotions/buildAppliedDiscounts'
 import { computeCartPromotionBreakdown } from '../promotions/computeCartPromotionBreakdown'
 import { resolveAppliedPromotionName } from '../promotions/resolveAppliedPromotion'
 import { thresholdGiftSummaryLines } from '../promotions/thresholdGifts'
@@ -13,6 +14,7 @@ export type CartPromotionTotals = CartTotals & {
   appliedPromotionName: string | null
   manualPromotionDetails: ManualPromotionDetail[]
   thresholdGiftSummaries: string[]
+  appliedDiscounts: AppliedDiscount[]
 }
 
 /** Recalculates subtotal, discount, and final whenever cart lines or promotions change. */
@@ -36,6 +38,13 @@ export function useCartPromotionTotals(promotions: Promotion[]): CartPromotionTo
         promotions,
         manualPromotionIds,
         zhtw.pos.thresholdGiftLine,
+      ),
+      appliedDiscounts: buildAppliedDiscounts(
+        lines,
+        promotions,
+        manualPromotionIds,
+        b,
+        b.appliedAutoRuleId,
       ),
     }
   }, [lines, promotions, manualPromotionIds])

@@ -1,7 +1,11 @@
+import { InfoCircleOutlined, RightOutlined } from '@ant-design/icons'
+import { useState } from 'react'
 import type { ManualPromotionDetail } from '../../promotions/computeCartPromotionBreakdown'
+import type { AppliedDiscount } from '../../promotions/buildAppliedDiscounts'
 import { zhtw } from '../../locales/zhTW'
 import { formatMoney } from '../../lib/money'
 import type { CartTotals } from '../../store/cartStore'
+import { DiscountDetailModal } from './DiscountDetailModal'
 
 type Props = {
   totals: CartTotals
@@ -11,6 +15,7 @@ type Props = {
   promotionsFailed: boolean
   thresholdGiftSummaries: string[]
   manualPromotionDetails: ManualPromotionDetail[]
+  appliedDiscounts: AppliedDiscount[]
 }
 
 export function OrderSummary({
@@ -21,7 +26,9 @@ export function OrderSummary({
   promotionsFailed,
   thresholdGiftSummaries,
   manualPromotionDetails,
+  appliedDiscounts,
 }: Props) {
+  const [detailOpen, setDetailOpen] = useState(false)
   const hasDiscount = totals.discountCents > 0
   const pctOff =
     totals.subtotalCents > 0 && hasDiscount
@@ -43,6 +50,11 @@ export function OrderSummary({
   } else {
     discountCaption = zhtw.pos.discountNone
   }
+
+  const canOpenDiscountDetail =
+    !isEmpty && !promotionsFailed && appliedDiscounts.length > 0
+  const showDiscountHint =
+    canOpenDiscountDetail && (hasDiscount || appliedDiscounts.some((d) => (d.gifts?.length ?? 0) > 0))
 
   return (
     <div className="pos-order-summary">
@@ -72,25 +84,54 @@ export function OrderSummary({
           ))}
         </ul>
       ) : null}
-      <dl className="pos-order-summary__rows">
+      <div className="pos-order-summary__rows">
         <div className="pos-order-summary__row">
-          <dt>{zhtw.pos.subtotal}</dt>
-          <dd>{formatMoney(totals.subtotalCents)}</dd>
+          <span className="pos-order-summary__label">{zhtw.pos.subtotal}</span>
+          <span className="pos-order-summary__value">{formatMoney(totals.subtotalCents)}</span>
         </div>
         <div className="pos-order-summary__row pos-order-summary__row--discount">
-          <dt>
-            <span className="pos-order-summary__discount-label">{zhtw.pos.discount}</span>
-            <span className="pos-order-summary__discount-caption">{discountCaption}</span>
-          </dt>
-          <dd className={hasDiscount ? 'is-savings' : undefined}>
-            {hasDiscount ? `−${formatMoney(totals.discountCents)}` : formatMoney(0)}
-          </dd>
+          <div className="pos-order-summary__discount-wrap">
+            <button
+              type="button"
+              className={`pos-order-summary__discount-hit${canOpenDiscountDetail ? ' is-clickable' : ''}`}
+              disabled={!canOpenDiscountDetail}
+              onClick={() => canOpenDiscountDetail && setDetailOpen(true)}
+              aria-expanded={canOpenDiscountDetail ? detailOpen : undefined}
+              aria-haspopup="dialog">
+              <span className="pos-order-summary__discount-hit__left">
+                <span className="pos-order-summary__discount-label">{zhtw.pos.discount}</span>
+                {showDiscountHint ? (
+                  <InfoCircleOutlined className="pos-order-summary__discount-info-icon" aria-hidden />
+                ) : null}
+                {showDiscountHint ? (
+                  <RightOutlined className="pos-order-summary__discount-chevron" aria-hidden />
+                ) : null}
+              </span>
+              <span
+                className={
+                  hasDiscount
+                    ? 'pos-order-summary__discount-hit__amount is-savings'
+                    : 'pos-order-summary__discount-hit__amount'
+                }>
+                {hasDiscount ? `−${formatMoney(totals.discountCents)}` : formatMoney(0)}
+              </span>
+            </button>
+            {!canOpenDiscountDetail ? (
+              <span className="pos-order-summary__discount-caption">{discountCaption}</span>
+            ) : null}
+          </div>
         </div>
         <div className="pos-order-summary__row pos-order-summary__row--final">
-          <dt>{zhtw.pos.totalDue}</dt>
-          <dd>{formatMoney(totals.finalCents)}</dd>
+          <span className="pos-order-summary__label">{zhtw.pos.totalDue}</span>
+          <span className="pos-order-summary__value">{formatMoney(totals.finalCents)}</span>
         </div>
-      </dl>
+      </div>
+      <DiscountDetailModal
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        items={appliedDiscounts}
+        totalDiscountCents={totals.discountCents}
+      />
     </div>
   )
 }

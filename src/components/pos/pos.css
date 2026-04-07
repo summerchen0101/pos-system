@@ -753,23 +753,64 @@ button.pos-qty__value--tap:hover {
   font-size: 0.9rem;
 }
 
-.pos-order-summary__row dt {
+.pos-order-summary__label {
   margin: 0;
   color: var(--pos-text-muted);
   font-weight: 500;
 }
 
-.pos-order-summary__row dd {
+.pos-order-summary__value {
   margin: 0;
   font-weight: 600;
   color: var(--pos-text-strong);
 }
 
-.pos-order-summary__row--discount dt {
-  display: flex;
+.pos-order-summary__row--discount {
   flex-direction: column;
+  align-items: stretch;
   gap: 0.25rem;
-  align-items: flex-start;
+}
+
+.pos-order-summary__discount-wrap {
+  width: 100%;
+  min-width: 0;
+}
+
+.pos-order-summary__discount-hit {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: default;
+  font-variant-numeric: tabular-nums;
+}
+
+.pos-order-summary__discount-hit.is-clickable {
+  cursor: pointer;
+}
+
+.pos-order-summary__discount-hit.is-clickable:hover .pos-order-summary__discount-label {
+  color: var(--pos-accent);
+}
+
+.pos-order-summary__discount-hit:disabled {
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.pos-order-summary__discount-hit__left {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
   min-width: 0;
 }
 
@@ -778,21 +819,36 @@ button.pos-qty__value--tap:hover {
   color: var(--pos-text-strong);
 }
 
+.pos-order-summary__discount-info-icon,
+.pos-order-summary__discount-chevron {
+  font-size: 0.72rem;
+  color: var(--pos-text-muted);
+}
+
+.pos-order-summary__discount-hit.is-clickable:hover .pos-order-summary__discount-info-icon,
+.pos-order-summary__discount-hit.is-clickable:hover .pos-order-summary__discount-chevron {
+  color: var(--pos-accent);
+}
+
+.pos-order-summary__discount-hit__amount {
+  margin: 0;
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--pos-text-strong);
+  flex-shrink: 0;
+}
+
+.pos-order-summary__discount-hit__amount.is-savings {
+  color: var(--pos-success);
+}
+
 .pos-order-summary__discount-caption {
+  display: block;
   font-size: 0.75rem;
   font-weight: 400;
   color: var(--pos-text-muted);
   line-height: 1.35;
   max-width: 16rem;
-}
-
-.pos-order-summary__row--discount dd {
-  font-variant-numeric: tabular-nums;
-  font-size: 1rem;
-}
-
-.pos-order-summary__row--discount dd.is-savings {
-  color: var(--pos-success);
 }
 
 .pos-order-summary__row--final {
@@ -802,10 +858,86 @@ button.pos-qty__value--tap:hover {
   font-size: 1.05rem;
 }
 
-.pos-order-summary__row--final dt,
-.pos-order-summary__row--final dd {
+.pos-order-summary__row--final .pos-order-summary__label,
+.pos-order-summary__row--final .pos-order-summary__value {
   font-weight: 700;
   color: var(--pos-text-strong);
+}
+
+/* 折扣明細 modal */
+.pos-discount-detail-modal .ant-modal {
+  max-width: calc(100vw - 24px);
+}
+
+.pos-discount-detail-modal__body {
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+}
+
+.pos-discount-detail-modal__list {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+}
+
+.pos-discount-detail-modal__item {
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--pos-border, rgba(255, 255, 255, 0.12));
+}
+
+.pos-discount-detail-modal__item:last-of-type {
+  border-bottom: none;
+}
+
+.pos-discount-detail-modal__item-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--pos-text-strong, #fff);
+}
+
+.pos-discount-detail-modal__check {
+  color: var(--pos-success, #52c41a);
+  font-size: 1rem;
+}
+
+.pos-discount-detail-modal__desc {
+  margin: 0.35rem 0 0 1.35rem;
+  font-size: 0.82rem;
+  color: var(--pos-text-muted, rgba(255, 255, 255, 0.55));
+  line-height: 1.4;
+}
+
+.pos-discount-detail-modal__gifts {
+  margin: 0.35rem 0 0 1.35rem;
+  padding: 0 0 0 1rem;
+  font-size: 0.82rem;
+  color: var(--pos-text-muted, rgba(255, 255, 255, 0.65));
+}
+
+.pos-discount-detail-modal__deduction {
+  margin: 0.4rem 0 0 1.35rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--pos-success, #52c41a);
+}
+
+.pos-discount-detail-modal__total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0 0.25rem;
+  margin-top: 0.35rem;
+  border-top: 1px solid var(--pos-border, rgba(255, 255, 255, 0.12));
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.pos-discount-detail-modal__total-amount {
+  color: var(--pos-success, #52c41a);
+  font-variant-numeric: tabular-nums;
 }
 
 .pos-cart-panel__checkout-row {
