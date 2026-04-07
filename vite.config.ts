@@ -15,7 +15,7 @@ export default defineConfig({
         description: 'POS 收銀與管理系統',
         theme_color: '#ffffff',
         background_color: '#ffffff',
-        display: 'standalone',
+        display: 'fullscreen',
         orientation: 'any',
         scope: '/',
         start_url: '/',

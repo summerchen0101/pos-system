@@ -1,4 +1,5 @@
 import { Button, Space, Spin, Tabs, Typography } from "antd";
+import { Maximize, Minimize } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { listBoothsForPos } from "../../api/boothsPos";
@@ -17,6 +18,36 @@ import { PosTabletClockButtons } from "./PosTabletClockButtons";
 import { ProductGrid } from "./ProductGrid";
 import { PosTodayOrdersDrawer } from "./PosTodayOrdersDrawer";
 import "./pos.css";
+
+function getFullscreenElement(): Element | null {
+  const d = document as Document & { webkitFullscreenElement?: Element | null };
+  return document.fullscreenElement ?? d.webkitFullscreenElement ?? null;
+}
+
+/** Best-effort fullscreen (must run from a user gesture on most browsers). */
+function requestDocumentFullscreen(): void {
+  const el = document.documentElement;
+  const hel = el as HTMLElement & { webkitRequestFullscreen?: () => void };
+  if (typeof el.requestFullscreen === "function") {
+    void el.requestFullscreen().catch(() => {});
+  } else if (typeof hel.webkitRequestFullscreen === "function") {
+    hel.webkitRequestFullscreen();
+  }
+}
+
+function exitDocumentFullscreen(): void {
+  const doc = document as Document & { webkitExitFullscreen?: () => void };
+  if (typeof document.exitFullscreen === "function") {
+    void document.exitFullscreen().catch(() => {});
+  } else if (typeof doc.webkitExitFullscreen === "function") {
+    doc.webkitExitFullscreen();
+  }
+}
+
+function toggleDocumentFullscreen(): void {
+  if (!getFullscreenElement()) requestDocumentFullscreen();
+  else exitDocumentFullscreen();
+}
 
 /** Tab key for products without `category_id`. */
 const UNCATEGORIZED_TAB_KEY = "__uncategorized__";
@@ -81,6 +112,31 @@ function PosLayoutInner() {
     () => `${zhtw.pos.activeStaffPrefix}${zhtw.common.dash}`,
   );
   const [todayOrdersOpen, setTodayOrdersOpen] = useState(false);
+  const [fullscreenActive, setFullscreenActive] = useState(
+    () => getFullscreenElement() != null,
+  );
+
+  useEffect(() => {
+    const sync = () => setFullscreenActive(getFullscreenElement() != null);
+    document.addEventListener("fullscreenchange", sync);
+    document.addEventListener(
+      "webkitfullscreenchange",
+      sync as EventListener,
+    );
+    return () => {
+      document.removeEventListener("fullscreenchange", sync);
+      document.removeEventListener(
+        "webkitfullscreenchange",
+        sync as EventListener,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    const onFirstClick = () => requestDocumentFullscreen();
+    document.addEventListener("click", onFirstClick, { once: true });
+    return () => document.removeEventListener("click", onFirstClick);
+  }, []);
 
   const refreshActiveStaff = useCallback(async () => {
     if (!boothId) return;
@@ -265,6 +321,24 @@ function PosLayoutInner() {
           <div className="pos-main__title-row">
             <h1>{zhtw.pos.registerTitle}</h1>
             <Space wrap size={12} align="center">
+              <Button
+                type="text"
+                className="pos-fullscreen-toggle"
+                aria-pressed={fullscreenActive}
+                aria-label={
+                  fullscreenActive
+                    ? zhtw.pos.fullscreenExitAria
+                    : zhtw.pos.fullscreenEnterAria
+                }
+                icon={
+                  fullscreenActive ? (
+                    <Minimize size={20} aria-hidden />
+                  ) : (
+                    <Maximize size={20} aria-hidden />
+                  )
+                }
+                onClick={() => toggleDocumentFullscreen()}
+              />
               {boothId ? (
                 <Button type="default" onClick={() => setTodayOrdersOpen(true)}>
                   {zhtw.pos.todayOrders.openButton}

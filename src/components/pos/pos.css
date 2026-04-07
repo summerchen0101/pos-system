@@ -33,6 +33,14 @@
   touch-action: manipulation;
 }
 
+.pos-fullscreen-toggle {
+  color: var(--pos-text-strong) !important;
+}
+
+.pos-fullscreen-toggle:hover {
+  color: var(--pos-accent) !important;
+}
+
 .pos-admin-link {
   font-size: 0.85rem;
   font-weight: 500;
