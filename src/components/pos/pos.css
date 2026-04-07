@@ -557,29 +557,28 @@
 .pos-apply-promotion {
   width: 100%;
   margin: 0;
-  padding: 0.5rem 1rem;
-  border: 2px solid #faad14;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--pos-border);
   border-radius: 10px;
-  background: rgba(250, 173, 20, 0.42);
-  color: #fff3c4;
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  background: var(--pos-accent-soft);
+  color: var(--pos-accent);
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  box-shadow:
-    0 0 0 1px rgba(250, 173, 20, 0.15),
-    0 4px 14px rgba(0, 0, 0, 0.4);
+  box-shadow: none;
   transition:
-    filter 0.15s ease,
-    transform 0.08s ease,
-    box-shadow 0.15s ease;
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.08s ease;
+  touch-action: manipulation;
 }
 
 .pos-apply-promotion:hover {
-  filter: brightness(1.08);
-  box-shadow:
-    0 0 0 1px rgba(250, 173, 20, 0.35),
-    0 6px 18px rgba(0, 0, 0, 0.45);
+  border-color: var(--pos-accent);
+  background: color-mix(in srgb, var(--pos-accent) 26%, transparent);
+  color: var(--pos-accent);
 }
 
 .pos-apply-promotion:active {
@@ -587,7 +586,7 @@
 }
 
 .pos-apply-promotion:focus-visible {
-  outline: 2px solid #ffc53d;
+  outline: 2px solid var(--pos-accent);
   outline-offset: 2px;
 }
 

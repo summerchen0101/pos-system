@@ -96,7 +96,7 @@ export const zhtw = {
     giftBadge: "贈品",
     giftStockCount: (n: number) => `贈品庫存 ${n}`,
     thresholdGiftsAria: "滿額贈禮說明",
-    applyPromotion: "套用優惠",
+    applyPromotion: "手動優惠設定",
     manualPromoModalTitle: "選擇手動優惠",
     manualPromoApply: "套用",
     manualPromoEmpty: "目前沒有可用手動優惠。",
