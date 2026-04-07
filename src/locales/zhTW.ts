@@ -115,6 +115,12 @@ export const zhtw = {
     bundleBadge: "組合",
     fullscreenEnterAria: "全螢幕",
     fullscreenExitAria: "結束全螢幕",
+    numpadQtyTitle: "輸入數量",
+    numpadClear: "清除",
+    numpadBackspace: "刪除一位",
+    numpadConfirm: "確認",
+    numpadMinus: "減一",
+    numpadPlus: "加一",
     boothPicker: {
       title: "選擇攤位",
       subtitle: "收銀畫面會套用該攤位的優惠規則；商品目錄為全店共用。",

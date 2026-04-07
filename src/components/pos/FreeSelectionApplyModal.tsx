@@ -1,9 +1,10 @@
-import { App, Button, InputNumber, Modal, Space, Typography } from 'antd'
+import { App, Button, Modal, Space, Typography } from 'antd'
 import { useMemo, useState } from 'react'
 import { zhtw } from '../../locales/zhTW'
 import { freeSelectionLineId } from '../../promotions/freeSelectionLines'
 import type { CartLine, Product, Promotion } from '../../types/pos'
 import { BundleApplyModal } from './BundleApplyModal'
+import { PosQtyNumpadRow } from './PosQtyNumpadRow'
 
 const { Text } = Typography
 
@@ -211,7 +212,13 @@ function FreeSelectionModalContent({ promotion, products, onConfirm, onClose }: 
                 {prod.name}
                 {prod.size ? ` (${prod.size})` : ''}
               </span>
-              <InputNumber min={0} max={Math.max(0, rowMax)} value={v} onChange={(x) => setQty(pid, x)} />
+              <PosQtyNumpadRow
+                value={v}
+                min={0}
+                max={Math.max(0, rowMax)}
+                numpadTitle={zhtw.pos.numpadQtyTitle}
+                onChange={(q) => setQty(pid, q)}
+              />
             </Space>
           )
         })}

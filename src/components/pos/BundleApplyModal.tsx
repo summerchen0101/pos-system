@@ -1,8 +1,9 @@
-import { App, Button, Divider, InputNumber, Modal, Space, Typography } from 'antd'
+import { App, Button, Divider, Modal, Space, Typography } from 'antd'
 import { useMemo, useState } from 'react'
 import { zhtw } from '../../locales/zhTW'
 import { bundleComponentLineId, bundleRootLineId } from '../../pos/bundleCart'
 import type { CartLine, Product, ProductBundleGroup } from '../../types/pos'
+import { PosQtyNumpadRow } from './PosQtyNumpadRow'
 
 const { Text } = Typography
 
@@ -211,7 +212,13 @@ function BundleModalContent({
                         {prod.name}
                         {prod.size ? ` (${prod.size})` : ''}
                       </span>
-                      <InputNumber min={0} max={Math.max(0, rowMax)} value={v} onChange={(x) => setQty(g.id, rowPid, x)} />
+                      <PosQtyNumpadRow
+                        value={v}
+                        min={0}
+                        max={Math.max(0, rowMax)}
+                        numpadTitle={zhtw.pos.numpadQtyTitle}
+                        onChange={(q) => setQty(g.id, rowPid, q)}
+                      />
                     </Space>
                   )
                 })}

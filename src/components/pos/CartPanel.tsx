@@ -14,6 +14,7 @@ import {
   buildFreeSelectionPromotionsSnapshot,
   isFreeSelectionCartLine,
 } from '../../promotions/freeSelectionLines'
+import { getLineQtyBounds } from '../../pos/cartLineQtyBounds'
 import { useCartStore } from '../../store/cartStore'
 import type { Product, Promotion } from '../../types/pos'
 import { CartLineRow } from './CartLineRow'
@@ -121,6 +122,15 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
       return
     }
     decrement(lineId)
+  }
+
+  const handleSetQuantity = (lineId: string, qty: number) => {
+    const line = lines.find((l) => l.lineId === lineId)
+    if (!line) return
+    const { min, max } = getLineQtyBounds(line, lines, products, promotions)
+    const q = Math.min(max, Math.max(min, Math.trunc(qty)))
+    if (q === line.quantity) return
+    updateLineQuantity(lineId, q)
   }
 
   const manualTags = useMemo(() => {
@@ -244,18 +254,27 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
           <p className="pos-cart-empty">{zhtw.pos.cartEmpty}</p>
         ) : (
           <ul className="pos-cart-list">
-            {lines.map((line) => (
-              <CartLineRow
-                key={line.lineId}
-                line={line}
-                onIncrement={handleIncrement}
-                onDecrement={handleDecrement}
-                onRemove={removeLine}
-                allowQtyAdjust={
-                  isFreeSelectionCartLine(line, promotions) || !!line.isBundleComponent
-                }
-              />
-            ))}
+            {lines.map((line) => {
+              const allowQtyAdjust =
+                isFreeSelectionCartLine(line, promotions) || !!line.isBundleComponent
+              const lockQty =
+                ((line.isGift || line.isManualFree) && !allowQtyAdjust) ||
+                !!line.isBundleRoot
+              const bounds = getLineQtyBounds(line, lines, products, promotions)
+              return (
+                <CartLineRow
+                  key={line.lineId}
+                  line={line}
+                  onIncrement={handleIncrement}
+                  onDecrement={handleDecrement}
+                  onRemove={removeLine}
+                  allowQtyAdjust={allowQtyAdjust}
+                  qtyMin={bounds.min}
+                  qtyMax={bounds.max}
+                  onQtyCommit={lockQty ? undefined : handleSetQuantity}
+                />
+              )
+            })}
           </ul>
         )}
       </div>

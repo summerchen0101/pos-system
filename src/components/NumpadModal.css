@@ -1,0 +1,109 @@
+/* 對齊全域深色 POS（index.css --pos-*），避免白底淺字 */
+
+.numpad-modal .ant-modal-content {
+  border-radius: 12px;
+  background: var(--pos-surface);
+  border: 1px solid var(--pos-border);
+}
+
+.numpad-modal .ant-modal-header {
+  margin-bottom: 0;
+  background: transparent;
+  border-bottom: 1px solid var(--pos-border);
+}
+
+.numpad-modal .ant-modal-title {
+  color: var(--pos-text-strong);
+}
+
+.numpad-modal .ant-modal-close {
+  color: var(--pos-text-muted);
+}
+
+.numpad-modal .ant-modal-close:hover {
+  color: var(--pos-text-strong);
+}
+
+.numpad-modal__body {
+  padding-top: 8px;
+}
+
+.numpad-display-wrap {
+  margin-bottom: 12px;
+}
+
+.numpad-display {
+  border: 1px solid var(--pos-border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 1.75rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--pos-text-strong);
+  background: var(--pos-cart-bg);
+  font-variant-numeric: tabular-nums;
+}
+
+.numpad-display--over {
+  color: var(--pos-danger);
+  border-color: var(--pos-danger);
+  background: var(--pos-danger-soft);
+}
+
+.numpad-step-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.numpad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.numpad-key {
+  min-height: 48px;
+  border: 1px solid var(--pos-border);
+  border-radius: 8px;
+  background: var(--pos-cart-bg);
+  font-size: 1.2rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--pos-text-strong);
+  touch-action: manipulation;
+}
+
+.numpad-key:hover:not(:disabled) {
+  border-color: var(--pos-accent);
+  background: var(--pos-accent-soft);
+  color: var(--pos-accent);
+}
+
+.numpad-key:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.numpad-key--wide {
+  min-height: 44px;
+}
+
+.numpad-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.numpad-footer .ant-btn-default {
+  background: var(--pos-cart-bg);
+  border-color: var(--pos-border);
+  color: var(--pos-text-strong);
+}
+
+.numpad-footer .ant-btn-default:hover {
+  border-color: var(--pos-accent);
+  color: var(--pos-accent);
+}

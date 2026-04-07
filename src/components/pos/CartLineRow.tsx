@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { NumpadModal } from '../NumpadModal'
 import { zhtw } from '../../locales/zhTW'
 import { formatMoney } from '../../lib/money'
 import type { CartLine, Product } from '../../types/pos'
@@ -14,9 +16,22 @@ type Props = {
   onRemove: (lineId: string) => void
   /** When true, +/- stay enabled for $0 manual lines (FREE_SELECTION). */
   allowQtyAdjust?: boolean
+  /** When set with `qtyMin` / `qtyMax`, middle tap opens numpad (POS 無系統鍵盤). */
+  onQtyCommit?: (lineId: string, qty: number) => void
+  qtyMin?: number
+  qtyMax?: number
 }
 
-export function CartLineRow({ line, onIncrement, onDecrement, onRemove, allowQtyAdjust }: Props) {
+export function CartLineRow({
+  line,
+  onIncrement,
+  onDecrement,
+  onRemove,
+  allowQtyAdjust,
+  onQtyCommit,
+  qtyMin = 1,
+  qtyMax = 999_999,
+}: Props) {
   const { product, quantity, lineId, isGift, giftStock, isManualFree, isBundleRoot, isBundleComponent } =
     line
   const unitPrice =
@@ -28,6 +43,9 @@ export function CartLineRow({ line, onIncrement, onDecrement, onRemove, allowQty
     : zhtw.pos.stockCount(product.stock)
   const lockQty =
     ((isGift || isManualFree) && !allowQtyAdjust) || !!isBundleRoot
+
+  const showNumpad = !lockQty && typeof onQtyCommit === 'function'
+  const [numpadOpen, setNumpadOpen] = useState(false)
 
   return (
     <li
@@ -54,25 +72,68 @@ export function CartLineRow({ line, onIncrement, onDecrement, onRemove, allowQty
       </div>
       <div className="pos-cart-line__controls">
         <div className="pos-qty" role="group" aria-label={zhtw.pos.qtyGroup(label)}>
-          <button
-            type="button"
-            className="pos-qty__btn"
-            onClick={() => onDecrement(lineId)}
-            disabled={lockQty}
-            aria-label={zhtw.pos.decreaseQty}
-          >
-            −
-          </button>
-          <span className="pos-qty__value">{quantity}</span>
-          <button
-            type="button"
-            className="pos-qty__btn"
-            onClick={() => onIncrement(lineId)}
-            disabled={lockQty}
-            aria-label={zhtw.pos.increaseQty}
-          >
-            +
-          </button>
+          {showNumpad ? (
+            <>
+              <button
+                type="button"
+                className="pos-qty__btn"
+                onClick={() => onDecrement(lineId)}
+                aria-label={zhtw.pos.decreaseQty}
+              >
+                −
+              </button>
+              <button
+                type="button"
+                className="pos-qty__value pos-qty__value--tap"
+                onClick={() => setNumpadOpen(true)}
+                aria-label={zhtw.pos.numpadQtyTitle}
+              >
+                {quantity}
+              </button>
+              <button
+                type="button"
+                className="pos-qty__btn"
+                onClick={() => onIncrement(lineId)}
+                aria-label={zhtw.pos.increaseQty}
+              >
+                +
+              </button>
+              <NumpadModal
+                open={numpadOpen}
+                title={zhtw.pos.numpadQtyTitle}
+                value={quantity}
+                min={qtyMin}
+                max={qtyMax}
+                onConfirm={(q) => {
+                  onQtyCommit!(lineId, q)
+                  setNumpadOpen(false)
+                }}
+                onCancel={() => setNumpadOpen(false)}
+              />
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="pos-qty__btn"
+                onClick={() => onDecrement(lineId)}
+                disabled={lockQty}
+                aria-label={zhtw.pos.decreaseQty}
+              >
+                −
+              </button>
+              <span className="pos-qty__value">{quantity}</span>
+              <button
+                type="button"
+                className="pos-qty__btn"
+                onClick={() => onIncrement(lineId)}
+                disabled={lockQty}
+                aria-label={zhtw.pos.increaseQty}
+              >
+                +
+              </button>
+            </>
+          )}
         </div>
         <span className="pos-cart-line__total">{formatMoney(lineTotal)}</span>
         <button
