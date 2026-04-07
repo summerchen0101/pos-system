@@ -1,4 +1,4 @@
-import { App, Space, Tag } from 'antd'
+import { App, Button, Space, Tag } from 'antd'
 import { useMemo, useState } from 'react'
 import { usePosCashier } from '../../context/PosCashierContext'
 import { fetchCheckoutStaffSnapshots } from '../../api/posCheckoutStaff'
@@ -21,6 +21,7 @@ import { CartLineRow } from './CartLineRow'
 import { CheckoutButton } from './CheckoutButton'
 import { ManualPromotionApplyModal } from './ManualPromotionApplyModal'
 import { OrderSummary } from './OrderSummary'
+import { PosTodayOrdersDrawer } from './PosTodayOrdersDrawer'
 
 type Props = {
   boothId: string
@@ -30,7 +31,7 @@ type Props = {
 }
 
 export function CartPanel({ boothId, promotions, products, promotionsError }: Props) {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const { cashier } = usePosCashier()
   const lines = useCartStore((s) => s.lines)
   const manualPromotionIds = useCartStore((s) => s.manualPromotionIds)
@@ -43,6 +44,7 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
   const updateLineQuantity = useCartStore((s) => s.updateLineQuantity)
 
   const [manualModalOpen, setManualModalOpen] = useState(false)
+  const [todayOrdersOpen, setTodayOrdersOpen] = useState(false)
 
   const totals = useCartPromotionTotals(promotions)
   const isEmpty = lines.length === 0
@@ -203,13 +205,33 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
     })()
   }
 
+  const handleClearCart = () => {
+    modal.confirm({
+      title: zhtw.pos.cartClearConfirmTitle,
+      okText: zhtw.pos.cartClearConfirmOk,
+      cancelText: zhtw.common.cancel,
+      okButtonProps: { danger: true },
+      onOk: () => {
+        clearCart()
+        setManualModalOpen(false)
+      },
+    })
+  }
+
   return (
     <aside className="pos-cart-panel" aria-label={zhtw.pos.cartAria}>
       <header className="pos-cart-panel__header">
         <h2>{zhtw.pos.cartTitle}</h2>
-        <span className="pos-cart-panel__count">
-          {unitCount} {zhtw.pos.items}
-        </span>
+        <div className="pos-cart-panel__header-actions">
+          <span className="pos-cart-panel__count">
+            {unitCount} {zhtw.pos.items}
+          </span>
+          {boothId ? (
+            <Button size="small" type="default" onClick={() => setTodayOrdersOpen(true)}>
+              {zhtw.pos.todayOrders.openButton}
+            </Button>
+          ) : null}
+        </div>
       </header>
 
       {promotionsError && (
@@ -290,8 +312,26 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
           manualPromotionDetails={totals.manualPromotionDetails}
         />
 
-        <CheckoutButton totals={totals} disabled={!canCheckout} onCheckout={handleCheckout} />
+        <div className="pos-cart-panel__checkout-row">
+          <button
+            type="button"
+            className="pos-cart-clear"
+            disabled={isEmpty}
+            onClick={handleClearCart}
+          >
+            {zhtw.pos.cartClear}
+          </button>
+          <CheckoutButton totals={totals} disabled={!canCheckout} onCheckout={handleCheckout} />
+        </div>
       </div>
+
+      {boothId ? (
+        <PosTodayOrdersDrawer
+          boothId={boothId}
+          open={todayOrdersOpen}
+          onClose={() => setTodayOrdersOpen(false)}
+        />
+      ) : null}
 
       <ManualPromotionApplyModal
         open={manualModalOpen}

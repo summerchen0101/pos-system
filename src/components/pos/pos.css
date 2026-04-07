@@ -213,10 +213,35 @@
 .pos-cart-panel__header {
   flex-shrink: 0;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
   margin-bottom: 1rem;
+}
+
+.pos-cart-panel__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.pos-cart-panel__header-actions .ant-btn-sm {
+  font-size: 0.75rem;
+  height: 28px;
+  padding: 0 10px;
+  opacity: 0.92;
+}
+
+.pos-cart-panel__header-actions .ant-btn-default {
+  background: var(--pos-cart-bg);
+  border-color: var(--pos-border);
+  color: var(--pos-text-muted);
+}
+
+.pos-cart-panel__header-actions .ant-btn-default:hover {
+  border-color: var(--pos-accent);
+  color: var(--pos-accent);
 }
 
 .pos-cart-panel__header h2 {
@@ -627,6 +652,48 @@ button.pos-qty__value--tap:hover {
 .pos-order-summary__row--final dd {
   font-weight: 700;
   color: var(--pos-text-strong);
+}
+
+.pos-cart-panel__checkout-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.pos-cart-clear {
+  flex: 0 0 auto;
+  min-height: 48px;
+  padding: 0 0.9rem;
+  border-radius: 10px;
+  border: 1px solid var(--pos-border);
+  background: transparent;
+  color: var(--pos-text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
+  touch-action: manipulation;
+}
+
+.pos-cart-clear:hover:not(:disabled) {
+  border-color: var(--pos-danger);
+  color: var(--pos-danger);
+  background: var(--pos-danger-soft);
+}
+
+.pos-cart-clear:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.pos-cart-panel__checkout-row .pos-checkout {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-top: 0;
 }
 
 .pos-checkout {

@@ -16,7 +16,6 @@ import { BundleApplyModal } from "./BundleApplyModal";
 import { CartPanel } from "./CartPanel";
 import { PosTabletClockButtons } from "./PosTabletClockButtons";
 import { ProductGrid } from "./ProductGrid";
-import { PosTodayOrdersDrawer } from "./PosTodayOrdersDrawer";
 import "./pos.css";
 
 function getFullscreenElement(): Element | null {
@@ -111,7 +110,6 @@ function PosLayoutInner() {
   const [activeStaffLine, setActiveStaffLine] = useState(
     () => `${zhtw.pos.activeStaffPrefix}${zhtw.common.dash}`,
   );
-  const [todayOrdersOpen, setTodayOrdersOpen] = useState(false);
   const [fullscreenActive, setFullscreenActive] = useState(
     () => getFullscreenElement() != null,
   );
@@ -340,11 +338,6 @@ function PosLayoutInner() {
                 onClick={() => toggleDocumentFullscreen()}
               />
               {boothId ? (
-                <Button type="default" onClick={() => setTodayOrdersOpen(true)}>
-                  {zhtw.pos.todayOrders.openButton}
-                </Button>
-              ) : null}
-              {boothId ? (
                 <div className="pos-header-clock">
                   <PosTabletClockButtons boothId={boothId} onClockRecordsChanged={refreshActiveStaff} />
                 </div>
@@ -399,13 +392,6 @@ function PosLayoutInner() {
           setBundleModalProduct(null);
         }}
       />
-      {boothId ? (
-        <PosTodayOrdersDrawer
-          boothId={boothId}
-          open={todayOrdersOpen}
-          onClose={() => setTodayOrdersOpen(false)}
-        />
-      ) : null}
     </div>
   );
 }

@@ -129,6 +129,9 @@ export const zhtw = {
     },
     boothInvalidTitle: "找不到此攤位",
     boothInvalidHint: "網址中的攤位可能已刪除或無效，請重新選擇。",
+    cartClear: "清空",
+    cartClearConfirmTitle: "確定清空購物車？",
+    cartClearConfirmOk: "清空",
     todayOrders: {
       openButton: "今日訂單",
       drawerTitle: "今日訂單",
