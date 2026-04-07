@@ -1,4 +1,4 @@
-import { Button, Space, Spin, Tabs, Typography } from "antd";
+import { Button, Space, Spin, Typography } from "antd";
 import { Maximize, Minimize } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -358,23 +358,39 @@ function PosLayoutInner() {
             {zhtw.pos.hint}
           </p>
         </header>
-        {!productsLoading && !productsError && tabItems.length > 0 ? (
-          <Tabs
-            className="pos-category-tabs"
-            activeKey={displayTab}
-            onChange={setActiveTab}
-            items={tabItems}
-          />
-        ) : null}
-        <ProductGrid
-          products={gridProducts}
-          loading={productsLoading}
-          error={productsError}
-          onAddProduct={handleAddProduct}
-          emptyMessage={
-            products.length === 0 ? zhtw.pos.emptyCatalog : zhtw.pos.emptyCategory
-          }
-        />
+        <div className="pos-main__catalog">
+          {!productsLoading && !productsError && tabItems.length > 0 ? (
+            <div
+              className="pos-category-bar"
+              role="tablist"
+              aria-label={zhtw.pos.categoryBarAria}
+            >
+              {tabItems.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={displayTab === t.key}
+                  className={`pos-category-btn${displayTab === t.key ? " active" : ""}`}
+                  onClick={() => setActiveTab(t.key)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <div className="pos-product-area">
+            <ProductGrid
+              products={gridProducts}
+              loading={productsLoading}
+              error={productsError}
+              onAddProduct={handleAddProduct}
+              emptyMessage={
+                products.length === 0 ? zhtw.pos.emptyCatalog : zhtw.pos.emptyCategory
+              }
+            />
+          </div>
+        </div>
       </main>
       <CartPanel
         boothId={boothId ?? ""}

@@ -17,15 +17,94 @@
 }
 
 .pos-main {
-  padding: 1.25rem 1.5rem 2rem;
-  border-right: 1px solid var(--pos-border);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   min-height: 0;
-  overflow: auto;
+  max-height: 100%;
+  overflow: hidden;
+  padding: 1.25rem 1.5rem 0;
+  padding-bottom: 1rem;
+  border-right: 1px solid var(--pos-border);
   background: rgba(255, 255, 255, 0.02);
 }
 
 .pos-main__header {
-  margin-bottom: 1.25rem;
+  flex-shrink: 0;
+  margin-bottom: 1rem;
+}
+
+/* 分類列 + 可滾動商品區 */
+.pos-main__catalog {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pos-category-bar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 8px;
+  padding: 12px 4px 12px 0;
+  border-bottom: 1px solid var(--pos-border);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.pos-category-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.pos-category-btn {
+  flex-shrink: 0;
+  min-width: 80px;
+  height: 48px;
+  border-radius: 24px;
+  white-space: nowrap;
+  padding: 0 16px;
+  border: 1px solid var(--pos-border);
+  background: var(--pos-surface);
+  color: var(--pos-text-muted);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+  touch-action: manipulation;
+}
+
+.pos-category-btn:hover {
+  border-color: var(--pos-accent);
+  color: var(--pos-accent);
+}
+
+.pos-category-btn:focus-visible {
+  outline: 2px solid var(--pos-accent);
+  outline-offset: 2px;
+}
+
+.pos-category-btn.active {
+  background: var(--pos-accent);
+  border-color: var(--pos-accent);
+  color: #fff;
+}
+
+.pos-product-area {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 12px 4px 12px 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 .pos-main__title-row {
@@ -83,18 +162,6 @@
   line-height: 1.35;
   color: var(--pos-text-muted);
   opacity: 0.88;
-}
-
-.pos-category-tabs {
-  margin-bottom: 1rem;
-}
-
-.pos-category-tabs .ant-tabs-nav {
-  margin-bottom: 0.5rem;
-}
-
-.pos-category-tabs .ant-tabs-tab {
-  font-weight: 500;
 }
 
 .pos-product-grid__status {

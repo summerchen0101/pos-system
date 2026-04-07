@@ -67,6 +67,7 @@ export const zhtw = {
     discountNoQualify: "購物車不符合目前優惠條件",
     discountNone: "目前無進行中的優惠",
     productsAria: "商品列表",
+    categoryBarAria: "商品分類",
     stockLabel: "庫存",
     stockCount: (n: number) => `庫存 ${n}`,
     soldOut: "缺貨",
