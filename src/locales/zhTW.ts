@@ -75,7 +75,7 @@ export const zhtw = {
       motivationTrial: "嘗鮮",
       motivationRepurchase: "回購",
       motivationOther: "其他",
-      skip: "跳過",
+      skip: "關閉",
       submit: "送出",
       recorded: "已記錄，謝謝！",
       recordFailed: "記錄失敗，請稍後再試",
@@ -236,6 +236,9 @@ export const zhtw = {
       buyerMotivationTrialShort: "嘗鮮",
       buyerMotivationRepurchaseShort: "回購",
       buyerMotivationOtherShort: "其他",
+      addBuyerProfile: "＋ 新增顧客輪廓",
+      expandDetail: "展開明細",
+      collapseDetail: "收合",
     },
     boothPickerBack: "返回攤位選擇",
     /** Cashier header — back to this booth’s landing (/pos/:boothId), not the global list. */

@@ -1,9 +1,8 @@
-import { App, Button, Drawer, Space, Table, Tag, Typography } from "antd";
-import type { ColumnsType } from "antd/es/table";
+import { App, Button, Drawer, Space, Tag, Typography } from "antd";
 import dayjs from "dayjs";
 import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { updateOrderBuyerProfile } from "../../api/ordersApi";
 import {
   deleteOrderRestoreInventoryPos,
@@ -38,6 +37,10 @@ function lineTag(source: string | null, isGift: boolean) {
     return <Tag color={palette.tagBundle}>{oOrd.tagBundleComponent}</Tag>;
   if (isGift) return <OrderGiftTag label={oOrd.tagGift} />;
   return null;
+}
+
+function lineTotalLabel(r: PosOrderLineJson): string {
+  return formatMoney(r.line_total_cents);
 }
 
 function genderShort(v: BuyerGender | null): string {
@@ -79,6 +82,7 @@ export function PosTodayOrdersDrawer({ boothId, open, onClose }: Props) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [editingOrder, setEditingOrder] = useState<PosOrderSummaryJson | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     if (!boothId) return;
@@ -124,49 +128,6 @@ export function PosTodayOrdersDrawer({ boothId, open, onClose }: Props) {
     });
   };
 
-  const lineColumns: ColumnsType<PosOrderLineJson> = [
-    {
-      title: p.colProduct,
-      key: "n",
-      render: (_, r) => (
-        <Space size={4} wrap>
-          <span>{r.product_name}</span>
-          {lineTag(r.source, r.is_gift)}
-        </Space>
-      ),
-    },
-    {
-      title: p.colSize,
-      dataIndex: "size",
-      key: "s",
-      width: 80,
-      render: (s: string | null) => s?.trim() || "—",
-    },
-    {
-      title: p.colQty,
-      dataIndex: "quantity",
-      key: "q",
-      width: 56,
-      align: "right",
-    },
-    {
-      title: p.colUnitPrice,
-      dataIndex: "unit_price_cents",
-      key: "u",
-      width: 96,
-      align: "right",
-      render: (c: number) => formatMoney(c),
-    },
-    {
-      title: p.colLineTotal,
-      dataIndex: "line_total_cents",
-      key: "t",
-      width: 96,
-      align: "right",
-      render: (c: number) => formatMoney(c),
-    },
-  ];
-
   const openProfileEditor = (order: PosOrderSummaryJson) => {
     setEditingOrder(order);
     setProfileOpen(true);
@@ -181,68 +142,22 @@ export function PosTodayOrdersDrawer({ boothId, open, onClose }: Props) {
     return parts.join(" · ");
   };
 
-  const columns: ColumnsType<PosOrderSummaryJson> = [
-    {
-      title: p.colTime,
-      key: "time",
-      width: 72,
-      render: (_, r) => dayjs(r.created_at).tz("Asia/Taipei").format("HH:mm"),
-    },
-    {
-      title: p.colSummary,
-      key: "sum",
-      ellipsis: true,
-      render: (_, r) => buildPreview(r.items ?? []),
-    },
-    {
-      title: p.colFinal,
-      key: "fin",
-      width: 100,
-      align: "right",
-      render: (_, r) => formatMoney(r.final_amount),
-    },
-    {
-      title: p.colBuyerProfile,
-      key: "bp",
-      width: 188,
-      render: (_, r) => {
-        const hasProfile = Boolean(r.buyer_gender || r.buyer_age_group || r.buyer_motivation);
-        const summary = summaryProfile(r);
-        if (!hasProfile) {
-          return (
-            <Button
-              className="pos-today-orders__fill-profile-btn"
-              size="small"
-              type="default"
-              onClick={() => openProfileEditor(r)}
-              style={{ whiteSpace: "nowrap" }}
-            >
-              {zhtw.common.new}
-            </Button>
-          );
-        }
-        return (
-          <button
-            type="button"
-            className="pos-today-orders__profile-summary"
-            onClick={() => openProfileEditor(r)}
-          >
-            {summary}
-          </button>
-        );
-      },
-    },
-    {
-      title: p.colActions,
-      key: "a",
-      width: 88,
-      render: (_, r) => (
-        <Button type="link" size="small" danger onClick={() => onDelete(r)} style={{ padding: 0 }}>
-          {zhtw.common.delete}
-        </Button>
+  const sortedRows = useMemo(
+    () =>
+      [...rows].sort((a, b) =>
+        dayjs(b.created_at).valueOf() - dayjs(a.created_at).valueOf(),
       ),
-    },
-  ];
+    [rows],
+  );
+
+  const toggleExpanded = (orderId: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
+  };
 
   const onSubmitProfile = (patch: {
     buyerGender: BuyerGender | null;
@@ -291,29 +206,96 @@ export function PosTodayOrdersDrawer({ boothId, open, onClose }: Props) {
       <Button type="default" size="small" onClick={() => void load()} style={{ marginBottom: 12 }}>
         {p.refresh}
       </Button>
-      <Table<PosOrderSummaryJson>
-        className="pos-today-orders-table"
-        rowKey="id"
-        loading={loading}
-        size="small"
-        pagination={false}
-        columns={columns}
-        dataSource={rows}
-        expandRowByClick={false}
-        locale={{ emptyText: p.empty }}
-        expandable={{
-          expandedRowRender: (record) => (
-            <Table<PosOrderLineJson>
-              className="pos-today-orders-table__inner"
-              rowKey="id"
-              size="small"
-              pagination={false}
-              columns={lineColumns}
-              dataSource={record.items ?? []}
-            />
-          ),
-        }}
-      />
+      <div className="pos-today-orders-cards">
+        {loading ? (
+          <Typography.Text type="secondary">{zhtw.common.loading}</Typography.Text>
+        ) : sortedRows.length === 0 ? (
+          <Typography.Text type="secondary">{p.empty}</Typography.Text>
+        ) : (
+          sortedRows.map((r) => {
+            const hasProfile = Boolean(r.buyer_gender || r.buyer_age_group || r.buyer_motivation);
+            const summary = summaryProfile(r);
+            const expanded = expandedIds.has(r.id);
+            return (
+              <div key={r.id} className="pos-today-orders-card">
+                <div className="pos-today-orders-card__row1">
+                  <span className="pos-today-orders-card__time">
+                    {dayjs(r.created_at).tz("Asia/Taipei").format("HH:mm")}
+                  </span>
+                  <span className="pos-today-orders-card__summary">{buildPreview(r.items ?? [])}</span>
+                  <span className="pos-today-orders-card__final">
+                    {formatMoney(r.final_amount)}
+                  </span>
+                  <Button
+                    type="link"
+                    size="small"
+                    className="pos-today-orders-card__delete"
+                    danger
+                    onClick={() => onDelete(r)}
+                    style={{ padding: 0 }}
+                  >
+                    {zhtw.common.delete}
+                  </Button>
+                </div>
+                <div className="pos-today-orders-card__divider" />
+                <div className="pos-today-orders-card__row2">
+                  <div>
+                    {!hasProfile ? (
+                      <button
+                        type="button"
+                        className="pos-today-orders-card__profile-new"
+                        onClick={() => openProfileEditor(r)}
+                      >
+                        {p.addBuyerProfile}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="pos-today-orders-card__profile-pill"
+                        onClick={() => openProfileEditor(r)}
+                      >
+                        {summary}
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="pos-today-orders-card__expand"
+                    onClick={() => toggleExpanded(r.id)}
+                  >
+                    {expanded ? `▲ ${p.collapseDetail}` : `▼ ${p.expandDetail}`}
+                  </button>
+                </div>
+                {expanded ? (
+                  <div className="pos-today-orders-card__detail">
+                    <div className="pos-today-orders-card__detail-head">
+                      <span>{p.colProduct}</span>
+                      <span>{p.colSize}</span>
+                      <span>{p.colQty}</span>
+                      <span>{p.colUnitPrice}</span>
+                      <span>{p.colLineTotal}</span>
+                    </div>
+                    {(r.items ?? []).map((item) => (
+                      <div key={item.id} className="pos-today-orders-card__detail-row">
+                        <span className="pos-today-orders-card__detail-product">
+                          <Space size={4} wrap>
+                            <span>{item.product_name}</span>
+                            {lineTag(item.source, item.is_gift)}
+                          </Space>
+                        </span>
+                        <span>{item.size?.trim() || "—"}</span>
+                        <span>{item.quantity}</span>
+                        <span>{formatMoney(item.unit_price_cents)}</span>
+                        <span>{lineTotalLabel(item)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })
+        )}
+      </div>
       <BuyerProfileModal
         open={profileOpen}
         loading={profileSaving}
@@ -326,11 +308,6 @@ export function PosTodayOrdersDrawer({ boothId, open, onClose }: Props) {
               }
             : undefined
         }
-        defaultValues={{
-          buyerGender: "female",
-          buyerAgeGroup: "35_44",
-          buyerMotivation: "self_use",
-        }}
         onSkip={() => {
           setProfileOpen(false);
           setEditingOrder(null);
