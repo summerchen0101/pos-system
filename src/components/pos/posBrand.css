@@ -1,0 +1,297 @@
+/* POS marketing / home surfaces — dark + gold (Nuts & Co.) */
+.pos-brand-shell {
+  --pos-brand-bg: #111110;
+  --pos-brand-surface: #1e1d1b;
+  --pos-brand-border: #3a3730;
+  --pos-brand-border-hover: #c8a96e;
+  --pos-brand-text: #f5f0e8;
+  --pos-brand-muted: #7a7770;
+  --pos-brand-faint: #4a4845;
+  --pos-brand-accent: #c8a96e;
+
+  min-height: 100dvh;
+  min-height: 100vh;
+  background-color: var(--pos-brand-bg);
+  color: var(--pos-brand-text);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem 3rem;
+  box-sizing: border-box;
+}
+
+.pos-brand-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: radial-gradient(
+    circle,
+    var(--pos-brand-text) 1px,
+    transparent 1px
+  );
+  background-size: 12px 12px;
+}
+
+.pos-brand-shell__inner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: pos-brand-fade-in 0.35s ease-out;
+}
+
+@keyframes pos-brand-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pos-brand-logo-wrap {
+  margin-bottom: 1.2rem;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pos-brand-logo-fallback {
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--pos-brand-accent);
+  letter-spacing: 0.12em;
+  line-height: 1;
+}
+
+.pos-brand-name-en {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  font-variant: small-caps;
+  color: var(--pos-brand-accent);
+  margin: 0 0 0.35rem;
+}
+
+.pos-brand-name-zh {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--pos-brand-text);
+  margin: 0 0 1rem;
+  letter-spacing: 0.08em;
+}
+
+.pos-brand-divider {
+  width: 120px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--pos-brand-accent),
+    transparent
+  );
+  margin: 0 0 1.5rem;
+  border: none;
+}
+
+.pos-brand-section-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  color: var(--pos-brand-muted);
+  text-transform: uppercase;
+  margin: 0 0 1rem;
+}
+
+.pos-brand-booth-grid {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pos-brand-booth-card {
+  display: block;
+  width: 100%;
+  padding: 1rem 1.125rem;
+  text-align: left;
+  text-decoration: none;
+  color: inherit;
+  background: var(--pos-brand-surface);
+  border: 1px solid var(--pos-brand-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.15s ease;
+  font: inherit;
+}
+
+.pos-brand-booth-card:hover {
+  border-color: var(--pos-brand-border-hover);
+  box-shadow: 0 0 0 1px var(--pos-brand-border-hover);
+}
+
+.pos-brand-booth-card:active {
+  transform: scale(0.99);
+}
+
+.pos-brand-booth-card__name {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--pos-brand-text);
+  margin: 0 0 0.25rem;
+}
+
+.pos-brand-booth-card__loc {
+  font-size: 0.8125rem;
+  color: var(--pos-brand-muted);
+  margin: 0;
+}
+
+.pos-brand-footer-link {
+  margin-top: auto;
+  padding-top: 2.5rem;
+  font-size: 0.75rem;
+}
+
+.pos-brand-footer-link a {
+  color: var(--pos-brand-faint);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.pos-brand-footer-link a:hover {
+  color: var(--pos-brand-muted);
+}
+
+/* Booth landing (per-booth home) */
+.pos-brand-booth-title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--pos-brand-accent);
+  letter-spacing: 0.14em;
+  margin: 0 0 0.35rem;
+}
+
+.pos-brand-booth-loc {
+  font-size: 0.9rem;
+  color: var(--pos-brand-muted);
+  margin: 0 0 1.25rem;
+  line-height: 1.4;
+}
+
+.pos-brand-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 280px;
+  margin-top: 0.25rem;
+}
+
+.pos-brand-btn-primary {
+  width: 240px;
+  height: 56px;
+  border-radius: 28px;
+  border: none;
+  background: var(--pos-brand-accent);
+  color: #111110;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    filter 0.2s ease,
+    transform 0.15s ease;
+}
+
+.pos-brand-btn-primary:hover {
+  filter: brightness(1.06);
+}
+
+.pos-brand-btn-primary:active {
+  transform: scale(0.98);
+}
+
+.pos-brand-btn-outline {
+  width: 240px;
+  height: 56px;
+  border-radius: 28px;
+  border: 1px solid var(--pos-brand-accent);
+  background: transparent;
+  color: var(--pos-brand-accent);
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    transform 0.15s ease;
+}
+
+.pos-brand-btn-outline:hover {
+  background: rgba(200, 169, 110, 0.08);
+}
+
+.pos-brand-btn-outline:active {
+  transform: scale(0.98);
+}
+
+.pos-brand-back-link {
+  margin-top: 2rem;
+  font-size: 0.875rem;
+}
+
+.pos-brand-back-link a {
+  color: var(--pos-brand-muted);
+  text-decoration: none;
+}
+
+.pos-brand-back-link a:hover {
+  color: var(--pos-brand-accent);
+}
+
+/* Invalid booth (inside gate) */
+.pos-brand-error-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--pos-brand-text);
+  margin: 0 0 0.5rem;
+}
+
+.pos-brand-error-hint {
+  font-size: 0.875rem;
+  color: var(--pos-brand-muted);
+  margin: 0 0 1.25rem;
+  line-height: 1.5;
+}
+
+.pos-brand-error-link {
+  color: var(--pos-brand-accent);
+  text-decoration: none;
+  font-size: 0.875rem;
+}
+
+.pos-brand-error-link:hover {
+  text-decoration: underline;
+}
+
+.pos-brand-loading {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--pos-brand-bg);
+}

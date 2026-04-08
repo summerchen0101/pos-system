@@ -700,6 +700,10 @@ export type Database = {
         Args: { p_booth_id: string; p_from: string; p_to: string }
         Returns: ShiftRow[]
       }
+      list_pos_public_shifts_for_day: {
+        Args: { p_booth_id: string; p_date: string }
+        Returns: unknown
+      }
       get_auth_email_by_username: {
         Args: { p_username: string }
         Returns: string | null

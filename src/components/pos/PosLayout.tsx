@@ -1,8 +1,7 @@
-import { Button, Space, Spin, Typography } from "antd";
+import { Button, Space, Typography } from "antd";
 import { Maximize, Minimize } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { fetchBoothPosEntry } from "../../api/boothsPos";
+import { Link, useOutletContext, useParams } from "react-router-dom";
 import { fetchActiveStaffNamesForBooth, formatPosActiveStaffLine } from "../../api/posActiveStaff";
 import { fetchProductsForPosBooth } from "../../api/fetchProducts";
 import { fetchPromotions } from "../../api/fetchPromotions";
@@ -12,8 +11,7 @@ import { useThresholdGiftSync } from "../../hooks/useThresholdGiftSync";
 import { zhtw } from "../../locales/zhTW";
 import { useCartStore } from "../../store/cartStore";
 import type { Product, Promotion } from "../../types/pos";
-import { isBoothPinVerifiedInSession } from "../../lib/boothPinSession";
-import { BoothPinScreen } from "./BoothPinScreen";
+import type { PosBoothOutletContext } from "./PosBoothRoute";
 import { BundleApplyModal } from "./BundleApplyModal";
 import { CartPanel } from "./CartPanel";
 import { PosTabletClockButtons } from "./PosTabletClockButtons";
@@ -97,16 +95,12 @@ export function PosLayout() {
 
 function PosLayoutInner() {
   const { boothId } = useParams<{ boothId: string }>();
+  const { entry } = useOutletContext<PosBoothOutletContext>();
   const addProduct = useCartStore((s) => s.addProduct);
   const addBundleLines = useCartStore((s) => s.addBundleLines);
 
-  /** `loading` | `invalid` | `pin` | `ready` */
-  const [posEntry, setPosEntry] = useState<"loading" | "invalid" | "pin" | "ready">("loading");
-  const [pinChallenge, setPinChallenge] = useState<{ boothName: string; pin: string } | null>(
-    null,
-  );
-  const [pinEpoch, setPinEpoch] = useState(0);
-  const [boothLabel, setBoothLabel] = useState<string>("");
+  const boothLabel = entry.location ? `${entry.name} · ${entry.location}` : entry.name;
+
   const [products, setProducts] = useState<Product[]>([]);
   const [bundleModalProduct, setBundleModalProduct] = useState<Product | null>(null);
   const [activeTab, setActiveTab] = useState<string>("");
@@ -163,9 +157,9 @@ function PosLayoutInner() {
   }, [boothId]);
 
   useEffect(() => {
-    if (posEntry !== "ready" || !boothId) return;
+    if (!boothId) return;
     void refreshActiveStaff();
-  }, [posEntry, boothId, refreshActiveStaff]);
+  }, [boothId, refreshActiveStaff]);
 
   useManualFreeLineSync(promotions, products);
   useThresholdGiftSync(promotions);
@@ -220,50 +214,11 @@ function PosLayoutInner() {
     }
 
     async function load() {
-      if (!boothId) {
-        setPosEntry("invalid");
-        setProductsLoading(false);
-        setPinChallenge(null);
-        return;
-      }
+      if (!boothId) return;
 
       setProductsLoading(true);
       setProductsError(null);
       setPromotionsError(null);
-      setPosEntry("loading");
-      setPinChallenge(null);
-
-      try {
-        const entry = await fetchBoothPosEntry(boothId);
-        if (cancelled) return;
-        if (!entry) {
-          setPosEntry("invalid");
-          setBoothLabel("");
-          setProducts([]);
-          setPromotions([]);
-          setProductsLoading(false);
-          return;
-        }
-        const fullLabel = entry.location ? `${entry.name} · ${entry.location}` : entry.name;
-        const needPin =
-          entry.pin != null && entry.pin.length > 0 && !isBoothPinVerifiedInSession(boothId);
-        if (needPin) {
-          setPinChallenge({ boothName: entry.name, pin: entry.pin! });
-          setPosEntry("pin");
-          setProductsLoading(false);
-          return;
-        }
-        setBoothLabel(fullLabel);
-        setPosEntry("ready");
-      } catch {
-        if (cancelled) return;
-        setPosEntry("invalid");
-        setBoothLabel("");
-        setProducts([]);
-        setPromotions([]);
-        setProductsLoading(false);
-        return;
-      }
 
       const [pRes, prRes] = await Promise.allSettled([
         fetchProductsForPosBooth(boothId),
@@ -295,9 +250,9 @@ function PosLayoutInner() {
     return () => {
       cancelled = true;
     };
-  }, [boothId, pinEpoch]);
+  }, [boothId]);
 
-  if (posEntry === "invalid") {
+  if (!boothId) {
     return (
       <div
         className="pos-layout"
@@ -306,37 +261,11 @@ function PosLayoutInner() {
           placeItems: "center",
           padding: "2rem",
         }}>
-        <div style={{ maxWidth: 420, textAlign: "center" }}>
-          <Typography.Title level={4} style={{ color: "var(--pos-text-strong)" }}>
-            {zhtw.pos.boothInvalidTitle}
-          </Typography.Title>
-          <Typography.Paragraph type="secondary">
-            {zhtw.pos.boothInvalidHint}
-          </Typography.Paragraph>
-          <Link className="pos-admin-link" to="/">
-            {zhtw.pos.boothPickerBack}
-          </Link>
-        </div>
+        <Typography.Text type="danger">{zhtw.pos.boothInvalidHint}</Typography.Text>
+        <Link className="pos-admin-link" to="/">
+          {zhtw.pos.boothPickerBack}
+        </Link>
       </div>
-    );
-  }
-
-  if (posEntry === "loading" && boothId) {
-    return (
-      <div className="pos-layout" style={{ gridTemplateColumns: "1fr", placeItems: "center" }}>
-        <Spin size="large" />
-      </div>
-    );
-  }
-
-  if (posEntry === "pin" && boothId && pinChallenge) {
-    return (
-      <BoothPinScreen
-        boothId={boothId}
-        boothName={pinChallenge.boothName}
-        expectedPin={pinChallenge.pin}
-        onVerified={() => setPinEpoch((n) => n + 1)}
-      />
     );
   }
 
@@ -377,7 +306,7 @@ function PosLayoutInner() {
               {zhtw.pos.currentBooth(boothLabel)}
             </p>
           ) : null}
-          {posEntry === "ready" && boothId ? (
+          {boothId ? (
             <div className="pos-main__active-staff-wrap">
               <p className="pos-main__active-staff">{activeStaffLine}</p>
             </div>

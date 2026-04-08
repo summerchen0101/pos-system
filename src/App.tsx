@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { defaultAdminHomePath } from "./api/authProfile";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { RequireAuth } from "./auth/RequireAuth";
+import { PosBoothRoute } from "./components/pos/PosBoothRoute";
 import { PosLayout } from "./components/pos/PosLayout";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { AdminBoothsPage } from "./pages/AdminBoothsPage";
@@ -19,7 +20,8 @@ import { AdminProductsPage } from "./pages/AdminProductsPage";
 import { AdminGiftsPage } from "./pages/AdminGiftsPage";
 import { AdminPromotionsPage } from "./pages/AdminPromotionsPage";
 import { LoginPage } from "./pages/LoginPage";
-import { PosBoothPickerPage } from "./pages/PosBoothPickerPage";
+import { PosBoothHomePage } from "./pages/PosBoothHomePage";
+import { PosHomePage } from "./pages/PosHomePage";
 import { AdminClockLogsPage } from "./pages/AdminClockLogsPage";
 import { AdminShiftsPage } from "./pages/AdminShiftsPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
@@ -81,8 +83,11 @@ export default function App() {
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
-              <Route path="/" element={<PosBoothPickerPage />} />
-              <Route path="/pos/:boothId" element={<PosLayout />} />
+              <Route path="/" element={<PosHomePage />} />
+              <Route path="/pos/:boothId" element={<PosBoothRoute />}>
+                <Route index element={<PosBoothHomePage />} />
+                <Route path="cashier" element={<PosLayout />} />
+              </Route>
               <Route
                 path="/admin"
                 element={
