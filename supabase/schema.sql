@@ -72,7 +72,8 @@ create table if not exists public.gift_inventory (
 create table if not exists public.booths (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  location text
+  location text,
+  pin text
 );
 
 create index if not exists booths_name_idx on public.booths (name);

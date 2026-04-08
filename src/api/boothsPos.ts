@@ -6,6 +6,15 @@ export type PosBoothListEntry = {
   location: string | null
 }
 
+/** Single booth for POS entry gate (includes `pin` when set). */
+export type PosBoothEntry = {
+  id: string
+  name: string
+  location: string | null
+  /** Normalized 4–6 digit PIN, or null if none / invalid in DB. */
+  pin: string | null
+}
+
 /** Public booth list for POS (anon RLS). */
 export async function listBoothsForPos(): Promise<PosBoothListEntry[]> {
   const { data, error } = await supabase
@@ -14,4 +23,23 @@ export async function listBoothsForPos(): Promise<PosBoothListEntry[]> {
     .order('name')
   if (error) throw error
   return (data ?? []) as PosBoothListEntry[]
+}
+
+/** Fetch one booth including PIN for entry verification (anon RLS). */
+export async function fetchBoothPosEntry(boothId: string): Promise<PosBoothEntry | null> {
+  const { data, error } = await supabase
+    .from('booths')
+    .select('id, name, location, pin')
+    .eq('id', boothId)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  const raw = (data.pin as string | null | undefined)?.trim() ?? ''
+  const pin = /^[0-9]{4,6}$/.test(raw) ? raw : null
+  return {
+    id: data.id as string,
+    name: data.name as string,
+    location: (data.location as string | null) ?? null,
+    pin,
+  }
 }

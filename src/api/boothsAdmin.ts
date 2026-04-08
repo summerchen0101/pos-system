@@ -9,6 +9,8 @@ export type AdminBooth = {
   start_date: string | null
   end_date: string | null
   warehouse_id: string | null
+  /** Whether a non-empty POS entry PIN is configured (value not exposed). */
+  hasPin: boolean
 }
 
 type BoothRow = {
@@ -18,9 +20,10 @@ type BoothRow = {
   start_date: string | null
   end_date: string | null
   warehouse_id: string | null
+  pin: string | null
 }
 
-const BOOTH_ADMIN_SELECT = 'id, name, location, start_date, end_date, warehouse_id'
+const BOOTH_ADMIN_SELECT = 'id, name, location, start_date, end_date, warehouse_id, pin'
 
 export async function listBoothsAdmin(): Promise<AdminBooth[]> {
   const { data, error } = await supabase.from('booths').select(BOOTH_ADMIN_SELECT).order('name')
@@ -29,6 +32,7 @@ export async function listBoothsAdmin(): Promise<AdminBooth[]> {
 }
 
 function mapBoothRow(row: BoothRow): AdminBooth {
+  const p = row.pin?.trim() ?? ''
   return {
     id: row.id,
     name: row.name,
@@ -36,7 +40,17 @@ function mapBoothRow(row: BoothRow): AdminBooth {
     start_date: row.start_date ?? null,
     end_date: row.end_date ?? null,
     warehouse_id: row.warehouse_id ?? null,
+    hasPin: p.length >= 4,
   }
+}
+
+function normalizeBoothPin(raw: string | null | undefined): string | null {
+  const t = raw?.trim() ?? ''
+  if (!t) return null
+  if (!/^[0-9]{4,6}$/.test(t)) {
+    throw new Error("INVALID_BOOTH_PIN");
+  }
+  return t
 }
 
 async function seedInventoryRows(warehouseId: string): Promise<void> {
@@ -82,10 +96,13 @@ export type BoothCreateInput = {
   startDate?: string | null
   endDate?: string | null
   warehouseId?: string | null
+  /** 4–6 digits, or null/omit for no PIN. */
+  pin?: string | null
 }
 
 export async function createBooth(input: BoothCreateInput): Promise<AdminBooth> {
   const whId = input.warehouseId?.trim() ? input.warehouseId.trim() : null
+  const pin = normalizeBoothPin(input.pin ?? null)
   const { data, error } = await supabase
     .from('booths')
     .insert({
@@ -94,6 +111,7 @@ export async function createBooth(input: BoothCreateInput): Promise<AdminBooth> 
       start_date: input.startDate?.trim() ? input.startDate.trim() : null,
       end_date: input.endDate?.trim() ? input.endDate.trim() : null,
       warehouse_id: whId,
+      pin,
     })
     .select(BOOTH_ADMIN_SELECT)
     .single()
@@ -127,6 +145,8 @@ export async function updateBooth(
     startDate?: string | null
     endDate?: string | null
     warehouseId?: string | null
+    /** Set to new 4–6 digit string, `null` to clear, omit to leave unchanged. */
+    pin?: string | null
   },
 ): Promise<AdminBooth> {
   const row: Record<string, unknown> = {}
@@ -142,6 +162,9 @@ export async function updateBooth(
   }
   if (patch.warehouseId !== undefined) {
     row.warehouse_id = patch.warehouseId
+  }
+  if (patch.pin !== undefined) {
+    row.pin = patch.pin === null ? null : normalizeBoothPin(patch.pin)
   }
   if (Object.keys(row).length === 0) {
     const { data, error } = await supabase.from('booths').select(BOOTH_ADMIN_SELECT).eq('id', id).single()

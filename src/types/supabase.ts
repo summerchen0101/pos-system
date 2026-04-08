@@ -44,6 +44,7 @@ export type BoothRow = {
   start_date: string | null
   end_date: string | null
   warehouse_id: string | null
+  pin: string | null
 }
 
 export type BoothHiddenCategoryRow = {
@@ -278,7 +279,7 @@ export type Database = {
       }
       booths: {
         Row: BoothRow
-        Insert: Omit<BoothRow, 'id'> & { id?: string }
+        Insert: Omit<BoothRow, 'id' | 'pin'> & { id?: string; pin?: string | null }
         Update: Partial<BoothRow>
         Relationships: []
       }

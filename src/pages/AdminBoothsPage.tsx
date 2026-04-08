@@ -44,6 +44,8 @@ type FormValues = {
   start_date?: Dayjs | null;
   end_date?: Dayjs | null;
   warehouse_id?: string | null;
+  pin_new?: string;
+  remove_pin?: boolean;
 };
 
 type CopyFormValues = {
@@ -80,6 +82,7 @@ export function AdminBoothsPage() {
   const [copySource, setCopySource] = useState<AdminBooth | null>(null);
   const [copySaving, setCopySaving] = useState(false);
   const [modalTab, setModalTab] = useState<string>("basic");
+  const [editingHadPin, setEditingHadPin] = useState(false);
   const [catalogCategories, setCatalogCategories] = useState<Category[]>([]);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [visibilityLoading, setVisibilityLoading] = useState(false);
@@ -123,6 +126,7 @@ export function AdminBoothsPage() {
 
   const openCreate = () => {
     setEditingId(null);
+    setEditingHadPin(false);
     setModalTab("basic");
     setHiddenCategoryIds([]);
     setHiddenProductIds([]);
@@ -135,6 +139,8 @@ export function AdminBoothsPage() {
       start_date: undefined,
       end_date: undefined,
       warehouse_id: undefined,
+      pin_new: "",
+      remove_pin: false,
     });
     setModalOpen(true);
   };
@@ -160,6 +166,7 @@ export function AdminBoothsPage() {
 
   const openEdit = async (row: AdminBooth) => {
     setEditingId(row.id);
+    setEditingHadPin(row.hasPin);
     setModalTab("basic");
     setHiddenCategoryIds([]);
     setHiddenProductIds([]);
@@ -170,6 +177,8 @@ export function AdminBoothsPage() {
       start_date: row.start_date ? dayjs(row.start_date) : undefined,
       end_date: row.end_date ? dayjs(row.end_date) : undefined,
       warehouse_id: row.warehouse_id ?? undefined,
+      pin_new: "",
+      remove_pin: false,
     });
     setModalOpen(true);
     setVisibilityLoading(true);
@@ -202,6 +211,7 @@ export function AdminBoothsPage() {
   const closeModal = () => {
     setModalOpen(false);
     setEditingId(null);
+    setEditingHadPin(false);
     setModalTab("basic");
     setHiddenCategoryIds([]);
     setHiddenProductIds([]);
@@ -265,13 +275,19 @@ export function AdminBoothsPage() {
       const startDate = dateToIso(v.start_date ?? null);
       const endDate = dateToIso(v.end_date ?? null);
       if (editingId) {
-        await updateBooth(editingId, {
+        const patch: Parameters<typeof updateBooth>[1] = {
           name: v.name,
           location: v.location?.trim() ? v.location.trim() : null,
           startDate,
           endDate,
           warehouseId: v.warehouse_id ?? null,
-        });
+        };
+        if (v.remove_pin) {
+          patch.pin = null;
+        } else if (v.pin_new?.trim()) {
+          patch.pin = v.pin_new.trim();
+        }
+        await updateBooth(editingId, patch);
         try {
           await replaceBoothVisibilityAdmin(editingId, hiddenCategoryIds, cleanedHiddenProductIds);
         } catch (ve) {
@@ -286,6 +302,7 @@ export function AdminBoothsPage() {
           startDate,
           endDate,
           warehouseId: v.warehouse_id ?? null,
+          pin: v.pin_new?.trim() ? v.pin_new.trim() : null,
         });
         message.success(b.created);
       }
@@ -293,6 +310,10 @@ export function AdminBoothsPage() {
       await load();
     } catch (e) {
       if (e && typeof e === "object" && "errorFields" in e) return;
+      if (e instanceof Error && e.message === "INVALID_BOOTH_PIN") {
+        message.error(b.pinFormatError);
+        return;
+      }
       message.error(e instanceof Error ? e.message : b.saveError);
     } finally {
       setSaving(false);
@@ -349,6 +370,13 @@ export function AdminBoothsPage() {
 
   const columns: ColumnsType<AdminBooth> = [
     { title: b.colName, dataIndex: "name", key: "name" },
+    {
+      title: b.colPin,
+      key: "pin",
+      width: 100,
+      render: (_, row) =>
+        row.hasPin ? <Tag color="blue">{b.pinTagOn}</Tag> : <Tag>{b.pinTagOff}</Tag>,
+    },
     {
       title: b.colWarehouse,
       key: "wh",
@@ -453,6 +481,42 @@ export function AdminBoothsPage() {
                     rules={[{ validator: dateOrderValidator }]}>
                     <DatePicker style={{ width: "100%" }} allowClear />
                   </Form.Item>
+                  <Form.Item
+                    noStyle
+                    shouldUpdate={(prev, cur) => prev.remove_pin !== cur.remove_pin}>
+                    {() => (
+                      <Form.Item
+                        name="pin_new"
+                        label={b.labelPin}
+                        extra={<Text type="secondary">{b.pinExtra}</Text>}
+                        dependencies={editingId ? ["remove_pin"] : []}
+                        rules={[
+                          {
+                            validator: async (_, val) => {
+                              if (editingId && form.getFieldValue("remove_pin")) return;
+                              const s = typeof val === "string" ? val.trim() : "";
+                              if (!s) return;
+                              if (!/^[0-9]{4,6}$/.test(s)) {
+                                throw new Error(b.pinFormatError);
+                              }
+                            },
+                          },
+                        ]}>
+                        <Input.Password
+                          placeholder={editingId ? b.pinPlaceholderEdit : b.pinPlaceholderCreate}
+                          maxLength={6}
+                          inputMode="numeric"
+                          autoComplete="new-password"
+                          disabled={Boolean(editingId && form.getFieldValue("remove_pin"))}
+                        />
+                      </Form.Item>
+                    )}
+                  </Form.Item>
+                  {editingId && editingHadPin ? (
+                    <Form.Item name="remove_pin" valuePropName="checked">
+                      <Checkbox>{b.pinRemove}</Checkbox>
+                    </Form.Item>
+                  ) : null}
                   <Form.Item
                     name="warehouse_id"
                     label={b.labelWarehouse}

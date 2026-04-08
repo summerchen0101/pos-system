@@ -1018,6 +1018,143 @@ button.pos-qty__value--tap:hover {
   font-variant-numeric: tabular-nums;
 }
 
+/* 攤位 PIN 全螢幕驗證 */
+.pos-booth-pin {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: var(--pos-page-bg, #0f1419);
+  box-sizing: border-box;
+}
+
+.pos-booth-pin__card {
+  width: 100%;
+  max-width: 340px;
+  text-align: center;
+}
+
+.pos-booth-pin__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--pos-text-strong);
+  line-height: 1.35;
+}
+
+.pos-booth-pin__hint {
+  margin: 0 0 1.25rem;
+  font-size: 0.95rem;
+  color: var(--pos-text-muted);
+}
+
+.pos-booth-pin__dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.65rem;
+  margin-bottom: 1.5rem;
+  min-height: 1.1rem;
+}
+
+.pos-booth-pin__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--pos-border);
+  background: transparent;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.pos-booth-pin__dot.is-filled {
+  background: var(--pos-accent);
+  border-color: var(--pos-accent);
+}
+
+.pos-booth-pin__dot.is-error {
+  border-color: var(--pos-danger);
+  background: var(--pos-danger-soft);
+}
+
+.pos-booth-pin__keys {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.pos-booth-pin__row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.55rem;
+}
+
+.pos-booth-pin__key {
+  min-height: 52px;
+  border-radius: 12px;
+  border: 1px solid var(--pos-border);
+  background: var(--pos-surface);
+  color: var(--pos-text-strong);
+  font-size: 1.2rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+  touch-action: manipulation;
+}
+
+.pos-booth-pin__key:hover {
+  border-color: var(--pos-accent);
+  background: var(--pos-accent-soft);
+  color: var(--pos-accent);
+}
+
+.pos-booth-pin__key:active {
+  transform: scale(0.97);
+}
+
+.pos-booth-pin__key--muted {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--pos-text-muted);
+}
+
+.pos-booth-pin__key--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.pos-booth-pin--shake {
+  animation: pos-booth-pin-shake 0.42s ease;
+}
+
+@keyframes pos-booth-pin-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-10px);
+  }
+  40% {
+    transform: translateX(8px);
+  }
+  60% {
+    transform: translateX(-6px);
+  }
+  80% {
+    transform: translateX(4px);
+  }
+}
+
 /* 手機：直向堆疊（< 600px）；平板／桌面維持左右分欄 */
 @media (max-width: 599px) {
   .pos-layout {
