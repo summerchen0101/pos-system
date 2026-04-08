@@ -1,4 +1,4 @@
-import { App, Button, Form, Input, Modal, Space } from "antd";
+import { App, Button, Form, Input, Modal } from "antd";
 import dayjs from "dayjs";
 import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
@@ -215,14 +215,12 @@ export function PosTabletClockButtons({
 
   return (
     <>
-      <Space wrap size={8}>
-        <Button type="default" size="small" onClick={() => setInOpen(true)}>
-          {p.clockInBtn}
-        </Button>
-        <Button type="default" size="small" onClick={() => setOutOpen(true)}>
-          {p.clockOutBtn}
-        </Button>
-      </Space>
+      <Button type="default" size="small" onClick={() => setInOpen(true)}>
+        {p.clockInBtn}
+      </Button>
+      <Button type="default" size="small" onClick={() => setOutOpen(true)}>
+        {p.clockOutBtn}
+      </Button>
 
       <Modal
         title={p.tabletClockInModalTitle}

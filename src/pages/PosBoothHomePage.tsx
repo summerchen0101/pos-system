@@ -1,7 +1,7 @@
 import { Button, Modal, Spin, Table, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useMemo, useState } from "react";
-import { Link, useNavigate, useOutletContext } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import { taipeiTodayIso } from "../api/clockLogsReport";
 import {
   listPosPublicShiftsForDay,
@@ -74,10 +74,6 @@ export function PosBoothHomePage() {
             {t.todayShifts}
           </button>
         </div>
-
-        <p className="pos-brand-back-link">
-          <Link to="/">{t.back}</Link>
-        </p>
       </div>
 
       <Modal

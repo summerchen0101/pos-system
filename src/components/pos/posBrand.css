@@ -197,14 +197,19 @@
 .pos-brand-actions {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 14px;
   width: 100%;
-  max-width: 280px;
+  max-width: 240px;
   margin-top: 0.25rem;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
 }
 
 .pos-brand-btn-primary {
-  width: 240px;
+  width: 100%;
+  box-sizing: border-box;
   height: 56px;
   border-radius: 28px;
   border: none;
@@ -213,6 +218,10 @@
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   transition:
     filter 0.2s ease,
     transform 0.15s ease;
@@ -227,7 +236,8 @@
 }
 
 .pos-brand-btn-outline {
-  width: 240px;
+  width: 100%;
+  box-sizing: border-box;
   height: 56px;
   border-radius: 28px;
   border: 1px solid var(--pos-brand-accent);
@@ -236,6 +246,10 @@
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   transition:
     background 0.2s ease,
     transform 0.15s ease;
@@ -247,20 +261,6 @@
 
 .pos-brand-btn-outline:active {
   transform: scale(0.98);
-}
-
-.pos-brand-back-link {
-  margin-top: 2rem;
-  font-size: 0.875rem;
-}
-
-.pos-brand-back-link a {
-  color: var(--pos-brand-muted);
-  text-decoration: none;
-}
-
-.pos-brand-back-link a:hover {
-  color: var(--pos-brand-accent);
 }
 
 /* Invalid booth (inside gate) */

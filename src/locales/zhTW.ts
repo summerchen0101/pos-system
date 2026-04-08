@@ -155,7 +155,6 @@ export const zhtw = {
     boothHome: {
       enterCashier: "進入收銀",
       todayShifts: "今日班表",
-      back: "← 返回",
       todayShiftsTitle: "今日班表",
       shiftColName: "姓名",
       shiftColKind: "班別",
@@ -197,6 +196,9 @@ export const zhtw = {
       deleteBoothMismatch: "攤位不符，無法刪除",
     },
     boothPickerBack: "返回攤位選擇",
+    /** Cashier header — back to this booth’s landing (/pos/:boothId), not the global list. */
+    cashierBoothHomeLabel: "首頁",
+    cashierBoothHomeAria: "返回此店首頁",
     currentBooth: (label: string) => `目前攤位：${label}`,
     activeStaffPrefix: "在班人員：",
     activeStaffTotal: (n: number) => `共 ${n} 人`,

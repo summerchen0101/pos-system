@@ -1,7 +1,7 @@
 import { Button, Space, Typography } from "antd";
-import { Maximize, Minimize } from "lucide-react";
+import { Home, Maximize, Minimize } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useOutletContext, useParams } from "react-router-dom";
+import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { fetchActiveStaffNamesForBooth, formatPosActiveStaffLine } from "../../api/posActiveStaff";
 import { fetchProductsForPosBooth } from "../../api/fetchProducts";
 import { fetchPromotions } from "../../api/fetchPromotions";
@@ -95,6 +95,7 @@ export function PosLayout() {
 
 function PosLayoutInner() {
   const { boothId } = useParams<{ boothId: string }>();
+  const navigate = useNavigate();
   const { entry } = useOutletContext<PosBoothOutletContext>();
   const addProduct = useCartStore((s) => s.addProduct);
   const addBundleLines = useCartStore((s) => s.addBundleLines);
@@ -275,31 +276,38 @@ function PosLayoutInner() {
         <header className="pos-main__header">
           <div className="pos-main__title-row">
             <h1>{zhtw.pos.registerTitle}</h1>
-            <Space wrap size={12} align="center">
-              <Button
-                type="text"
-                className="pos-fullscreen-toggle"
-                aria-pressed={fullscreenActive}
-                aria-label={
-                  fullscreenActive
-                    ? zhtw.pos.fullscreenExitAria
-                    : zhtw.pos.fullscreenEnterAria
-                }
-                icon={
-                  fullscreenActive ? (
-                    <Minimize size={20} aria-hidden />
-                  ) : (
-                    <Maximize size={20} aria-hidden />
-                  )
-                }
-                onClick={() => toggleDocumentFullscreen()}
-              />
-              {boothId ? (
-                <div className="pos-header-clock">
-                  <PosTabletClockButtons boothId={boothId} onClockRecordsChanged={refreshActiveStaff} />
-                </div>
-              ) : null}
-            </Space>
+            {boothId ? (
+              <Space wrap size={8} align="center" className="pos-header-actions">
+                <Button
+                  type="text"
+                  size="small"
+                  className="pos-fullscreen-toggle"
+                  aria-pressed={fullscreenActive}
+                  aria-label={
+                    fullscreenActive
+                      ? zhtw.pos.fullscreenExitAria
+                      : zhtw.pos.fullscreenEnterAria
+                  }
+                  icon={
+                    fullscreenActive ? (
+                      <Minimize size={20} aria-hidden />
+                    ) : (
+                      <Maximize size={20} aria-hidden />
+                    )
+                  }
+                  onClick={() => toggleDocumentFullscreen()}
+                />
+                <PosTabletClockButtons boothId={boothId} onClockRecordsChanged={refreshActiveStaff} />
+                <Button
+                  type="default"
+                  size="small"
+                  icon={<Home size={16} strokeWidth={2} aria-hidden />}
+                  aria-label={zhtw.pos.cashierBoothHomeAria}
+                  onClick={() => navigate(`/pos/${boothId}`)}>
+                  {zhtw.pos.cashierBoothHomeLabel}
+                </Button>
+              </Space>
+            ) : null}
           </div>
           {boothLabel ? (
             <p className="pos-main__hint" style={{ marginBottom: 4 }}>

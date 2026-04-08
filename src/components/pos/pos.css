@@ -109,13 +109,13 @@
 
 .pos-main__title-row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
 }
 
-.pos-header-clock .ant-btn {
+.pos-header-actions .ant-btn {
   touch-action: manipulation;
 }
 
