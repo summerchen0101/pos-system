@@ -6,6 +6,7 @@ import {
   GiftOutlined,
   HistoryOutlined,
   InboxOutlined,
+  PieChartOutlined,
   ScheduleOutlined,
   ShopOutlined,
   ShoppingOutlined,
@@ -40,6 +41,7 @@ const { Text } = Typography;
 const ADMIN_MENU_KEYS = new Set([
   "/admin/dashboard",
   "/admin/orders",
+  "/admin/analytics",
   "/admin/clock-logs",
   "/admin/categories",
   "/admin/products",
@@ -57,6 +59,7 @@ const ADMIN_MENU_KEYS = new Set([
 const MANAGER_MENU_KEYS = new Set([
   "/admin/dashboard",
   "/admin/orders",
+  "/admin/analytics",
   "/admin/clock-logs",
   "/admin/inventory/stocktakes",
   "/admin/shifts",
@@ -126,6 +129,11 @@ export function AdminLayout() {
         key: "/admin/dashboard",
         icon: <DashboardOutlined />,
         label: zhtw.admin.layout.menuDashboard,
+      },
+      {
+        key: "/admin/analytics",
+        icon: <PieChartOutlined />,
+        label: zhtw.admin.layout.menuAnalytics,
       },
       {
         key: "/admin/orders",

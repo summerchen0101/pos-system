@@ -1176,3 +1176,45 @@ button.pos-qty__value--tap:hover {
     min-height: 0;
   }
 }
+
+.pos-buyer-profile__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.pos-buyer-profile__chip {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--pos-border);
+  background: var(--pos-surface);
+  color: var(--pos-text-muted);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.pos-buyer-profile__chip:hover {
+  border-color: var(--pos-accent);
+  color: var(--pos-accent);
+}
+
+.pos-buyer-profile__chip.is-active {
+  border-color: var(--pos-accent);
+  background: var(--pos-accent-soft);
+  color: var(--pos-accent);
+}
+
+.pos-buyer-profile__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}

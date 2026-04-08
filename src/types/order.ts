@@ -12,7 +12,14 @@ export type Order = {
   scheduledStaffNames: string[]
   /** Snapshot at checkout: names clocked in (incl. ad-hoc). */
   clockedInStaffNames: string[]
+  buyerGender: BuyerGender | null
+  buyerAgeGroup: BuyerAgeGroup | null
+  buyerMotivation: BuyerMotivation | null
 }
+
+export type BuyerGender = "male" | "female" | "other"
+export type BuyerAgeGroup = "under_18" | "18_24" | "25_34" | "35_44" | "45_54" | "55_above"
+export type BuyerMotivation = "self_use" | "gift" | "trial" | "repurchase" | "other"
 
 /** Stored with checkout for admin history (JSON on `orders.promotion_snapshot`). */
 export type OrderSnapshotPromotionEntry = {

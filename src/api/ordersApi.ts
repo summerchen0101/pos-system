@@ -1,5 +1,8 @@
 import { supabase } from '../supabase'
 import type {
+  BuyerAgeGroup,
+  BuyerGender,
+  BuyerMotivation,
   Order,
   OrderDetail,
   OrderItem,
@@ -32,6 +35,9 @@ function mapOrderRow(row: OrderRow & { booths?: BoothNameNested }): Order {
     boothName: unwrapBoothName(row.booths),
     scheduledStaffNames: normalizeNameArray(row.scheduled_staff),
     clockedInStaffNames: normalizeNameArray(row.clocked_in_staff),
+    buyerGender: (row.buyer_gender as BuyerGender | null) ?? null,
+    buyerAgeGroup: (row.buyer_age_group as BuyerAgeGroup | null) ?? null,
+    buyerMotivation: (row.buyer_motivation as BuyerMotivation | null) ?? null,
   }
 }
 
@@ -110,6 +116,12 @@ export type OrderInsert = {
   clockedInStaff: string[]
 }
 
+export type BuyerProfilePatch = {
+  buyerGender?: BuyerGender | null
+  buyerAgeGroup?: BuyerAgeGroup | null
+  buyerMotivation?: BuyerMotivation | null
+}
+
 /** Payload for `checkout_order_deduct_stock` line objects (DB snake_case). */
 export type CheckoutLinePayload = {
   /** Omit or null when `gift_id` is set (threshold gift). */
@@ -164,6 +176,9 @@ export async function fetchOrdersForDateRange(
       final_amount,
       booth_id,
       user_id,
+      buyer_gender,
+      buyer_age_group,
+      buyer_motivation,
       scheduled_staff,
       clocked_in_staff,
       booths ( name ),
@@ -191,6 +206,9 @@ export async function fetchOrdersForDateRange(
     final_amount: number
     booth_id: string
     user_id: string | null
+    buyer_gender: BuyerGender | null
+    buyer_age_group: BuyerAgeGroup | null
+    buyer_motivation: BuyerMotivation | null
     scheduled_staff: string[] | null
     clocked_in_staff: string[] | null
     booths: BoothNameNested
@@ -207,6 +225,9 @@ export async function fetchOrdersForDateRange(
       promotion_snapshot: null,
       booth_id: row.booth_id,
       user_id: row.user_id,
+      buyer_gender: row.buyer_gender,
+      buyer_age_group: row.buyer_age_group,
+      buyer_motivation: row.buyer_motivation,
       scheduled_staff: row.scheduled_staff,
       clocked_in_staff: row.clocked_in_staff,
       booths: row.booths,
@@ -229,6 +250,9 @@ export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | n
       promotion_snapshot,
       booth_id,
       user_id,
+      buyer_gender,
+      buyer_age_group,
+      buyer_motivation,
       scheduled_staff,
       clocked_in_staff,
       booths ( name ),
@@ -277,10 +301,10 @@ export async function checkoutOrder(
   input: OrderInsert,
   lines: CheckoutLinePayload[],
   promotionSnapshot: OrderPromotionSnapshot | null,
-): Promise<void> {
+): Promise<string> {
   if (lines.length === 0) throw new Error('empty_cart')
   const p_lines = lines.map(lineToRpcJson)
-  const { error } = await supabase.rpc('checkout_order_deduct_stock', {
+  const { data, error } = await supabase.rpc('checkout_order_deduct_stock', {
     p_total_amount: input.totalAmountCents,
     p_discount_amount: input.discountAmountCents,
     p_final_amount: input.finalAmountCents,
@@ -290,6 +314,20 @@ export async function checkoutOrder(
     p_user_id: input.cashierUserId ?? null,
     p_scheduled_staff: input.scheduledStaff,
     p_clocked_in_staff: input.clockedInStaff,
+  })
+  if (error) throw error
+  return String(data)
+}
+
+export async function updateOrderBuyerProfile(
+  orderId: string,
+  patch: BuyerProfilePatch,
+): Promise<void> {
+  const { error } = await supabase.rpc('pos_update_order_buyer_profile', {
+    p_order_id: orderId,
+    p_buyer_gender: patch.buyerGender ?? null,
+    p_buyer_age_group: patch.buyerAgeGroup ?? null,
+    p_buyer_motivation: patch.buyerMotivation ?? null,
   })
   if (error) throw error
 }

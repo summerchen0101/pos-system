@@ -183,6 +183,9 @@ export type OrderRow = {
   scheduled_staff: string[] | null
   /** Snapshot at checkout: clocked-in staff display names. */
   clocked_in_staff: string[] | null
+  buyer_gender: 'male' | 'female' | 'other' | null
+  buyer_age_group: 'under_18' | '18_24' | '25_34' | '35_44' | '45_54' | '55_above' | null
+  buyer_motivation: 'self_use' | 'gift' | 'trial' | 'repurchase' | 'other' | null
 }
 
 export type OrderItemRow = {
@@ -615,6 +618,15 @@ export type Database = {
           p_clocked_in_staff?: string[]
         }
         Returns: string
+      }
+      pos_update_order_buyer_profile: {
+        Args: {
+          p_order_id: string
+          p_buyer_gender?: string | null
+          p_buyer_age_group?: string | null
+          p_buyer_motivation?: string | null
+        }
+        Returns: undefined
       }
       pos_list_scheduled_staff_names: {
         Args: { p_booth_id: string }

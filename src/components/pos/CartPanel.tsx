@@ -2,7 +2,12 @@ import { App, Button, Space, Tag } from 'antd'
 import { useMemo, useState } from 'react'
 import { usePosCashier } from '../../context/PosCashierContext'
 import { fetchCheckoutStaffSnapshots } from '../../api/posCheckoutStaff'
-import { checkoutOrder, type CheckoutLinePayload } from '../../api/ordersApi'
+import {
+  checkoutOrder,
+  type BuyerProfilePatch,
+  type CheckoutLinePayload,
+  updateOrderBuyerProfile,
+} from '../../api/ordersApi'
 import { useCartPromotionTotals } from '../../hooks/useCartPromotionTotals'
 import { zhtw } from '../../locales/zhTW'
 import { formatMoney } from '../../lib/money'
@@ -22,6 +27,7 @@ import { CheckoutButton } from './CheckoutButton'
 import { ManualPromotionApplyModal } from './ManualPromotionApplyModal'
 import { OrderSummary } from './OrderSummary'
 import { PosTodayOrdersDrawer } from './PosTodayOrdersDrawer'
+import { BuyerProfileModal } from './BuyerProfileModal'
 
 type Props = {
   boothId: string
@@ -45,6 +51,9 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
 
   const [manualModalOpen, setManualModalOpen] = useState(false)
   const [todayOrdersOpen, setTodayOrdersOpen] = useState(false)
+  const [buyerProfileOpen, setBuyerProfileOpen] = useState(false)
+  const [buyerProfileLoading, setBuyerProfileLoading] = useState(false)
+  const [lastOrderId, setLastOrderId] = useState<string | null>(null)
 
   const totals = useCartPromotionTotals(promotions)
   const isEmpty = lines.length === 0
@@ -165,7 +174,7 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
           }
         })
         const { scheduledStaff, clockedInStaff } = await fetchCheckoutStaffSnapshots(boothId)
-        await checkoutOrder(
+        const orderId = await checkoutOrder(
           {
             totalAmountCents: totals.subtotalCents,
             discountAmountCents: totals.discountCents,
@@ -188,6 +197,7 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
             promotions: buildFreeSelectionPromotionsSnapshot(lines, promotions, manualPromotionIds),
           },
         )
+        setLastOrderId(orderId)
       } catch (e) {
         console.error('Checkout failed', e)
         const raw = e && typeof e === 'object' && 'message' in e ? String((e as { message: string }).message) : ''
@@ -202,8 +212,36 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
       }
       message.success(zhtw.pos.chargedThanks(formatMoney(totals.finalCents)))
       clearCart()
+      setBuyerProfileOpen(true)
     })()
   }
+  const handleSkipBuyerProfile = () => {
+    setBuyerProfileOpen(false)
+    setLastOrderId(null)
+  }
+
+  const handleSubmitBuyerProfile = (patch: BuyerProfilePatch) => {
+    if (!lastOrderId) {
+      handleSkipBuyerProfile()
+      return
+    }
+    setBuyerProfileLoading(true)
+    void (async () => {
+      try {
+        await updateOrderBuyerProfile(lastOrderId, patch)
+        message.success(zhtw.pos.buyerProfile.recorded)
+      } catch {
+        message.error(zhtw.pos.buyerProfile.recordFailed)
+      } finally {
+        setBuyerProfileLoading(false)
+        setBuyerProfileOpen(false)
+        setLastOrderId(null)
+      }
+    })()
+  }
+
+  const isCheckoutBusy = buyerProfileOpen || buyerProfileLoading
+
 
   const handleClearCart = () => {
     clearCart()
@@ -309,12 +347,12 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
           <button
             type="button"
             className="pos-cart-clear"
-            disabled={isEmpty}
+            disabled={isEmpty || isCheckoutBusy}
             onClick={handleClearCart}
           >
             {zhtw.pos.cartClear}
           </button>
-          <CheckoutButton totals={totals} disabled={!canCheckout} onCheckout={handleCheckout} />
+          <CheckoutButton totals={totals} disabled={!canCheckout || isCheckoutBusy} onCheckout={handleCheckout} />
         </div>
       </div>
 
@@ -332,6 +370,12 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
         promotions={promotions}
         products={products}
         onApplyFreeSelection={(promotionId, cartLines) => applyFreeSelectionLines(promotionId, cartLines)}
+      />
+      <BuyerProfileModal
+        open={buyerProfileOpen}
+        loading={buyerProfileLoading}
+        onSkip={handleSkipBuyerProfile}
+        onSubmit={handleSubmitBuyerProfile}
       />
     </aside>
   )

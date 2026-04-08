@@ -8,6 +8,7 @@ import { PosLayout } from "./components/pos/PosLayout";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { AdminBoothsPage } from "./pages/AdminBoothsPage";
 import { AdminCategoriesPage } from "./pages/AdminCategoriesPage";
+import { AdminBuyerAnalyticsPage } from "./pages/AdminBuyerAnalyticsPage";
 import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 import { AdminInventoryLogsPage } from "./pages/AdminInventoryLogsPage";
 import { AdminInventoryOverviewPage } from "./pages/AdminInventoryOverviewPage";
@@ -56,6 +57,7 @@ export default function App() {
               }>
               <Route index element={<AdminIndexRedirect />} />
               <Route path="dashboard" element={<AdminDashboardPage />} />
+              <Route path="analytics" element={<AdminBuyerAnalyticsPage />} />
               <Route path="users" element={<AdminUsersPage />} />
               <Route path="booths" element={<AdminBoothsPage />} />
               <Route path="categories" element={<AdminCategoriesPage />} />
