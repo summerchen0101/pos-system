@@ -317,6 +317,11 @@ export const zhtw = {
       pinFormatError: "驗證碼須為 4–6 位數字",
       pinTagOn: "已設定",
       pinTagOff: "未設定",
+      colDirectUrl: "直連網址",
+      directUrlCopied: "網址已複製",
+      directUrlCopyFailed: "無法複製網址",
+      copyDirectUrlAria: "複製直連網址",
+      openDirectUrlAria: "在新分頁開啟 POS",
     },
     inventory: {
       overviewTitle: "庫存總覽",

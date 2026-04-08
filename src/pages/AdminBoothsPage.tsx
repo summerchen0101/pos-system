@@ -1,3 +1,4 @@
+import { CopyOutlined, ExportOutlined } from "@ant-design/icons";
 import {
   App,
   Button,
@@ -31,6 +32,7 @@ import { listCategoriesAdmin } from "../api/categoriesAdmin";
 import { listWarehousesAdmin } from "../api/inventoryAdmin";
 import { listProductsAdmin } from "../api/productsAdmin";
 import { formatBoothActivityRangeLabel } from "../lib/boothActivity";
+import { posBoothDirectUrl } from "../lib/posBoothDirectUrl";
 import { zhtw } from "../locales/zhTW";
 import type { Category, Product } from "../types/pos";
 
@@ -363,26 +365,18 @@ export function AdminBoothsPage() {
     return Promise.resolve();
   };
 
-  const warehouseLabel = (id: string | null): string => {
-    if (!id) return common.dash;
-    return warehouseOptions.find((o) => o.value === id)?.label ?? id;
+  const copyDirectUrl = async (boothId: string) => {
+    const url = posBoothDirectUrl(boothId);
+    try {
+      await navigator.clipboard.writeText(url);
+      message.success(b.directUrlCopied);
+    } catch {
+      message.error(b.directUrlCopyFailed);
+    }
   };
 
   const columns: ColumnsType<AdminBooth> = [
     { title: b.colName, dataIndex: "name", key: "name" },
-    {
-      title: b.colPin,
-      key: "pin",
-      width: 100,
-      render: (_, row) =>
-        row.hasPin ? <Tag color="blue">{b.pinTagOn}</Tag> : <Tag>{b.pinTagOff}</Tag>,
-    },
-    {
-      title: b.colWarehouse,
-      key: "wh",
-      width: 160,
-      render: (_, row) => warehouseLabel(row.warehouse_id),
-    },
     {
       title: b.colLocation,
       dataIndex: "location",
@@ -394,6 +388,37 @@ export function AdminBoothsPage() {
       key: "period",
       width: 200,
       render: (_, row) => activityPeriodCell(row),
+    },
+    {
+      title: b.colDirectUrl,
+      key: "direct",
+      width: 320,
+      render: (_, row) => {
+        const url = posBoothDirectUrl(row.id);
+        return (
+          <Space size={4} align="center" style={{ maxWidth: "100%" }} wrap={false}>
+            <Typography.Text
+              ellipsis={{ tooltip: url }}
+              style={{ maxWidth: 200, flex: "1 1 auto", marginBottom: 0 }}>
+              {url}
+            </Typography.Text>
+            <Button
+              type="text"
+              size="small"
+              icon={<CopyOutlined />}
+              aria-label={b.copyDirectUrlAria}
+              onClick={() => void copyDirectUrl(row.id)}
+            />
+            <Button
+              type="text"
+              size="small"
+              icon={<ExportOutlined />}
+              aria-label={b.openDirectUrlAria}
+              onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+            />
+          </Space>
+        );
+      },
     },
     {
       title: b.colActions,
