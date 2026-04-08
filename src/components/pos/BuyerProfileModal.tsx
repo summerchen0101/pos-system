@@ -1,5 +1,5 @@
 import { Button, Modal, Space, Typography } from 'antd'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { BuyerAgeGroup, BuyerGender, BuyerMotivation } from '../../types/order'
 import { zhtw } from '../../locales/zhTW'
 
@@ -9,6 +9,16 @@ const { Text } = Typography
 type Props = {
   open: boolean
   loading: boolean
+  initialValues?: {
+    buyerGender: BuyerGender | null
+    buyerAgeGroup: BuyerAgeGroup | null
+    buyerMotivation: BuyerMotivation | null
+  }
+  defaultValues?: {
+    buyerGender: BuyerGender
+    buyerAgeGroup: BuyerAgeGroup
+    buyerMotivation: BuyerMotivation
+  }
   onSkip: () => void
   onSubmit: (patch: {
     buyerGender: BuyerGender | null
@@ -47,10 +57,24 @@ function OptionButtons<T extends string>({
   )
 }
 
-export function BuyerProfileModal({ open, loading, onSkip, onSubmit }: Props) {
+export function BuyerProfileModal({
+  open,
+  loading,
+  initialValues,
+  defaultValues,
+  onSkip,
+  onSubmit,
+}: Props) {
   const [buyerGender, setBuyerGender] = useState<BuyerGender | null>(null)
   const [buyerAgeGroup, setBuyerAgeGroup] = useState<BuyerAgeGroup | null>(null)
   const [buyerMotivation, setBuyerMotivation] = useState<BuyerMotivation | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    setBuyerGender(initialValues?.buyerGender ?? defaultValues?.buyerGender ?? null)
+    setBuyerAgeGroup(initialValues?.buyerAgeGroup ?? defaultValues?.buyerAgeGroup ?? null)
+    setBuyerMotivation(initialValues?.buyerMotivation ?? defaultValues?.buyerMotivation ?? null)
+  }, [open, initialValues, defaultValues])
 
   const genderOptions = useMemo<Option<BuyerGender>[]>(
     () => [

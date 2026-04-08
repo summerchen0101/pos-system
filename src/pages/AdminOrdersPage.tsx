@@ -21,7 +21,14 @@ import { OrderGiftTag } from "../components/OrderGiftTag";
 import { useAuth } from "../auth/AuthContext";
 import { zhtw } from "../locales/zhTW";
 import { formatMoney } from "../lib/money";
-import type { OrderDetail, OrderItem, OrderListEntry } from "../types/order";
+import type {
+  BuyerAgeGroup,
+  BuyerGender,
+  BuyerMotivation,
+  OrderDetail,
+  OrderItem,
+  OrderListEntry,
+} from "../types/order";
 import { palette } from "../theme/palette";
 
 const { Title, Text } = Typography;
@@ -50,6 +57,32 @@ function lineTags(item: OrderItem) {
   if (item.isGift) return <OrderGiftTag label={o.tagGift} />;
   if (item.isManualFree) return <Tag color="gold">{o.tagManualFree}</Tag>;
   return null;
+}
+
+function buyerGenderLabel(v: BuyerGender | null): string {
+  if (v === "male") return o.buyerGenderMale;
+  if (v === "female") return o.buyerGenderFemale;
+  if (v === "other") return o.buyerGenderOther;
+  return zhtw.common.dash;
+}
+
+function buyerAgeLabel(v: BuyerAgeGroup | null): string {
+  if (v === "under_18") return o.buyerAgeUnder18;
+  if (v === "18_24") return o.buyerAge18to24;
+  if (v === "25_34") return o.buyerAge25to34;
+  if (v === "35_44") return o.buyerAge35to44;
+  if (v === "45_54") return o.buyerAge45to54;
+  if (v === "55_above") return o.buyerAge55Above;
+  return zhtw.common.dash;
+}
+
+function buyerMotivationLabel(v: BuyerMotivation | null): string {
+  if (v === "self_use") return o.buyerMotivationSelfUse;
+  if (v === "gift") return o.buyerMotivationGift;
+  if (v === "trial") return o.buyerMotivationTrial;
+  if (v === "repurchase") return o.buyerMotivationRepurchase;
+  if (v === "other") return o.buyerMotivationOther;
+  return zhtw.common.dash;
 }
 
 export function AdminOrdersPage() {
@@ -178,6 +211,24 @@ export function AdminOrdersPage() {
       render: (cents: number) => formatMoney(cents),
     },
     {
+      title: o.colBuyerProfile,
+      key: "buyerProfile",
+      width: 190,
+      render: (_, row) => {
+        const parts = [
+          row.buyerGender ? buyerGenderLabel(row.buyerGender) : null,
+          row.buyerAgeGroup ? buyerAgeLabel(row.buyerAgeGroup) : null,
+          row.buyerMotivation ? buyerMotivationLabel(row.buyerMotivation) : null,
+        ].filter((x): x is string => Boolean(x));
+        if (parts.length === 0) return <Text type="secondary">{zhtw.common.dash}</Text>;
+        return (
+          <Tag style={{ whiteSpace: "nowrap", marginInlineEnd: 0 }}>
+            {parts.join(" · ")}
+          </Tag>
+        );
+      },
+    },
+    {
       title: o.colPreview,
       dataIndex: "itemsPreview",
       key: "preview",
@@ -258,6 +309,25 @@ export function AdminOrdersPage() {
     detail?.items.filter(
       (i) => i.isManualFree && i.source !== "FREE_SELECTION",
     ) ?? [];
+  const buyerProfileRows: { label: string; value: string }[] = [];
+  if (detail?.buyerGender) {
+    buyerProfileRows.push({
+      label: o.buyerGenderLabel,
+      value: buyerGenderLabel(detail.buyerGender),
+    });
+  }
+  if (detail?.buyerAgeGroup) {
+    buyerProfileRows.push({
+      label: o.buyerAgeLabel,
+      value: buyerAgeLabel(detail.buyerAgeGroup),
+    });
+  }
+  if (detail?.buyerMotivation) {
+    buyerProfileRows.push({
+      label: o.buyerMotivationLabel,
+      value: buyerMotivationLabel(detail.buyerMotivation),
+    });
+  }
 
   return (
     <div className="admin-page">
@@ -355,6 +425,23 @@ export function AdminOrdersPage() {
                 dataSource={detail.items}
                 locale={{ emptyText: o.noItems }}
               />
+            </div>
+
+            <div>
+              <Title level={5} style={{ marginTop: 0 }}>
+                {o.sectionBuyerProfile}
+              </Title>
+              {buyerProfileRows.length === 0 ? (
+                <Text type="secondary">{o.buyerProfileUnfilled}</Text>
+              ) : (
+                <Descriptions size="small" column={1} bordered>
+                  {buyerProfileRows.map((r) => (
+                    <Descriptions.Item key={r.label} label={r.label}>
+                      {r.value}
+                    </Descriptions.Item>
+                  ))}
+                </Descriptions>
+              )}
             </div>
 
             <div>

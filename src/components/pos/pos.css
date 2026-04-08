@@ -1218,3 +1218,110 @@ button.pos-qty__value--tap:hover {
   gap: 8px;
   margin-top: 2px;
 }
+
+.pos-today-orders__profile-summary {
+  border: 1px solid #c8a96e33;
+  background: transparent;
+  color: #c8a96e;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 11px;
+  line-height: 1.25;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    text-decoration-color 0.15s ease;
+}
+
+.pos-today-orders__profile-summary:hover {
+  border-color: #c8a96e;
+  text-decoration: underline;
+  text-decoration-color: #c8a96e;
+}
+
+.pos-today-orders__fill-profile-btn.ant-btn {
+  border-color: #3a3730;
+  color: #7a7770;
+  background: transparent;
+}
+
+.pos-today-orders__fill-profile-btn.ant-btn:hover {
+  border-color: #c8a96e;
+  color: #c8a96e;
+}
+
+.pos-today-orders-table .ant-table-expanded-row > td {
+  padding-inline: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  background: #111110 !important;
+  border-top: 1px solid var(--pos-border);
+  border-bottom: 1px solid var(--pos-border);
+}
+
+.pos-today-orders-table .ant-table-expanded-row-fixed {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.pos-today-orders-table .ant-table-expanded-row .ant-table-wrapper {
+  width: 100%;
+  margin: 0 !important;
+}
+
+.pos-today-orders-table__inner .ant-table,
+.pos-today-orders-table__inner .ant-table-container,
+.pos-today-orders-table__inner .ant-table-content {
+  border-radius: 0 !important;
+}
+
+.pos-today-orders-table__inner .ant-table-content > table {
+  width: 100%;
+  table-layout: fixed;
+  border-radius: 0 !important;
+}
+
+.pos-today-orders-table__inner .ant-table-thead > tr > th {
+  color: #7a7770 !important;
+  font-size: 12px;
+  border-radius: 0 !important;
+}
+
+.pos-today-orders-table__inner .ant-table-thead > tr > th:first-child,
+.pos-today-orders-table__inner .ant-table-tbody > tr > td:first-child {
+  padding-left: 16px !important;
+}
+
+.pos-today-orders-table__inner .ant-table-thead > tr > th {
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+
+.pos-today-orders-table__inner .ant-table-tbody > tr > td {
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+
+.pos-today-orders-table__inner .ant-table-tbody > tr > td {
+  color: #a09890;
+  background: #111110 !important;
+  border-radius: 0 !important;
+}
+
+.pos-today-orders-table__inner .ant-table-container {
+  background: #111110;
+}
+
+.pos-today-orders-table .ant-table-row-expand-icon {
+  color: var(--pos-accent) !important;
+  border-color: var(--pos-accent) !important;
+}
+
+.pos-today-orders-table .ant-table-row-expand-icon::before,
+.pos-today-orders-table .ant-table-row-expand-icon::after {
+  background: var(--pos-accent) !important;
+}

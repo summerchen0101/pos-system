@@ -4,6 +4,7 @@ import dayjs from "dayjs";
 import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 import { useCallback, useEffect, useState } from "react";
+import { updateOrderBuyerProfile } from "../../api/ordersApi";
 import {
   deleteOrderRestoreInventoryPos,
   fetchPosOrdersForBoothDay,
@@ -11,7 +12,9 @@ import {
   type PosOrderSummaryJson,
 } from "../../api/posOrdersApi";
 import { formatMoney } from "../../lib/money";
+import type { BuyerAgeGroup, BuyerGender, BuyerMotivation } from "../../types/order";
 import { OrderGiftTag } from "../OrderGiftTag";
+import { BuyerProfileModal } from "./BuyerProfileModal";
 import { zhtw } from "../../locales/zhTW";
 import { palette } from "../../theme/palette";
 
@@ -37,6 +40,32 @@ function lineTag(source: string | null, isGift: boolean) {
   return null;
 }
 
+function genderShort(v: BuyerGender | null): string {
+  if (v === "male") return oOrd.buyerGenderMale;
+  if (v === "female") return oOrd.buyerGenderFemale;
+  if (v === "other") return oOrd.buyerGenderOther;
+  return "";
+}
+
+function ageShort(v: BuyerAgeGroup | null): string {
+  if (v === "under_18") return oOrd.buyerAgeUnder18;
+  if (v === "18_24") return oOrd.buyerAge18to24;
+  if (v === "25_34") return oOrd.buyerAge25to34;
+  if (v === "35_44") return oOrd.buyerAge35to44;
+  if (v === "45_54") return oOrd.buyerAge45to54;
+  if (v === "55_above") return oOrd.buyerAge55Above;
+  return "";
+}
+
+function motivationShort(v: BuyerMotivation | null): string {
+  if (v === "self_use") return oOrd.buyerMotivationSelfUse;
+  if (v === "gift") return oOrd.buyerMotivationGift;
+  if (v === "trial") return oOrd.buyerMotivationTrial;
+  if (v === "repurchase") return oOrd.buyerMotivationRepurchase;
+  if (v === "other") return oOrd.buyerMotivationOther;
+  return "";
+}
+
 type Props = {
   boothId: string;
   open: boolean;
@@ -47,6 +76,9 @@ export function PosTodayOrdersDrawer({ boothId, open, onClose }: Props) {
   const { message, modal } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<PosOrderSummaryJson[]>([]);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<PosOrderSummaryJson | null>(null);
 
   const load = useCallback(async () => {
     if (!boothId) return;
@@ -135,6 +167,20 @@ export function PosTodayOrdersDrawer({ boothId, open, onClose }: Props) {
     },
   ];
 
+  const openProfileEditor = (order: PosOrderSummaryJson) => {
+    setEditingOrder(order);
+    setProfileOpen(true);
+  };
+
+  const summaryProfile = (order: PosOrderSummaryJson): string => {
+    const parts = [
+      genderShort(order.buyer_gender),
+      ageShort(order.buyer_age_group),
+      motivationShort(order.buyer_motivation),
+    ].filter((x) => x.length > 0);
+    return parts.join(" · ");
+  };
+
   const columns: ColumnsType<PosOrderSummaryJson> = [
     {
       title: p.colTime,
@@ -156,6 +202,37 @@ export function PosTodayOrdersDrawer({ boothId, open, onClose }: Props) {
       render: (_, r) => formatMoney(r.final_amount),
     },
     {
+      title: p.colBuyerProfile,
+      key: "bp",
+      width: 188,
+      render: (_, r) => {
+        const hasProfile = Boolean(r.buyer_gender || r.buyer_age_group || r.buyer_motivation);
+        const summary = summaryProfile(r);
+        if (!hasProfile) {
+          return (
+            <Button
+              className="pos-today-orders__fill-profile-btn"
+              size="small"
+              type="default"
+              onClick={() => openProfileEditor(r)}
+              style={{ whiteSpace: "nowrap" }}
+            >
+              {zhtw.common.new}
+            </Button>
+          );
+        }
+        return (
+          <button
+            type="button"
+            className="pos-today-orders__profile-summary"
+            onClick={() => openProfileEditor(r)}
+          >
+            {summary}
+          </button>
+        );
+      },
+    },
+    {
       title: p.colActions,
       key: "a",
       width: 88,
@@ -166,6 +243,39 @@ export function PosTodayOrdersDrawer({ boothId, open, onClose }: Props) {
       ),
     },
   ];
+
+  const onSubmitProfile = (patch: {
+    buyerGender: BuyerGender | null;
+    buyerAgeGroup: BuyerAgeGroup | null;
+    buyerMotivation: BuyerMotivation | null;
+  }) => {
+    if (!editingOrder) return;
+    setProfileSaving(true);
+    void (async () => {
+      try {
+        await updateOrderBuyerProfile(editingOrder.id, patch);
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === editingOrder.id
+              ? {
+                  ...r,
+                  buyer_gender: patch.buyerGender,
+                  buyer_age_group: patch.buyerAgeGroup,
+                  buyer_motivation: patch.buyerMotivation,
+                }
+              : r,
+          ),
+        );
+        message.success(p.buyerProfileSaved);
+        setProfileOpen(false);
+        setEditingOrder(null);
+      } catch (e) {
+        message.error(e instanceof Error ? e.message : p.buyerProfileSaveError);
+      } finally {
+        setProfileSaving(false);
+      }
+    })();
+  };
 
   return (
     <Drawer
@@ -182,16 +292,19 @@ export function PosTodayOrdersDrawer({ boothId, open, onClose }: Props) {
         {p.refresh}
       </Button>
       <Table<PosOrderSummaryJson>
+        className="pos-today-orders-table"
         rowKey="id"
         loading={loading}
         size="small"
         pagination={false}
         columns={columns}
         dataSource={rows}
+        expandRowByClick={false}
         locale={{ emptyText: p.empty }}
         expandable={{
           expandedRowRender: (record) => (
             <Table<PosOrderLineJson>
+              className="pos-today-orders-table__inner"
               rowKey="id"
               size="small"
               pagination={false}
@@ -200,6 +313,29 @@ export function PosTodayOrdersDrawer({ boothId, open, onClose }: Props) {
             />
           ),
         }}
+      />
+      <BuyerProfileModal
+        open={profileOpen}
+        loading={profileSaving}
+        initialValues={
+          editingOrder
+            ? {
+                buyerGender: editingOrder.buyer_gender,
+                buyerAgeGroup: editingOrder.buyer_age_group,
+                buyerMotivation: editingOrder.buyer_motivation,
+              }
+            : undefined
+        }
+        defaultValues={{
+          buyerGender: "female",
+          buyerAgeGroup: "35_44",
+          buyerMotivation: "self_use",
+        }}
+        onSkip={() => {
+          setProfileOpen(false);
+          setEditingOrder(null);
+        }}
+        onSubmit={onSubmitProfile}
       />
     </Drawer>
   );

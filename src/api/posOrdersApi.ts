@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import type { BuyerAgeGroup, BuyerGender, BuyerMotivation } from '../types/order'
 
 export type PosOrderLineJson = {
   id: string
@@ -20,6 +21,9 @@ export type PosOrderSummaryJson = {
   final_amount: number
   discount_amount: number
   total_amount: number
+  buyer_gender: BuyerGender | null
+  buyer_age_group: BuyerAgeGroup | null
+  buyer_motivation: BuyerMotivation | null
   items: PosOrderLineJson[]
 }
 
@@ -35,7 +39,17 @@ export async function fetchPosOrdersForBoothDay(
   const raw = data as unknown
   if (raw == null) return []
   if (!Array.isArray(raw)) return []
-  return raw as PosOrderSummaryJson[]
+  return (raw as Record<string, unknown>[]).map((r) => ({
+    id: String(r.id ?? ''),
+    created_at: String(r.created_at ?? ''),
+    final_amount: Number(r.final_amount ?? 0),
+    discount_amount: Number(r.discount_amount ?? 0),
+    total_amount: Number(r.total_amount ?? 0),
+    buyer_gender: (r.buyer_gender as BuyerGender | null) ?? null,
+    buyer_age_group: (r.buyer_age_group as BuyerAgeGroup | null) ?? null,
+    buyer_motivation: (r.buyer_motivation as BuyerMotivation | null) ?? null,
+    items: (Array.isArray(r.items) ? r.items : []) as PosOrderLineJson[],
+  }))
 }
 
 export async function deleteOrderRestoreInventoryPos(orderId: string, boothId: string): Promise<void> {
