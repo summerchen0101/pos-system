@@ -2,11 +2,12 @@ import type {
   Promotion,
   PromotionApplyMode,
   PromotionGiftDetail,
+  PromotionGroupInfo,
   PromotionKind,
   PromotionQuantityDiscountTier,
   PromotionTierRule,
 } from '../types/pos'
-import { isPromotionKindString } from '../types/pos'
+import { isPromotionGroupBehavior, isPromotionKindString } from '../types/pos'
 import type { PromotionQuantityTierRow, PromotionRow, PromotionRuleRow } from '../types/supabase'
 
 /** Nested `promotion_rules` from PostgREST omit parent `promotion_id`. */
@@ -37,8 +38,11 @@ type PromotionBoothJoinRow = {
   booths?: BoothNestedRow | BoothNestedRow[] | null
 }
 
+type PromotionGroupNestedRow = { id: string; name: string; behavior: string }
+
 export type PromotionRowWithProducts = PromotionRow & {
   promotion_booths?: PromotionBoothJoinRow[] | null
+  promotion_groups?: PromotionGroupNestedRow | PromotionGroupNestedRow[] | null
   promotion_products?: { product_id: string; quantity?: number }[] | null
   promotion_selectable_items?: { product_id: string }[] | null
   promotion_rules?: PromotionRuleNestedRow[] | null
@@ -56,6 +60,13 @@ function firstInventory(
 ): GiftInventoryNestedRow | null {
   if (x == null) return null
   return Array.isArray(x) ? x[0] ?? null : x
+}
+
+function mapPromotionGroup(row: PromotionRowWithProducts): PromotionGroupInfo | null {
+  const raw = row.promotion_groups
+  const g = raw == null ? null : Array.isArray(raw) ? raw[0] ?? null : raw
+  if (!g?.id || !isPromotionGroupBehavior(g.behavior)) return null
+  return { id: g.id, name: g.name, behavior: g.behavior }
 }
 
 function mapGiftDetail(row: GiftNestedRow | null): PromotionGiftDetail | null {
@@ -136,6 +147,7 @@ export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
 
   return {
     id: row.id,
+    group: mapPromotionGroup(row),
     boothIds,
     boothNames,
     code: row.code,

@@ -1,7 +1,7 @@
-import { evaluatePromotionEngine } from './engine'
-import { mapDbPromotionsToEngineRules } from './mapDbPromotionsToRules'
 import { cartLineInputsFromPos } from './posAdapter'
 import { evaluatePromotionRule } from './registry'
+import type { AutoDiscountAllocation } from './selectAutoPromotionStack'
+import { selectAutoPromotionStack } from './selectAutoPromotionStack'
 import type { PromotionContext, PromotionRule } from './types'
 import {
   aggregateCartLines,
@@ -21,7 +21,9 @@ export type CartPromotionBreakdown = {
   subtotalCents: number
   autoDiscountCents: number
   autoFinalCents: number
+  /** First winning rule id (compat); use `appliedAutoAllocations` for stacking. */
   appliedAutoRuleId: string | null
+  appliedAutoAllocations: AutoDiscountAllocation[]
   manualDiscountCents: number
   manualDetails: ManualPromotionDetail[]
   /** Payable total before threshold gifts (auto + manual discounts applied). */
@@ -45,16 +47,21 @@ function promotionContextFromPaidMerch(lines: readonly CartLine[]): PromotionCon
 }
 
 function manualBogoConflictsWithAuto(
-  appliedAutoRuleId: string | null,
+  appliedAutoRuleIds: readonly string[],
   manualPromo: Promotion,
   promotions: readonly Promotion[],
 ): boolean {
-  if (!appliedAutoRuleId || manualPromo.kind !== 'BUY_X_GET_Y') return false
-  const baseId = appliedAutoRuleId.includes('~') ? appliedAutoRuleId.split('~')[0]! : appliedAutoRuleId
-  const autoP = promotions.find((x) => x.id === baseId)
-  if (!autoP || autoP.kind !== 'BUY_X_GET_Y' || autoP.applyMode !== 'AUTO') return false
-  const autoSet = new Set(autoP.productIds)
-  return manualPromo.productIds.some((pid) => autoSet.has(pid))
+  if (manualPromo.kind !== 'BUY_X_GET_Y') return false
+  for (const appliedAutoRuleId of appliedAutoRuleIds) {
+    const baseId = appliedAutoRuleId.includes('~')
+      ? appliedAutoRuleId.split('~')[0]!
+      : appliedAutoRuleId
+    const autoP = promotions.find((x) => x.id === baseId)
+    if (!autoP || autoP.kind !== 'BUY_X_GET_Y' || autoP.applyMode !== 'AUTO') continue
+    const autoSet = new Set(autoP.productIds)
+    if (manualPromo.productIds.some((pid) => autoSet.has(pid))) return true
+  }
+  return false
 }
 
 function buyXGetYRuleFromPromotion(p: Promotion): PromotionRule | null {
@@ -75,9 +82,8 @@ function buyXGetYRuleFromPromotion(p: Promotion): PromotionRule | null {
 }
 
 /**
- * Auto promos (apply_mode AUTO) run first (single best discount).
- * Manual promos stack: FIXED_DISCOUNT and BUY_X_GET_Y add further discounts, capped so total ≥ 0.
- * FREE_* kinds add $0 lines elsewhere — no discount rows here.
+ * Auto promos: stacked per `promotion_groups` behavior; ungrouped AUTO promos all apply.
+ * Manual promos stack after auto: FIXED_DISCOUNT and BUY_X_GET_Y add further discounts, capped so total ≥ 0.
  */
 export function computeCartPromotionBreakdown(
   lines: readonly CartLine[],
@@ -85,14 +91,16 @@ export function computeCartPromotionBreakdown(
   manualPromotionIds: readonly string[],
 ): CartPromotionBreakdown {
   const cart = cartLineInputsFromPos(lines)
-  const autoRules = mapDbPromotionsToEngineRules(promotions)
-  const engine = evaluatePromotionEngine(cart, autoRules)
+  const stack = selectAutoPromotionStack(cart, promotions)
+  const autoDiscountCents = stack.allocations.reduce((s, a) => s + a.discountCents, 0)
+  const autoFinalCents = stack.originalTotalCents - autoDiscountCents
 
-  let running = engine.finalTotalCents
+  let running = autoFinalCents
   const manualDetails: ManualPromotionDetail[] = []
   let manualSum = 0
 
   const bogoCtx = promotionContextFromPaidMerch(lines)
+  const appliedAutoRuleIds = stack.allocations.map((a) => a.ruleId)
 
   for (const mid of manualPromotionIds) {
     const p = promotions.find((x) => x.id === mid)
@@ -110,7 +118,7 @@ export function computeCartPromotionBreakdown(
     }
 
     if (p.kind === 'BUY_X_GET_Y') {
-      if (manualBogoConflictsWithAuto(engine.appliedPromotionId, p, promotions)) {
+      if (manualBogoConflictsWithAuto(appliedAutoRuleIds, p, promotions)) {
         manualDetails.push({ promotionId: p.id, name: p.name, discountCents: 0 })
         continue
       }
@@ -126,10 +134,11 @@ export function computeCartPromotionBreakdown(
   }
 
   return {
-    subtotalCents: engine.originalTotalCents,
-    autoDiscountCents: engine.discountCents,
-    autoFinalCents: engine.finalTotalCents,
-    appliedAutoRuleId: engine.appliedPromotionId,
+    subtotalCents: stack.originalTotalCents,
+    autoDiscountCents,
+    autoFinalCents,
+    appliedAutoRuleId: stack.appliedAutoRuleId,
+    appliedAutoAllocations: stack.allocations,
     manualDiscountCents: manualSum,
     manualDetails,
     finalBeforeGiftsCents: running,

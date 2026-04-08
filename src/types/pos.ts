@@ -84,8 +84,22 @@ export type PromotionKind = (typeof PROMOTION_KINDS)[number]
 export const PROMOTION_APPLY_MODES = ['AUTO', 'MANUAL'] as const
 export type PromotionApplyMode = (typeof PROMOTION_APPLY_MODES)[number]
 
+export const PROMOTION_GROUP_BEHAVIORS = ['exclusive', 'stackable', 'best_only'] as const
+export type PromotionGroupBehavior = (typeof PROMOTION_GROUP_BEHAVIORS)[number]
+
+/** Joined row for POS / admin (`promotion_groups`). */
+export type PromotionGroupInfo = {
+  id: string
+  name: string
+  behavior: PromotionGroupBehavior
+}
+
 export function isPromotionKindString(value: string): value is PromotionKind {
   return (PROMOTION_KINDS as readonly string[]).includes(value)
+}
+
+export function isPromotionGroupBehavior(value: string): value is PromotionGroupBehavior {
+  return (PROMOTION_GROUP_BEHAVIORS as readonly string[]).includes(value as PromotionGroupBehavior)
 }
 
 /** Row from `promotion_rules` (tiers). */
@@ -115,6 +129,8 @@ export type PromotionGiftDetail = {
 
 export type Promotion = {
   id: string
+  /** Optional stacking group (`promotions.group_id`). */
+  group: PromotionGroupInfo | null
   /** Booths this promotion applies to (from `promotion_booths`). */
   boothIds: string[]
   /** Display names aligned with `boothIds` after sort. */

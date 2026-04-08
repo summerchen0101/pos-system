@@ -103,11 +103,12 @@ export function buildAppliedDiscounts(
   promotions: readonly Promotion[],
   manualPromotionIds: readonly string[],
   b: CartPromotionBreakdown,
-  appliedAutoRuleId: string | null,
 ): AppliedDiscount[] {
   const out: AppliedDiscount[] = []
 
-  if (b.autoDiscountCents > 0 && appliedAutoRuleId) {
+  for (const alloc of b.appliedAutoAllocations) {
+    if (alloc.discountCents <= 0) continue
+    const appliedAutoRuleId = alloc.ruleId
     const p = findPromotionForRule(promotions, appliedAutoRuleId)
     const pid = p?.id ?? basePromotionIdFromRuleId(appliedAutoRuleId)
     const name = p?.name ?? t.appliedDiscountAutoFallback
@@ -133,7 +134,7 @@ export function buildAppliedDiscounts(
       promotionId: pid,
       name,
       description,
-      discountCents: b.autoDiscountCents,
+      discountCents: alloc.discountCents,
       matchedTier,
     })
   }

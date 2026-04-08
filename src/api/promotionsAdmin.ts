@@ -23,6 +23,8 @@ export type PromotionProductQtyInput = {
 
 export type PromotionInput = {
   boothIds: string[]
+  /** `promotion_groups.id`; omit or null = ungrouped. */
+  groupId: string | null
   code: string | null
   name: string
   kind: PromotionKind
@@ -72,6 +74,7 @@ function rowPayload(input: PromotionInput) {
     apply_mode,
     max_selection_qty,
     bogo_single_deal_only,
+    group_id: input.groupId ?? null,
   }
 
   if (input.kind === 'GIFT_WITH_THRESHOLD') {

@@ -105,11 +105,20 @@ export type StocktakeItemRow = {
   reason: string | null
 }
 
+export type PromotionGroupRow = {
+  id: string
+  name: string
+  behavior: string
+  note: string | null
+  created_at: string
+}
+
 export type PromotionRow = {
   id: string
   code: string | null
   name: string
   kind: string
+  group_id: string | null
   buy_qty: number | null
   free_qty: number | null
   discount_percent: number | null
@@ -411,6 +420,12 @@ export type Database = {
           },
         ]
       }
+      promotion_groups: {
+        Row: PromotionGroupRow
+        Insert: Omit<PromotionGroupRow, 'id' | 'created_at'> & { id?: string; created_at?: string }
+        Update: Partial<Omit<PromotionGroupRow, 'id'>>
+        Relationships: []
+      }
       promotions: {
         Row: PromotionRow
         Insert: Omit<PromotionRow, 'id'> & { id?: string }
@@ -421,6 +436,13 @@ export type Database = {
             columns: ['gift_id']
             isOneToOne: false
             referencedRelation: 'gifts'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'promotions_group_id_fkey'
+            columns: ['group_id']
+            isOneToOne: false
+            referencedRelation: 'promotion_groups'
             referencedColumns: ['id']
           },
         ]

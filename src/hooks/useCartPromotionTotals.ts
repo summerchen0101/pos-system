@@ -1,7 +1,10 @@
 import { useMemo } from 'react'
 import { buildAppliedDiscounts, type AppliedDiscount } from '../promotions/buildAppliedDiscounts'
 import { computeCartPromotionBreakdown } from '../promotions/computeCartPromotionBreakdown'
-import { resolveAppliedPromotionName } from '../promotions/resolveAppliedPromotion'
+import {
+  basePromotionIdFromAppliedRuleId,
+  resolveAppliedPromotionNamesFromAllocations,
+} from '../promotions/resolveAppliedPromotion'
 import { thresholdGiftSummaryLines } from '../promotions/thresholdGifts'
 import { useCartStore } from '../store/cartStore'
 import type { CartTotals } from '../store/cartStore'
@@ -30,8 +33,11 @@ export function useCartPromotionTotals(promotions: Promotion[]): CartPromotionTo
       subtotalCents: b.subtotalCents,
       discountCents: totalDiscount,
       finalCents: b.finalBeforeGiftsCents,
-      appliedPromotionId: b.appliedAutoRuleId,
-      appliedPromotionName: resolveAppliedPromotionName(b.appliedAutoRuleId, promotions),
+      appliedPromotionId: basePromotionIdFromAppliedRuleId(b.appliedAutoRuleId),
+      appliedPromotionName: resolveAppliedPromotionNamesFromAllocations(
+        b.appliedAutoAllocations,
+        promotions,
+      ),
       manualPromotionDetails: b.manualDetails,
       thresholdGiftSummaries: thresholdGiftSummaryLines(
         lines,
@@ -39,13 +45,7 @@ export function useCartPromotionTotals(promotions: Promotion[]): CartPromotionTo
         manualPromotionIds,
         zhtw.pos.thresholdGiftLine,
       ),
-      appliedDiscounts: buildAppliedDiscounts(
-        lines,
-        promotions,
-        manualPromotionIds,
-        b,
-        b.appliedAutoRuleId,
-      ),
+      appliedDiscounts: buildAppliedDiscounts(lines, promotions, manualPromotionIds, b),
     }
   }, [lines, promotions, manualPromotionIds])
 }

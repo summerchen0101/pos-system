@@ -7,15 +7,25 @@ import {
   Input,
   InputNumber,
   Modal,
+  Radio,
   Select,
   Space,
   Switch,
   Table,
+  Tabs,
   Tag,
   Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createPromotionGroup,
+  deletePromotionGroup,
+  listPromotionGroupsAdmin,
+  updatePromotionGroup,
+  type AdminPromotionGroup,
+  type PromotionGroupInput,
+} from "../api/promotionGroupsAdmin";
 import { fetchAllProducts } from "../api/fetchAllProducts";
 import { ProductSelect } from "../components/admin/ProductSelect";
 import { listBoothsAdmin, type AdminBooth } from "../api/boothsAdmin";
@@ -36,6 +46,7 @@ import type {
   Product,
   Promotion,
   PromotionApplyMode,
+  PromotionGroupBehavior,
   PromotionKind,
 } from "../types/pos";
 
@@ -49,6 +60,21 @@ function dollarsToCents(d: number): number {
 
 function centsToDollars(c: number): number {
   return c / 100;
+}
+
+function groupBehaviorLabel(b: PromotionGroupBehavior): string {
+  switch (b) {
+    case "exclusive":
+      return pr.groupsBehaviorExclusive;
+    case "stackable":
+      return pr.groupsBehaviorStackable;
+    case "best_only":
+      return pr.groupsBehaviorBestOnly;
+    default: {
+      const _e: never = b;
+      return _e;
+    }
+  }
 }
 
 const KIND_OPTIONS: { value: PromotionKind; label: string }[] = [
@@ -125,6 +151,7 @@ type QtyDiscountTierFormRow = {
 
 type FormValues = {
   boothIds: string[];
+  groupId?: string | null;
   code?: string;
   name: string;
   kind: PromotionKind;
@@ -204,6 +231,7 @@ function buildTierInputs(rows: TierFormRow[]): PromotionTierInput[] {
 
 function toInput(values: FormValues): PromotionInput {
   const boothIds = [...new Set((values.boothIds ?? []).filter(Boolean))];
+  const groupId = values.groupId ?? null;
   const bogoSingleDealOnly =
     values.kind === "BUY_X_GET_Y" && !!values.bogoSingleDealOnly;
   const tiers: PromotionTierInput[] =
@@ -218,6 +246,7 @@ function toInput(values: FormValues): PromotionInput {
   if (values.kind === "GIFT_WITH_THRESHOLD") {
     return {
       boothIds,
+      groupId,
       code,
       name,
       kind: values.kind,
@@ -244,6 +273,7 @@ function toInput(values: FormValues): PromotionInput {
   if (values.kind === "FIXED_DISCOUNT") {
     return {
       boothIds,
+      groupId,
       code,
       name,
       kind: values.kind,
@@ -275,6 +305,7 @@ function toInput(values: FormValues): PromotionInput {
       }));
     return {
       boothIds,
+      groupId,
       code,
       name,
       kind: "FREE_ITEMS",
@@ -300,6 +331,7 @@ function toInput(values: FormValues): PromotionInput {
     const pool = values.selectablePoolIds ?? [];
     return {
       boothIds,
+      groupId,
       code,
       name,
       kind: "FREE_SELECTION",
@@ -327,6 +359,7 @@ function toInput(values: FormValues): PromotionInput {
   if (values.kind === "TIERED") {
     return {
       boothIds,
+      groupId,
       code,
       name,
       kind: values.kind,
@@ -351,6 +384,7 @@ function toInput(values: FormValues): PromotionInput {
   if (values.kind === "TIERED_QUANTITY_DISCOUNT") {
     return {
       boothIds,
+      groupId,
       code,
       name,
       kind: values.kind,
@@ -374,6 +408,7 @@ function toInput(values: FormValues): PromotionInput {
 
   return {
     boothIds,
+    groupId,
     code,
     name,
     kind: values.kind,
@@ -398,31 +433,46 @@ function toInput(values: FormValues): PromotionInput {
 export function AdminPromotionsPage() {
   const { message, modal } = App.useApp();
   const [form] = Form.useForm<FormValues>();
+  const [groupForm] = Form.useForm<{
+    name: string;
+    behavior: PromotionGroupBehavior;
+    note?: string;
+  }>();
   const [products, setProducts] = useState<Product[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [promotionGroups, setPromotionGroups] = useState<AdminPromotionGroup[]>(
+    [],
+  );
   const [gifts, setGifts] = useState<AdminGift[]>([]);
   const [booths, setBooths] = useState<AdminBooth[]>([]);
   const [boothFilterId, setBoothFilterId] = useState<string | null>(null);
+  const [groupFilterId, setGroupFilterId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("promotions");
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [groupModalOpen, setGroupModalOpen] = useState(false);
+  const [groupEditingId, setGroupEditingId] = useState<string | null>(null);
+  const [groupSaving, setGroupSaving] = useState(false);
 
   const kindWatch = Form.useWatch("kind", form);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [plist, mlist, glist, blist] = await Promise.all([
+      const [plist, mlist, glist, blist, pgroups] = await Promise.all([
         fetchAllProducts(),
         listPromotionsAdmin(
           boothFilterId ? { boothId: boothFilterId } : undefined,
         ),
         listGiftsAdmin(),
         listBoothsAdmin(),
+        listPromotionGroupsAdmin(),
       ]);
       setProducts(plist);
       setPromotions(mlist);
+      setPromotionGroups(pgroups);
       setGifts(glist);
       setBooths(blist);
     } catch (e) {
@@ -431,6 +481,11 @@ export function AdminPromotionsPage() {
       setLoading(false);
     }
   }, [message, boothFilterId]);
+
+  const filteredPromotions = useMemo(() => {
+    if (!groupFilterId) return promotions;
+    return promotions.filter((p) => p.group?.id === groupFilterId);
+  }, [promotions, groupFilterId]);
 
   useEffect(() => {
     void load();
@@ -441,6 +496,7 @@ export function AdminPromotionsPage() {
     form.resetFields();
     form.setFieldsValue({
       boothIds: booths.map((b) => b.id),
+      groupId: undefined,
       name: "",
       code: "",
       kind: "BULK_DISCOUNT",
@@ -464,6 +520,7 @@ export function AdminPromotionsPage() {
     setEditingId(p.id);
     form.setFieldsValue({
       boothIds: [...p.boothIds],
+      groupId: p.group?.id,
       name: p.name,
       code: p.code ?? "",
       kind: p.kind,
@@ -688,6 +745,70 @@ export function AdminPromotionsPage() {
     });
   };
 
+  const openCreateGroup = () => {
+    setGroupEditingId(null);
+    groupForm.resetFields();
+    groupForm.setFieldsValue({
+      name: "",
+      behavior: "stackable",
+      note: "",
+    });
+    setGroupModalOpen(true);
+  };
+
+  const openEditGroup = (g: AdminPromotionGroup) => {
+    setGroupEditingId(g.id);
+    groupForm.setFieldsValue({
+      name: g.name,
+      behavior: g.behavior,
+      note: g.note ?? "",
+    });
+    setGroupModalOpen(true);
+  };
+
+  const closeGroupModal = () => {
+    setGroupModalOpen(false);
+    setGroupEditingId(null);
+    groupForm.resetFields();
+  };
+
+  const submitGroup = async () => {
+    try {
+      const v = await groupForm.validateFields();
+      const input: PromotionGroupInput = {
+        name: v.name,
+        behavior: v.behavior,
+        note: v.note?.trim() ? v.note.trim() : null,
+      };
+      setGroupSaving(true);
+      if (groupEditingId) await updatePromotionGroup(groupEditingId, input);
+      else await createPromotionGroup(input);
+      message.success(pr.groupsSaved);
+      closeGroupModal();
+      await load();
+    } catch (e) {
+      if (e && typeof e === "object" && "errorFields" in e) return;
+      message.error(e instanceof Error ? e.message : pr.groupsSaveError);
+    } finally {
+      setGroupSaving(false);
+    }
+  };
+
+  const onDeleteGroup = (g: AdminPromotionGroup) => {
+    const n = promotions.filter((p) => p.group?.id === g.id).length;
+    modal.confirm({
+      title: pr.groupsDeleteTitle,
+      content: n > 0 ? pr.groupsDeleteBody(n) : pr.groupsDeleteEmptyBody,
+      okText: common.delete,
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        await deletePromotionGroup(g.id);
+        message.success(pr.groupsDeleted);
+        await load();
+      },
+    });
+  };
+
   const onToggleActive = async (p: Promotion, active: boolean) => {
     try {
       await setPromotionActive(p.id, active);
@@ -730,6 +851,13 @@ export function AdminPromotionsPage() {
       width: 140,
       ellipsis: true,
       render: (_, row) => formatPromotionBoothsCell(row, booths.length),
+    },
+    {
+      title: pr.colGroup,
+      key: "grp",
+      width: 120,
+      ellipsis: true,
+      render: (_, row) => row.group?.name ?? common.dash,
     },
     {
       title: pr.colApplyMode,
@@ -804,43 +932,194 @@ export function AdminPromotionsPage() {
     },
   ];
 
-  return (
-    <div className="admin-page admin-promotions">
-      <Space direction="vertical" size="large" style={{ width: "100%" }}>
-        <Space
-          align="center"
-          style={{ justifyContent: "space-between", width: "100%" }}>
-          <Title level={4} style={{ margin: 0 }}>
-            {pr.pageTitle}
-          </Title>
-          <Button type="primary" onClick={openCreate}>
-            {pr.newPromotion}
+  const groupColumns: ColumnsType<AdminPromotionGroup> = [
+    {
+      title: pr.groupsColName,
+      dataIndex: "name",
+      key: "name",
+    },
+    {
+      title: pr.groupsColBehavior,
+      key: "behavior",
+      width: 120,
+      render: (_, row) => groupBehaviorLabel(row.behavior),
+    },
+    {
+      title: pr.groupsColNote,
+      dataIndex: "note",
+      key: "note",
+      ellipsis: true,
+      render: (note: string | null) => note?.trim() || common.dash,
+    },
+    {
+      title: pr.groupsColPromoCount,
+      key: "pc",
+      width: 100,
+      align: "center",
+      render: (_, row) =>
+        promotions.filter((p) => p.group?.id === row.id).length,
+    },
+    {
+      title: "",
+      key: "actions",
+      width: 160,
+      render: (_, row) => (
+        <Space>
+          <Button type="link" size="small" onClick={() => openEditGroup(row)}>
+            {common.edit}
+          </Button>
+          <Button
+            type="link"
+            size="small"
+            danger
+            onClick={() => onDeleteGroup(row)}>
+            {common.delete}
           </Button>
         </Space>
+      ),
+    },
+  ];
 
-        <Space wrap align="center">
-          <Text>{pr.filterBooth}</Text>
-          <Select
-            allowClear
-            placeholder={pr.filterBoothAll}
-            style={{ minWidth: 220 }}
-            options={boothOptions}
-            value={boothFilterId ?? undefined}
-            onChange={(v) => setBoothFilterId(v ?? null)}
-            optionFilterProp="label"
-          />
-        </Space>
+  const groupFilterOptions = useMemo(
+    () =>
+      promotionGroups.map((g) => ({
+        label: g.name,
+        value: g.id,
+      })),
+    [promotionGroups],
+  );
 
-        <Card>
-          <Table<Promotion>
-            rowKey="id"
-            loading={loading}
-            columns={columns}
-            dataSource={promotions}
-            pagination={{ pageSize: 10 }}
-          />
-        </Card>
-      </Space>
+  return (
+    <div className="admin-page admin-promotions">
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={[
+          {
+            key: "promotions",
+            label: pr.tabPromotions,
+            children: (
+              <Space
+                direction="vertical"
+                size="large"
+                style={{ width: "100%" }}>
+                <Space
+                  align="center"
+                  style={{ justifyContent: "space-between", width: "100%" }}>
+                  <Title level={4} style={{ margin: 0 }}>
+                    {pr.pageTitle}
+                  </Title>
+                  <Button type="primary" onClick={openCreate}>
+                    {pr.newPromotion}
+                  </Button>
+                </Space>
+
+                <Space wrap align="center">
+                  <Text>{pr.filterBooth}</Text>
+                  <Select
+                    allowClear
+                    placeholder={pr.filterBoothAll}
+                    style={{ minWidth: 220 }}
+                    options={boothOptions}
+                    value={boothFilterId ?? undefined}
+                    onChange={(v) => setBoothFilterId(v ?? null)}
+                    optionFilterProp="label"
+                  />
+                  <Text>{pr.filterGroup}</Text>
+                  <Select
+                    allowClear
+                    placeholder={pr.filterGroupAll}
+                    style={{ minWidth: 200 }}
+                    options={groupFilterOptions}
+                    value={groupFilterId ?? undefined}
+                    onChange={(v) => setGroupFilterId(v ?? null)}
+                    optionFilterProp="label"
+                  />
+                </Space>
+
+                <Card>
+                  <Table<Promotion>
+                    rowKey="id"
+                    loading={loading}
+                    columns={columns}
+                    dataSource={filteredPromotions}
+                    pagination={{ pageSize: 10 }}
+                  />
+                </Card>
+              </Space>
+            ),
+          },
+          {
+            key: "groups",
+            label: pr.tabGroups,
+            children: (
+              <Space
+                direction="vertical"
+                size="large"
+                style={{ width: "100%" }}>
+                <Space
+                  align="center"
+                  style={{ justifyContent: "space-between", width: "100%" }}>
+                  <Title level={4} style={{ margin: 0 }}>
+                    {pr.groupsPageTitle}
+                  </Title>
+                  <Button type="primary" onClick={openCreateGroup}>
+                    {pr.groupsNew}
+                  </Button>
+                </Space>
+                <Card>
+                  <Table<AdminPromotionGroup>
+                    rowKey="id"
+                    loading={loading}
+                    columns={groupColumns}
+                    dataSource={promotionGroups}
+                    pagination={{ pageSize: 10 }}
+                  />
+                </Card>
+              </Space>
+            ),
+          },
+        ]}
+      />
+
+      <Modal
+        title={groupEditingId ? pr.groupsModalEdit : pr.groupsModalCreate}
+        open={groupModalOpen}
+        onCancel={closeGroupModal}
+        onOk={() => void submitGroup()}
+        confirmLoading={groupSaving}
+        destroyOnClose
+        okText={common.save}>
+        <Form form={groupForm} layout="vertical" style={{ marginTop: 8 }}>
+          <Form.Item
+            name="name"
+            label={pr.groupsLabelName}
+            rules={[{ required: true, message: common.required }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="behavior"
+            label={pr.groupsLabelBehavior}
+            rules={[{ required: true }]}>
+            <Radio.Group style={{ width: "100%" }}>
+              <Space direction="vertical" size="small">
+                <Radio value="exclusive">
+                  {pr.groupsBehaviorExclusive} — {pr.groupsBehaviorExclusiveDesc}
+                </Radio>
+                <Radio value="stackable">
+                  {pr.groupsBehaviorStackable} — {pr.groupsBehaviorStackableDesc}
+                </Radio>
+                <Radio value="best_only">
+                  {pr.groupsBehaviorBestOnly} — {pr.groupsBehaviorBestOnlyDesc}
+                </Radio>
+              </Space>
+            </Radio.Group>
+          </Form.Item>
+          <Form.Item name="note" label={pr.groupsLabelNote}>
+            <Input.TextArea rows={2} />
+          </Form.Item>
+        </Form>
+      </Modal>
 
       <Modal
         title={editingId ? pr.modalEdit : pr.modalCreate}
@@ -1010,6 +1289,18 @@ export function AdminPromotionsPage() {
           </Form.Item>
           <Form.Item name="code" label={pr.labelCode}>
             <Input placeholder={pr.codePh} />
+          </Form.Item>
+          <Form.Item name="groupId" label={pr.labelGroup}>
+            <Select
+              allowClear
+              placeholder={pr.groupNoneOption}
+              options={promotionGroups.map((g) => ({
+                label: g.name,
+                value: g.id,
+              }))}
+              optionFilterProp="label"
+              showSearch
+            />
           </Form.Item>
           <Form.Item
             name="kind"
