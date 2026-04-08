@@ -12,5 +12,23 @@ export const appAntdTheme = {
     colorLink: palette.accent,
     colorLinkHover: palette.accentHover,
     colorLinkActive: palette.accentActive,
+    /** 後台 `AdminLayout` 右側主區與 `Layout` 元件 body */
+    colorBgLayout: palette.adminLayoutContentBg,
+  },
+  components: {
+    Layout: {
+      siderBg: palette.cartBg,
+      triggerBg: palette.surface,
+    },
+    Menu: {
+      darkItemBg: palette.cartBg,
+      darkSubMenuItemBg: palette.adminMenuDarkSubItemBg,
+      darkItemSelectedBg: palette.adminMenuDarkItemSelectedBg,
+      darkItemSelectedColor: palette.accent,
+      darkItemHoverBg: palette.surface,
+      darkItemHoverColor: palette.accent,
+      darkItemColor: palette.textSecondary,
+      darkGroupTitleColor: palette.textFaint,
+    },
   },
 };

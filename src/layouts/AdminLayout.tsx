@@ -31,6 +31,7 @@ import {
 } from "../api/authProfile";
 import { useAuth } from "../auth/AuthContext";
 import { zhtw } from "../locales/zhTW";
+import { palette } from "../theme/palette";
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -243,11 +244,16 @@ export function AdminLayout() {
 
   return (
     <Layout style={{ minHeight: "100vh", background: token.colorBgLayout }}>
-      <Sider breakpoint="lg" collapsedWidth={0} width={240}>
+      <Sider
+        breakpoint="lg"
+        collapsedWidth={0}
+        width={240}
+        style={{ borderInlineEnd: `1px solid ${palette.border}` }}>
         <div
           style={{
             padding: "16px 20px",
-            borderBottom: `1px solid ${token.colorSplit}`,
+            background: palette.cartBg,
+            borderBottom: `1px solid ${palette.border}`,
           }}>
           <Text strong style={{ fontSize: 15, color: token.colorText }}>
             {zhtw.admin.layout.title}
@@ -275,7 +281,7 @@ export function AdminLayout() {
             alignItems: "center",
             justifyContent: "flex-end",
             gap: 16,
-            borderBottom: `1px solid ${token.colorSplit}`,
+            borderBottom: `1px solid ${palette.border}`,
           }}>
           <Space size="middle" wrap>
             {profile ? (

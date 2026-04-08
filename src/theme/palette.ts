@@ -15,10 +15,16 @@ export const palette = {
   accentOnAccent: "#1a1814",
 
   pageBg: "#0e0d0c",
+  /** 後台主內容區 `Layout`（`colorBgLayout`）— 略深於 pageBg */
+  adminLayoutContentBg: "#0f0e0d",
   surface: "#1e1d1b",
   surface2: "#252320",
   cartBg: "#161513",
   categoryBarBg: "#161513",
+  /** 後台側欄 dark menu 子層背景 */
+  adminMenuDarkSubItemBg: "#1a1916",
+  /** 後台側欄選中項目背景 */
+  adminMenuDarkItemSelectedBg: "#2a2318",
   border: "#3a3730",
 
   text: "#f5f0e8",
