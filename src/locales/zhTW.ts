@@ -239,6 +239,13 @@ export const zhtw = {
       addBuyerProfile: "＋ 新增顧客輪廓",
       expandDetail: "展開明細",
       collapseDetail: "收合",
+      promotionRecords: "優惠紀錄",
+      giftRecords: "贈品紀錄",
+      noPromotions: "無優惠",
+      noGiftItems: "無贈品",
+      priceOriginal: "原價",
+      priceDiscount: "折扣",
+      priceFinal: "實付金額",
     },
     boothPickerBack: "返回攤位選擇",
     /** Cashier header — back to this booth’s landing (/pos/:boothId), not the global list. */

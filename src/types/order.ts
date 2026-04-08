@@ -56,6 +56,21 @@ export type OrderItem = {
   source: string | null
 }
 
+export type OrderAppliedPromotion = {
+  id: string
+  promotionId: string | null
+  promotionName: string
+  promotionType: string
+  discountAmount: number
+}
+
+export type OrderGiftItem = {
+  id: string
+  giftId: string | null
+  giftName: string
+  quantity: number
+}
+
 /** List row with short text for the first lines. */
 export type OrderListEntry = Order & {
   itemsPreview: string
@@ -64,4 +79,6 @@ export type OrderListEntry = Order & {
 export type OrderDetail = Order & {
   promotionSnapshot: OrderPromotionSnapshot | null
   items: OrderItem[]
+  appliedPromotions: OrderAppliedPromotion[]
+  giftItems: OrderGiftItem[]
 }

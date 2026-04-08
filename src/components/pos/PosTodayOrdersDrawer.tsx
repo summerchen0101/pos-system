@@ -275,20 +275,80 @@ export function PosTodayOrdersDrawer({ boothId, open, onClose }: Props) {
                       <span>{p.colUnitPrice}</span>
                       <span>{p.colLineTotal}</span>
                     </div>
-                    {(r.items ?? []).map((item) => (
-                      <div key={item.id} className="pos-today-orders-card__detail-row">
+                    {(r.items ?? []).map((item, idx) => (
+                      <div
+                        key={item.id}
+                        className={`pos-today-orders-card__detail-row ${idx % 2 === 0 ? "is-odd" : "is-even"}`}>
                         <span className="pos-today-orders-card__detail-product">
                           <Space size={4} wrap>
                             <span>{item.product_name}</span>
                             {lineTag(item.source, item.is_gift)}
                           </Space>
                         </span>
-                        <span>{item.size?.trim() || "—"}</span>
-                        <span>{item.quantity}</span>
-                        <span>{formatMoney(item.unit_price_cents)}</span>
-                        <span>{lineTotalLabel(item)}</span>
+                        <span className="pos-today-orders-card__detail-size">{item.size?.trim() || "—"}</span>
+                        <span className="pos-today-orders-card__detail-qty">{item.quantity}</span>
+                        <span className="pos-today-orders-card__detail-unit">
+                          {formatMoney(item.unit_price_cents)}
+                        </span>
+                        <span className="pos-today-orders-card__detail-total">{lineTotalLabel(item)}</span>
                       </div>
                     ))}
+                    <div className="pos-today-orders-card__records">
+                      <div className="pos-today-orders-card__record-block">
+                        <div className="pos-today-orders-card__record-title">{p.promotionRecords}</div>
+                        {(r.order_promotions?.length ?? 0) > 0 ? (
+                          <ul className="pos-today-orders-card__record-list">
+                            {(r.order_promotions ?? []).map((promo) => (
+                              <li key={promo.id}>
+                                <span>{promo.promotion_name}</span>
+                                <span>-{formatMoney(promo.discount_amount)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <div className="pos-today-orders-card__record-empty">{p.noPromotions}</div>
+                        )}
+                      </div>
+                      <div className="pos-today-orders-card__price-summary">
+                        {r.discount_amount > 0 ? (
+                          <>
+                            <div className="pos-today-orders-card__price-row">
+                              <span className="pos-today-orders-card__price-label-muted">{p.priceOriginal}</span>
+                              <span className="pos-today-orders-card__price-value-muted">
+                                {formatMoney(r.total_amount)}
+                              </span>
+                            </div>
+                            <div className="pos-today-orders-card__price-row">
+                              <span className="pos-today-orders-card__price-label-muted">{p.priceDiscount}</span>
+                              <span className="pos-today-orders-card__price-value-discount">
+                                -{formatMoney(r.discount_amount)}
+                              </span>
+                            </div>
+                          </>
+                        ) : null}
+                        <div className="pos-today-orders-card__price-row is-final">
+                          <span className="pos-today-orders-card__price-label-final">{p.priceFinal}</span>
+                          <span className="pos-today-orders-card__price-value-final">
+                            {formatMoney(r.final_amount)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="pos-today-orders-card__record-block">
+                        <div className="pos-today-orders-card__record-title">{p.giftRecords}</div>
+                        {(r.order_gift_items?.length ?? 0) > 0 ? (
+                          <ul className="pos-today-orders-card__record-list">
+                            {(r.order_gift_items ?? []).map((gift) => (
+                              <li key={gift.id}>
+                                <span>{gift.gift_name}</span>
+                                <span>× {gift.quantity}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <div className="pos-today-orders-card__record-empty">{zhtw.common.dash}</div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 ) : null}
               </div>

@@ -309,6 +309,8 @@ export function AdminOrdersPage() {
     detail?.items.filter(
       (i) => i.isManualFree && i.source !== "FREE_SELECTION",
     ) ?? [];
+  const recordedPromotions = detail?.appliedPromotions ?? [];
+  const recordedGiftItems = detail?.giftItems ?? [];
   const buyerProfileRows: { label: string; value: string }[] = [];
   if (detail?.buyerGender) {
     buyerProfileRows.push({
@@ -456,8 +458,17 @@ export function AdminOrdersPage() {
                   {snap?.autoPromotionName ?? "—"}
                 </Descriptions.Item>
                 <Descriptions.Item label={o.promoManual}>
-                  {snap?.manualPromotionDetails?.length ||
-                  freeSelectionSnap.length ? (
+                  {recordedPromotions.length ? (
+                    <ul style={{ margin: 0, paddingLeft: 20 }}>
+                      {recordedPromotions.map((p) => (
+                        <li key={p.id}>
+                          {p.promotionName}
+                          {p.discountAmount ? `（${formatMoney(p.discountAmount)}）` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : snap?.manualPromotionDetails?.length ||
+                    freeSelectionSnap.length ? (
                     <ul style={{ margin: 0, paddingLeft: 20 }}>
                       {snap?.manualPromotionDetails?.map((m, i) => (
                         <li key={`${m.promotionId ?? i}-${m.name}`}>
@@ -486,7 +497,15 @@ export function AdminOrdersPage() {
                   )}
                 </Descriptions.Item>
                 <Descriptions.Item label={o.promoGiftLines}>
-                  {thresholdGiftLines.length ? (
+                  {recordedGiftItems.length ? (
+                    <ul style={{ margin: 0, paddingLeft: 20 }}>
+                      {recordedGiftItems.map((g) => (
+                        <li key={g.id}>
+                          {g.giftName} × {g.quantity}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : thresholdGiftLines.length ? (
                     <ul style={{ margin: 0, paddingLeft: 20 }}>
                       {thresholdGiftLines.map((g) => (
                         <li key={g.id}>

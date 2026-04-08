@@ -24,6 +24,19 @@ export type PosOrderSummaryJson = {
   buyer_gender: BuyerGender | null
   buyer_age_group: BuyerAgeGroup | null
   buyer_motivation: BuyerMotivation | null
+  order_promotions?: {
+    id: string
+    promotion_id: string | null
+    promotion_name: string
+    promotion_type: string
+    discount_amount: number
+  }[]
+  order_gift_items?: {
+    id: string
+    gift_id: string | null
+    gift_name: string
+    quantity: number
+  }[]
   items: PosOrderLineJson[]
 }
 
@@ -48,6 +61,8 @@ export async function fetchPosOrdersForBoothDay(
     buyer_gender: (r.buyer_gender as BuyerGender | null) ?? null,
     buyer_age_group: (r.buyer_age_group as BuyerAgeGroup | null) ?? null,
     buyer_motivation: (r.buyer_motivation as BuyerMotivation | null) ?? null,
+    order_promotions: (Array.isArray(r.order_promotions) ? r.order_promotions : []) as PosOrderSummaryJson['order_promotions'],
+    order_gift_items: (Array.isArray(r.order_gift_items) ? r.order_gift_items : []) as PosOrderSummaryJson['order_gift_items'],
     items: (Array.isArray(r.items) ? r.items : []) as PosOrderLineJson[],
   }))
 }

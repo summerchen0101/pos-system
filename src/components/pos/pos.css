@@ -1447,13 +1447,24 @@ button.pos-qty__value--tap:hover {
   font-size: 13px;
   font-weight: 500;
   margin-bottom: 4px;
+  background: #1a1916;
+  border-radius: 4px;
+  padding: 6px 8px;
 }
 
 .pos-today-orders-card__detail-row {
   color: #a09890;
   font-size: 13px;
-  padding: 8px 0;
+  padding: 8px;
   border-bottom: 1px solid #1e1d1b;
+}
+
+.pos-today-orders-card__detail-row.is-odd {
+  background: #141312;
+}
+
+.pos-today-orders-card__detail-row.is-even {
+  background: #161513;
 }
 
 .pos-today-orders-card__detail-row:last-child {
@@ -1462,4 +1473,110 @@ button.pos-qty__value--tap:hover {
 
 .pos-today-orders-card__detail-product {
   min-width: 0;
+  color: #f5f0e8;
+}
+
+.pos-today-orders-card__detail-size,
+.pos-today-orders-card__detail-qty,
+.pos-today-orders-card__detail-unit {
+  color: #a09890;
+}
+
+.pos-today-orders-card__detail-total {
+  color: #c8a96e;
+}
+
+.pos-today-orders-card__records {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #1e1d1b;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pos-today-orders-card__record-block {
+  min-width: 0;
+}
+
+.pos-today-orders-card__record-title {
+  color: #7a7770;
+  font-size: 11px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.pos-today-orders-card__record-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pos-today-orders-card__record-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.pos-today-orders-card__record-list li span:first-child {
+  color: #f5f0e8;
+}
+
+.pos-today-orders-card__record-list li span:last-child {
+  color: #c8a96e;
+}
+
+.pos-today-orders-card__record-empty {
+  color: #7a7770;
+  font-size: 13px;
+}
+
+.pos-today-orders-card__price-summary {
+  border-top: 0.5px solid #3a3730;
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pos-today-orders-card__price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pos-today-orders-card__price-label-muted {
+  color: #7a7770;
+  font-size: 13px;
+}
+
+.pos-today-orders-card__price-value-muted {
+  color: #a09890;
+  font-size: 13px;
+}
+
+.pos-today-orders-card__price-value-discount {
+  color: #c8a96e;
+  font-size: 13px;
+}
+
+.pos-today-orders-card__price-row.is-final {
+  border-top: 0.5px solid #3a3730;
+  padding-top: 6px;
+}
+
+.pos-today-orders-card__price-label-final {
+  color: #f5f0e8;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.pos-today-orders-card__price-value-final {
+  color: #c8a96e;
+  font-size: 14px;
+  font-weight: 500;
 }

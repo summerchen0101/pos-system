@@ -21,6 +21,39 @@ as $$
         'buyer_gender', o.buyer_gender,
         'buyer_age_group', o.buyer_age_group,
         'buyer_motivation', o.buyer_motivation,
+        'order_promotions', (
+          select coalesce(
+            jsonb_agg(
+              jsonb_build_object(
+                'id', op.id,
+                'promotion_id', op.promotion_id,
+                'promotion_name', op.promotion_name,
+                'promotion_type', op.promotion_type,
+                'discount_amount', op.discount_amount
+              )
+              order by op.created_at
+            ),
+            '[]'::jsonb
+          )
+          from public.order_promotions op
+          where op.order_id = o.id
+        ),
+        'order_gift_items', (
+          select coalesce(
+            jsonb_agg(
+              jsonb_build_object(
+                'id', gi.id,
+                'gift_id', gi.gift_id,
+                'gift_name', gi.gift_name,
+                'quantity', gi.quantity
+              )
+              order by gi.created_at
+            ),
+            '[]'::jsonb
+          )
+          from public.order_gift_items gi
+          where gi.order_id = o.id
+        ),
         'items', (
           select coalesce(
             jsonb_agg(

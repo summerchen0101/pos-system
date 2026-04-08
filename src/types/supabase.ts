@@ -204,6 +204,25 @@ export type OrderItemRow = {
   source: string | null
 }
 
+export type OrderPromotionRow = {
+  id: string
+  order_id: string
+  promotion_id: string | null
+  promotion_name: string
+  promotion_type: string
+  discount_amount: number
+  created_at: string
+}
+
+export type OrderGiftItemRow = {
+  id: string
+  order_id: string
+  gift_id: string | null
+  gift_name: string
+  quantity: number
+  created_at: string
+}
+
 /** App profile (`public.users`), linked to `auth.users`. */
 export type AppUserRow = {
   id: string
@@ -565,6 +584,48 @@ export type Database = {
             columns: ['product_id']
             isOneToOne: false
             referencedRelation: 'products'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      order_promotions: {
+        Row: OrderPromotionRow
+        Insert: Omit<OrderPromotionRow, 'id' | 'created_at'> & { id?: string; created_at?: string }
+        Update: Partial<Omit<OrderPromotionRow, 'id'>>
+        Relationships: [
+          {
+            foreignKeyName: 'order_promotions_order_id_fkey'
+            columns: ['order_id']
+            isOneToOne: false
+            referencedRelation: 'orders'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'order_promotions_promotion_id_fkey'
+            columns: ['promotion_id']
+            isOneToOne: false
+            referencedRelation: 'promotions'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      order_gift_items: {
+        Row: OrderGiftItemRow
+        Insert: Omit<OrderGiftItemRow, 'id' | 'created_at'> & { id?: string; created_at?: string }
+        Update: Partial<Omit<OrderGiftItemRow, 'id'>>
+        Relationships: [
+          {
+            foreignKeyName: 'order_gift_items_order_id_fkey'
+            columns: ['order_id']
+            isOneToOne: false
+            referencedRelation: 'orders'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'order_gift_items_gift_id_fkey'
+            columns: ['gift_id']
+            isOneToOne: false
+            referencedRelation: 'gifts'
             referencedColumns: ['id']
           },
         ]
