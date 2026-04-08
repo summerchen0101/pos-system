@@ -17,10 +17,12 @@ import { isAdminRole, isManagerRole } from "../api/authProfile";
 import { listBoothsAdmin, type AdminBooth } from "../api/boothsAdmin";
 import { fetchOrderDetail, fetchOrdersForDateRange } from "../api/ordersApi";
 import { deleteOrderRestoreInventoryAdmin } from "../api/posOrdersApi";
+import { OrderGiftTag } from "../components/OrderGiftTag";
 import { useAuth } from "../auth/AuthContext";
 import { zhtw } from "../locales/zhTW";
 import { formatMoney } from "../lib/money";
 import type { OrderDetail, OrderItem, OrderListEntry } from "../types/order";
+import { palette } from "../theme/palette";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -44,8 +46,8 @@ function lineTags(item: OrderItem) {
   if (item.source === "FREE_SELECTION")
     return <Tag color="purple">{o.tagFreeSelection}</Tag>;
   if (item.source === "BUNDLE_COMPONENT")
-    return <Tag color="geekblue">{o.tagBundleComponent}</Tag>;
-  if (item.isGift) return <Tag color="blue">{o.tagGift}</Tag>;
+    return <Tag color={palette.tagBundle}>{o.tagBundleComponent}</Tag>;
+  if (item.isGift) return <OrderGiftTag label={o.tagGift} />;
   if (item.isManualFree) return <Tag color="gold">{o.tagManualFree}</Tag>;
   return null;
 }

@@ -1,16 +1,23 @@
-/* Global dark palette — aligned with Ant Design dark tokens for POS + admin chrome. */
+/*
+ * `--pos-*`：與 `src/theme/palette.ts` 同步；JS 啟動時會再 `applyPaletteCssVars()` 寫入一次。
+ * 調整配色請改 palette.ts。
+ */
 :root {
-  --pos-page-bg: #0a0a0a;
-  --pos-text-strong: rgba(255, 255, 255, 0.92);
-  --pos-text-muted: rgba(255, 255, 255, 0.55);
-  --pos-border: #424242;
-  --pos-surface: #1f1f1f;
-  --pos-cart-bg: #141414;
-  --pos-accent: #4f8fff;
-  --pos-accent-soft: rgba(79, 143, 255, 0.16);
-  --pos-success: #73d13d;
-  --pos-danger: #ff7875;
-  --pos-danger-soft: rgba(255, 120, 117, 0.14);
+  --pos-page-bg: #0e0d0c;
+  --pos-text-strong: #f5f0e8;
+  --pos-text-secondary: #a09890;
+  --pos-text-muted: #7a7770;
+  --pos-text-faint: #4a4845;
+  --pos-border: #3a3730;
+  --pos-surface: #1e1d1b;
+  --pos-cart-bg: #161513;
+  --pos-accent: #c8a96e;
+  --pos-accent-soft: rgba(200, 169, 110, 0.16);
+  --pos-accent-wash-08: rgba(200, 169, 110, 0.08);
+  --pos-accent-on-accent: #1a1814;
+  --pos-success: #7aad5a;
+  --pos-danger: #c45a4a;
+  --pos-danger-soft: rgba(196, 90, 74, 0.18);
   --pos-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.45);
 
   /* Admin: drag handle (dark UI) — Ant icon inherits `currentColor`. */

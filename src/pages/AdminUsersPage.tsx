@@ -26,6 +26,7 @@ import {
 } from "../api/manageUsersEdge";
 import { useAuth } from "../auth/AuthContext";
 import { zhtw } from "../locales/zhTW";
+import { palette } from "../theme/palette";
 
 const { Title, Text } = Typography;
 const u = zhtw.admin.users;
@@ -303,7 +304,7 @@ export function AdminUsersPage() {
       width: 120,
       render: (r: AppRole) =>
         r === "ADMIN" ? (
-          <Tag color="blue">{u.roleAdmin}</Tag>
+          <Tag color={palette.tagRoleAdmin}>{u.roleAdmin}</Tag>
         ) : r === "MANAGER" ? (
           <Tag color="purple">{u.roleManager}</Tag>
         ) : (

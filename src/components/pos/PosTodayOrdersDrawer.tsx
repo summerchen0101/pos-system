@@ -11,7 +11,9 @@ import {
   type PosOrderSummaryJson,
 } from "../../api/posOrdersApi";
 import { formatMoney } from "../../lib/money";
+import { OrderGiftTag } from "../OrderGiftTag";
 import { zhtw } from "../../locales/zhTW";
+import { palette } from "../../theme/palette";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -30,8 +32,8 @@ function lineTag(source: string | null, isGift: boolean) {
   if (source === "FREE_SELECTION")
     return <Tag color="purple">{oOrd.tagFreeSelection}</Tag>;
   if (source === "BUNDLE_COMPONENT")
-    return <Tag color="geekblue">{oOrd.tagBundleComponent}</Tag>;
-  if (isGift) return <Tag color="blue">{oOrd.tagGift}</Tag>;
+    return <Tag color={palette.tagBundle}>{oOrd.tagBundleComponent}</Tag>;
+  if (isGift) return <OrderGiftTag label={oOrd.tagGift} />;
   return null;
 }
 

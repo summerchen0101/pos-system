@@ -76,6 +76,7 @@ import {
 import { zhtw } from "../locales/zhTW";
 import { isAdminRole, isManagerRole } from "../api/authProfile";
 import { useAuth } from "../auth/AuthContext";
+import { palette } from "../theme/palette";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -515,7 +516,7 @@ export function AdminShiftsPage() {
       key: "st",
       render: (_, r) => {
         if (r.status === "pending") return <Tag>{s.swapStatusPending}</Tag>;
-        if (r.status === "accepted") return <Tag color="blue">{s.swapStatusAccepted}</Tag>;
+        if (r.status === "accepted") return <Tag color={palette.tagSwapAccepted}>{s.swapStatusAccepted}</Tag>;
         return <Tag>{r.status}</Tag>;
       },
     },

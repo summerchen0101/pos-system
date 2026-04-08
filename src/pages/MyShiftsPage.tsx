@@ -23,6 +23,8 @@ import dayjs from "dayjs";
 import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 
+import { palette } from "../theme/palette";
+
 dayjs.extend(utc);
 dayjs.extend(timezone);
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
@@ -213,7 +215,7 @@ export function MyShiftsPage() {
       key: "st",
       render: (_, r) => {
         if (r.status === "pending") return <Tag>{m.statusPending}</Tag>;
-        if (r.status === "accepted") return <Tag color="blue">{m.statusAccepted}</Tag>;
+        if (r.status === "accepted") return <Tag color={palette.tagSwapAccepted}>{m.statusAccepted}</Tag>;
         if (r.status === "approved") return <Tag color="green">{m.statusApproved}</Tag>;
         if (r.status === "rejected") return <Tag color="red">{m.statusRejected}</Tag>;
         if (r.status === "cancelled") return <Tag>{m.statusCancelled}</Tag>;
@@ -342,9 +344,9 @@ export function MyShiftsPage() {
                         const clockedOut = Boolean(log?.clock_out_at);
                         const cardStyle: CSSProperties = isOwn
                           ? {
-                              background: "rgba(22, 119, 255, 0.08)",
-                              borderColor: "#1677ff",
-                              boxShadow: "0 0 0 1.5px #1677ff55",
+                              background: palette.accentWash08,
+                              borderColor: palette.accent,
+                              boxShadow: `0 0 0 1.5px ${palette.accentFocusRing}`,
                             }
                           : cm.chainLength > 1
                             ? { background: "rgba(124, 58, 237, 0.1)" }
