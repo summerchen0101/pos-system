@@ -8,8 +8,11 @@ create table if not exists public.order_promotions (
   promotion_name text not null,
   promotion_type text not null,
   discount_amount integer not null default 0,
+  matched_tier jsonb,
   created_at timestamptz default now()
 );
+
+alter table public.order_promotions add column if not exists matched_tier jsonb;
 
 create table if not exists public.order_gift_items (
   id uuid primary key default gen_random_uuid(),
@@ -90,6 +93,7 @@ declare
   v_base uuid;
   v_elem jsonb;
   v_manual_type text;
+  v_matched_tier jsonb;
 begin
   v_uid := coalesce(p_user_id, auth.uid());
 
@@ -204,14 +208,22 @@ begin
         limit 1;
       end if;
       v_manual_type := coalesce(v_manual_type, 'MANUAL');
+      v_matched_tier := null;
+      if v_base is not null then
+        select ad->'matchedTier' into v_matched_tier
+        from jsonb_array_elements(coalesce(p_promotion_snapshot->'appliedDiscounts', '[]'::jsonb)) ad
+        where split_part(coalesce(ad->>'promotionId', ''), '~', 1) = v_base::text
+        limit 1;
+      end if;
       insert into public.order_promotions (
-        order_id, promotion_id, promotion_name, promotion_type, discount_amount
+        order_id, promotion_id, promotion_name, promotion_type, discount_amount, matched_tier
       ) values (
         v_order_id,
         v_base,
         coalesce(nullif(v_elem->>'name', ''), '—'),
         v_manual_type,
-        coalesce((v_elem->>'discountCents')::int, 0)
+        coalesce((v_elem->>'discountCents')::int, 0),
+        v_matched_tier
       );
       v_manual_discount_sum := v_manual_discount_sum + coalesce((v_elem->>'discountCents')::int, 0);
     end loop;
@@ -224,14 +236,22 @@ begin
         v_base := null;
       end;
       v_auto_discount := greatest(0, p_discount_amount - v_manual_discount_sum);
+      v_matched_tier := null;
+      if v_base is not null then
+        select ad->'matchedTier' into v_matched_tier
+        from jsonb_array_elements(coalesce(p_promotion_snapshot->'appliedDiscounts', '[]'::jsonb)) ad
+        where split_part(coalesce(ad->>'promotionId', ''), '~', 1) = v_base::text
+        limit 1;
+      end if;
       insert into public.order_promotions (
-        order_id, promotion_id, promotion_name, promotion_type, discount_amount
+        order_id, promotion_id, promotion_name, promotion_type, discount_amount, matched_tier
       ) values (
         v_order_id,
         v_base,
         coalesce(nullif(p_promotion_snapshot->>'autoPromotionName', ''), '自動優惠'),
         'AUTO',
-        v_auto_discount
+        v_auto_discount,
+        v_matched_tier
       );
     end if;
   end if;
@@ -332,6 +352,7 @@ as $$
       jsonb_build_object(
         'id', o.id,
         'created_at', o.created_at,
+        'promotion_snapshot', o.promotion_snapshot,
         'final_amount', o.final_amount,
         'discount_amount', o.discount_amount,
         'total_amount', o.total_amount,
@@ -346,13 +367,27 @@ as $$
                 'promotion_id', op.promotion_id,
                 'promotion_name', op.promotion_name,
                 'promotion_type', op.promotion_type,
-                'discount_amount', op.discount_amount
+                'discount_amount', op.discount_amount,
+                'matched_tier', op.matched_tier,
+                'promotions', case
+                  when pr.id is null then null
+                  else jsonb_build_object(
+                    'kind', pr.kind,
+                    'buy_qty', pr.buy_qty,
+                    'free_qty', pr.free_qty,
+                    'threshold_amount', pr.threshold_amount,
+                    'fixed_discount_cents', pr.fixed_discount_cents,
+                    'discount_percent', pr.discount_percent,
+                    'apply_mode', pr.apply_mode
+                  )
+                end
               )
               order by op.created_at
             ),
             '[]'::jsonb
           )
           from public.order_promotions op
+          left join public.promotions pr on pr.id = op.promotion_id
           where op.order_id = o.id
         ),
         'order_gift_items', (

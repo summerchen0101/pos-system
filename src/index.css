@@ -88,6 +88,168 @@ body {
     border-color 0.15s ease;
 }
 
+.admin-order-promotions {
+  background: #1a1916;
+  border: 0.5px solid #2e2c29;
+  border-radius: 8px;
+  padding: 4px 16px;
+}
+
+.admin-order-promotions__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-order-promotions__item {
+  padding: 8px 0;
+  border-bottom: 0.5px solid #2e2c29;
+}
+
+.admin-order-promotions__item:last-child {
+  border-bottom: none;
+}
+
+.admin-order-promotions__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #f5f0e8;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.admin-order-promotions__desc {
+  color: #7a7770;
+  font-size: 12px;
+  margin: 4px 0 0 24px;
+}
+
+.admin-order-promotions__gifts {
+  color: #a09890;
+  font-size: 12px;
+  margin: 4px 0 0 24px;
+}
+
+.admin-order-promotions__deduction {
+  color: #c8a96e;
+  font-size: 13px;
+  margin: 4px 0 0 24px;
+}
+
+.admin-order-promotions__total {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 0.5px solid #2e2c29;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-order-promotions__total span:first-child {
+  color: #7a7770;
+}
+
+.admin-order-promotions__total span:last-child {
+  color: #c8a96e;
+  font-weight: 500;
+}
+
+.admin-order-buyer-profile {
+  background: #1a1916;
+  border: 0.5px solid #2e2c29;
+  border-radius: 8px;
+  padding: 4px 16px;
+}
+
+.admin-order-buyer-profile__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 0.5px solid #2e2c29;
+}
+
+.admin-order-buyer-profile__row:last-child {
+  border-bottom: none;
+}
+
+.admin-order-buyer-profile__label {
+  color: #7a7770;
+  font-size: 13px;
+}
+
+.admin-order-buyer-profile__value {
+  color: #f5f0e8;
+  font-size: 13px;
+}
+
+.admin-order-buyer-profile__empty {
+  color: #4a4845;
+  font-size: 13px;
+}
+
+.admin-order-detail-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+}
+
+.admin-order-detail-info-item {
+  background: #1a1916;
+  border: 0.5px solid #2e2c29;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.admin-order-detail-info-item__label {
+  color: #7a7770;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.admin-order-detail-info-item__value {
+  color: #f5f0e8;
+  font-size: 13px;
+}
+
+.admin-order-amount-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-order-amount-card {
+  background: #1a1916;
+  border: 0.5px solid #2e2c29;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.admin-order-amount-card__label {
+  color: #7a7770;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.admin-order-amount-card__value {
+  font-size: 16px;
+}
+
+.admin-order-amount-card__value.is-total {
+  color: #a09890;
+}
+
+.admin-order-amount-card__value.is-discount {
+  color: #4caf50;
+}
+
+.admin-order-amount-card__value.is-final {
+  color: #c8a96e;
+  font-size: 18px;
+  font-weight: 500;
+}
+
 .admin-catalog-sort__handle:hover {
   color: var(--admin-sort-handle-color);
   background: var(--admin-sort-handle-bg-hover) !important;

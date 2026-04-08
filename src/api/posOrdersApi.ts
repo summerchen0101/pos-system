@@ -18,6 +18,7 @@ export type PosOrderLineJson = {
 export type PosOrderSummaryJson = {
   id: string
   created_at: string
+  promotion_snapshot?: unknown | null
   final_amount: number
   discount_amount: number
   total_amount: number
@@ -30,6 +31,22 @@ export type PosOrderSummaryJson = {
     promotion_name: string
     promotion_type: string
     discount_amount: number
+    matched_tier?: {
+      buy_quantity?: number
+      get_quantity?: number
+      nth?: number
+      discount_type?: 'percent' | 'fixed'
+      discount_value?: number
+    } | null
+    promotions?: {
+      kind?: string | null
+      buy_qty?: number | null
+      free_qty?: number | null
+      threshold_amount?: number | null
+      fixed_discount_cents?: number | null
+      discount_percent?: number | null
+      apply_mode?: string | null
+    } | null
   }[]
   order_gift_items?: {
     id: string
@@ -55,6 +72,7 @@ export async function fetchPosOrdersForBoothDay(
   return (raw as Record<string, unknown>[]).map((r) => ({
     id: String(r.id ?? ''),
     created_at: String(r.created_at ?? ''),
+    promotion_snapshot: (r.promotion_snapshot as unknown) ?? null,
     final_amount: Number(r.final_amount ?? 0),
     discount_amount: Number(r.discount_amount ?? 0),
     total_amount: Number(r.total_amount ?? 0),

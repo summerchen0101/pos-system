@@ -58,7 +58,10 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
   const totals = useCartPromotionTotals(promotions)
   const isEmpty = lines.length === 0
   const unitCount = useMemo(
-    () => lines.filter((l) => !l.isBundleComponent).reduce((sum, line) => sum + line.quantity, 0),
+    () =>
+      lines
+        .filter((l) => !l.isBundleComponent && !l.isGift)
+        .reduce((sum, line) => sum + line.quantity, 0),
     [lines],
   )
   const stockOk = lines.every((l) => {
@@ -195,6 +198,12 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
             })),
             thresholdGiftSummaries: totals.thresholdGiftSummaries,
             promotions: buildFreeSelectionPromotionsSnapshot(lines, promotions, manualPromotionIds),
+            appliedDiscounts: totals.appliedDiscounts.map((d) => ({
+              promotionId: d.promotionId,
+              name: d.name,
+              discountCents: d.discountCents,
+              matchedTier: d.matchedTier ?? null,
+            })),
           },
         )
         setLastOrderId(orderId)
@@ -307,6 +316,7 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
         ) : (
           <ul className="pos-cart-list">
             {lines.map((line) => {
+              if (line.isGift) return null
               const allowQtyAdjust =
                 isFreeSelectionCartLine(line, promotions) || !!line.isBundleComponent
               const lockQty =

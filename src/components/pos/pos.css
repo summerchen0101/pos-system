@@ -1512,21 +1512,66 @@ button.pos-qty__value--tap:hover {
   list-style: none;
 }
 
-.pos-today-orders-card__record-list li {
+.pos-today-orders-card__record-list--promo li {
+  display: block;
+  padding: 8px 0;
+  border-bottom: 1px solid #2e2c29;
+}
+
+.pos-today-orders-card__record-list--promo li:last-child {
+  border-bottom: none;
+}
+
+.pos-today-orders-card__promo-title {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  font-size: 13px;
-  line-height: 1.5;
 }
 
-.pos-today-orders-card__record-list li span:first-child {
+.pos-today-orders-card__promo-name {
   color: #f5f0e8;
+  font-size: 14px;
+  font-weight: 500;
 }
 
-.pos-today-orders-card__record-list li span:last-child {
+.pos-today-orders-card__promo-desc {
+  color: #7a7770;
+  font-size: 12px;
+  margin: 4px 0 0 24px;
+}
+
+.pos-today-orders-card__promo-gifts {
+  color: #a09890;
+  font-size: 12px;
+  margin: 4px 0 0 24px;
+}
+
+.pos-today-orders-card__promo-deduction {
   color: #c8a96e;
+  font-size: 13px;
+  margin: 4px 0 0 24px;
+}
+
+.pos-today-orders-card__promo-total {
+  margin-top: 6px;
+  border-top: 1px solid #2e2c29;
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pos-today-orders-card__promo-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.pos-today-orders-card__promo-total-row.is-final {
+  margin-top: 2px;
+  padding-top: 4px;
+  border-top: 0.5px solid #3a3730;
 }
 
 .pos-today-orders-card__record-empty {

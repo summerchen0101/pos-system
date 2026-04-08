@@ -15,6 +15,7 @@ as $$
       jsonb_build_object(
         'id', o.id,
         'created_at', o.created_at,
+        'promotion_snapshot', o.promotion_snapshot,
         'final_amount', o.final_amount,
         'discount_amount', o.discount_amount,
         'total_amount', o.total_amount,
@@ -29,13 +30,27 @@ as $$
                 'promotion_id', op.promotion_id,
                 'promotion_name', op.promotion_name,
                 'promotion_type', op.promotion_type,
-                'discount_amount', op.discount_amount
+                'discount_amount', op.discount_amount,
+                'matched_tier', op.matched_tier,
+                'promotions', case
+                  when pr.id is null then null
+                  else jsonb_build_object(
+                    'kind', pr.kind,
+                    'buy_qty', pr.buy_qty,
+                    'free_qty', pr.free_qty,
+                    'threshold_amount', pr.threshold_amount,
+                    'fixed_discount_cents', pr.fixed_discount_cents,
+                    'discount_percent', pr.discount_percent,
+                    'apply_mode', pr.apply_mode
+                  )
+                end
               )
               order by op.created_at
             ),
             '[]'::jsonb
           )
           from public.order_promotions op
+          left join public.promotions pr on pr.id = op.promotion_id
           where op.order_id = o.id
         ),
         'order_gift_items', (

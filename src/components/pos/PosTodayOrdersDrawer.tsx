@@ -1,9 +1,10 @@
 import { App, Button, Drawer, Space, Tag, Typography } from "antd";
+import { CheckCircle2 } from "lucide-react";
 import dayjs from "dayjs";
 import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { updateOrderBuyerProfile } from "../../api/ordersApi";
+import { parsePromotionSnapshot, updateOrderBuyerProfile } from "../../api/ordersApi";
 import {
   deleteOrderRestoreInventoryPos,
   fetchPosOrdersForBoothDay,
@@ -16,6 +17,7 @@ import { OrderGiftTag } from "../OrderGiftTag";
 import { BuyerProfileModal } from "./BuyerProfileModal";
 import { zhtw } from "../../locales/zhTW";
 import { palette } from "../../theme/palette";
+import { formatOrderPromotions } from "../../utils/formatOrderPromotions";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -216,6 +218,23 @@ export function PosTodayOrdersDrawer({ boothId, open, onClose }: Props) {
             const hasProfile = Boolean(r.buyer_gender || r.buyer_age_group || r.buyer_motivation);
             const summary = summaryProfile(r);
             const expanded = expandedIds.has(r.id);
+            const formattedPromotions = formatOrderPromotions(
+              (r.order_promotions ?? []).map((x) => ({
+                id: x.id,
+                promotionId: x.promotion_id,
+                promotionName: x.promotion_name,
+                promotionType: x.promotion_type,
+                discountAmount: x.discount_amount,
+                matchedTier: x.matched_tier ?? null,
+              })),
+              parsePromotionSnapshot(r.promotion_snapshot ?? null),
+              (r.order_gift_items ?? []).map((g) => ({
+                id: g.id,
+                giftId: g.gift_id,
+                giftName: g.gift_name,
+                quantity: g.quantity,
+              })),
+            );
             return (
               <div key={r.id} className="pos-today-orders-card">
                 <div className="pos-today-orders-card__row1">
@@ -275,7 +294,7 @@ export function PosTodayOrdersDrawer({ boothId, open, onClose }: Props) {
                       <span>{p.colUnitPrice}</span>
                       <span>{p.colLineTotal}</span>
                     </div>
-                    {(r.items ?? []).map((item, idx) => (
+                    {(r.items ?? []).filter((item) => !item.is_gift).map((item, idx) => (
                       <div
                         key={item.id}
                         className={`pos-today-orders-card__detail-row ${idx % 2 === 0 ? "is-odd" : "is-even"}`}>
@@ -296,12 +315,31 @@ export function PosTodayOrdersDrawer({ boothId, open, onClose }: Props) {
                     <div className="pos-today-orders-card__records">
                       <div className="pos-today-orders-card__record-block">
                         <div className="pos-today-orders-card__record-title">{p.promotionRecords}</div>
-                        {(r.order_promotions?.length ?? 0) > 0 ? (
-                          <ul className="pos-today-orders-card__record-list">
-                            {(r.order_promotions ?? []).map((promo) => (
-                              <li key={promo.id}>
-                                <span>{promo.promotion_name}</span>
-                                <span>-{formatMoney(promo.discount_amount)}</span>
+                        {formattedPromotions.length > 0 ? (
+                          <ul className="pos-today-orders-card__record-list pos-today-orders-card__record-list--promo">
+                            {formattedPromotions.map((promo) => (
+                              <li key={promo.key}>
+                                <div className="pos-today-orders-card__promo-title">
+                                  <CheckCircle2 size={16} color="#4caf50" />
+                                  <span className="pos-today-orders-card__promo-name">
+                                    {promo.isManual ? `${zhtw.pos.manualPromoBadge} · ${promo.name}` : promo.name}
+                                  </span>
+                                </div>
+                                {promo.description ? (
+                                  <div className="pos-today-orders-card__promo-desc">{promo.description}</div>
+                                ) : null}
+                                {promo.gifts.length > 0 ? (
+                                  <div className="pos-today-orders-card__promo-gifts">
+                                    {promo.gifts.map((g, gi) => (
+                                      <div key={`${promo.key}-g-${gi}`}>• {zhtw.pos.discountDetailGiftLine(g.name, g.quantity)}</div>
+                                    ))}
+                                  </div>
+                                ) : null}
+                                {promo.discountAmount > 0 ? (
+                                  <div className="pos-today-orders-card__promo-deduction">
+                                    {zhtw.pos.discountDetailDeduction(`-${formatMoney(promo.discountAmount)}`)}
+                                  </div>
+                                ) : null}
                               </li>
                             ))}
                           </ul>
@@ -309,44 +347,29 @@ export function PosTodayOrdersDrawer({ boothId, open, onClose }: Props) {
                           <div className="pos-today-orders-card__record-empty">{p.noPromotions}</div>
                         )}
                       </div>
-                      <div className="pos-today-orders-card__price-summary">
-                        {r.discount_amount > 0 ? (
-                          <>
-                            <div className="pos-today-orders-card__price-row">
-                              <span className="pos-today-orders-card__price-label-muted">{p.priceOriginal}</span>
-                              <span className="pos-today-orders-card__price-value-muted">
-                                {formatMoney(r.total_amount)}
-                              </span>
-                            </div>
-                            <div className="pos-today-orders-card__price-row">
-                              <span className="pos-today-orders-card__price-label-muted">{p.priceDiscount}</span>
-                              <span className="pos-today-orders-card__price-value-discount">
-                                -{formatMoney(r.discount_amount)}
-                              </span>
-                            </div>
-                          </>
-                        ) : null}
-                        <div className="pos-today-orders-card__price-row is-final">
+                      <div className="pos-today-orders-card__promo-total">
+                        <div className="pos-today-orders-card__promo-total-row">
+                          <span className="pos-today-orders-card__price-label-muted">{p.priceOriginal}</span>
+                          <span className="pos-today-orders-card__price-value-muted">
+                            {formatMoney(r.total_amount)}
+                          </span>
+                        </div>
+                        <div className="pos-today-orders-card__promo-total-row">
+                          <span className="pos-today-orders-card__price-label-muted">
+                            {zhtw.pos.discountDetailTotalLabel}
+                          </span>
+                          <span className="pos-today-orders-card__price-value-discount">
+                            {r.discount_amount > 0
+                              ? `-${formatMoney(r.discount_amount)}`
+                              : formatMoney(0)}
+                          </span>
+                        </div>
+                        <div className="pos-today-orders-card__promo-total-row is-final">
                           <span className="pos-today-orders-card__price-label-final">{p.priceFinal}</span>
                           <span className="pos-today-orders-card__price-value-final">
                             {formatMoney(r.final_amount)}
                           </span>
                         </div>
-                      </div>
-                      <div className="pos-today-orders-card__record-block">
-                        <div className="pos-today-orders-card__record-title">{p.giftRecords}</div>
-                        {(r.order_gift_items?.length ?? 0) > 0 ? (
-                          <ul className="pos-today-orders-card__record-list">
-                            {(r.order_gift_items ?? []).map((gift) => (
-                              <li key={gift.id}>
-                                <span>{gift.gift_name}</span>
-                                <span>× {gift.quantity}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <div className="pos-today-orders-card__record-empty">{zhtw.common.dash}</div>
-                        )}
                       </div>
                     </div>
                   </div>

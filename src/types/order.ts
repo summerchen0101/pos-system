@@ -38,6 +38,18 @@ export type OrderPromotionSnapshot = {
   thresholdGiftSummaries: string[]
   /** Structured manual promos (e.g. FREE_SELECTION) for order detail UI. */
   promotions: OrderSnapshotPromotionEntry[]
+  appliedDiscounts?: {
+    promotionId: string
+    name: string
+    discountCents: number
+    matchedTier?: {
+      buy_quantity?: number
+      get_quantity?: number
+      nth?: number
+      discount_type?: "percent" | "fixed"
+      discount_value?: number
+    } | null
+  }[]
 }
 
 export type OrderItem = {
@@ -62,6 +74,22 @@ export type OrderAppliedPromotion = {
   promotionName: string
   promotionType: string
   discountAmount: number
+  matchedTier?: {
+    buy_quantity?: number
+    get_quantity?: number
+    nth?: number
+    discount_type?: "percent" | "fixed"
+    discount_value?: number
+  } | null
+  promotionMeta?: {
+    kind?: string | null
+    buy_qty?: number | null
+    free_qty?: number | null
+    threshold_amount?: number | null
+    fixed_discount_cents?: number | null
+    discount_percent?: number | null
+    apply_mode?: string | null
+  } | null
 }
 
 export type OrderGiftItem = {

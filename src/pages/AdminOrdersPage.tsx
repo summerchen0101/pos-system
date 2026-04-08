@@ -1,15 +1,4 @@
-import {
-  App,
-  Button,
-  DatePicker,
-  Descriptions,
-  Modal,
-  Select,
-  Space,
-  Table,
-  Tag,
-  Typography,
-} from "antd";
+import { App, Button, DatePicker, Modal, Select, Space, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs, { type Dayjs } from "dayjs";
 import { useCallback, useEffect, useState } from "react";
@@ -21,6 +10,7 @@ import { OrderGiftTag } from "../components/OrderGiftTag";
 import { useAuth } from "../auth/AuthContext";
 import { zhtw } from "../locales/zhTW";
 import { formatMoney } from "../lib/money";
+import { formatOrderPromotions } from "../utils/formatOrderPromotions";
 import type {
   BuyerAgeGroup,
   BuyerGender,
@@ -30,6 +20,7 @@ import type {
   OrderListEntry,
 } from "../types/order";
 import { palette } from "../theme/palette";
+import { CheckCircle2 } from "lucide-react";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -208,7 +199,9 @@ export function AdminOrdersPage() {
       key: "final",
       align: "right",
       width: 112,
-      render: (cents: number) => formatMoney(cents),
+      render: (cents: number) => (
+        <span style={{ color: "#c8a96e", fontWeight: 500 }}>{formatMoney(cents)}</span>
+      ),
     },
     {
       title: o.colBuyerProfile,
@@ -298,19 +291,12 @@ export function AdminOrdersPage() {
     },
   ];
 
-  const snap = detail?.promotionSnapshot;
-  const freeSelectionSnap =
-    snap?.promotions?.filter((p) => p.type === "FREE_SELECTION") ?? [];
-  const thresholdGiftLines =
-    detail?.items.filter((i) => i.isGift && i.giftId) ?? [];
-  const freeSelectionLines =
-    detail?.items.filter((i) => i.source === "FREE_SELECTION") ?? [];
-  const manualFreeLines =
-    detail?.items.filter(
-      (i) => i.isManualFree && i.source !== "FREE_SELECTION",
-    ) ?? [];
   const recordedPromotions = detail?.appliedPromotions ?? [];
-  const recordedGiftItems = detail?.giftItems ?? [];
+  const promotionDisplayRows = formatOrderPromotions(
+    recordedPromotions,
+    detail?.promotionSnapshot ?? null,
+    detail?.giftItems ?? [],
+  );
   const buyerProfileRows: { label: string; value: string }[] = [];
   if (detail?.buyerGender) {
     buyerProfileRows.push({
@@ -391,29 +377,54 @@ export function AdminOrdersPage() {
           <Text type="secondary">{o.modalLoading}</Text>
         ) : detail ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            <Descriptions size="small" column={{ xs: 1, sm: 2 }} bordered>
-              <Descriptions.Item label={o.colDate}>
-                {dayjs(detail.createdAt).format("YYYY-MM-DD HH:mm:ss")}
-              </Descriptions.Item>
-              <Descriptions.Item label={o.labelBoothInDetail}>
-                {detail.boothName ?? zhtw.common.dash}
-              </Descriptions.Item>
-              <Descriptions.Item label={o.labelScheduledInDetail}>
-                {namesDetailIdeographic(detail.scheduledStaffNames)}
-              </Descriptions.Item>
-              <Descriptions.Item label={o.labelClockedInDetail}>
-                {namesDetailIdeographic(detail.clockedInStaffNames)}
-              </Descriptions.Item>
-              <Descriptions.Item label={o.colFinal}>
-                {formatMoney(detail.finalAmountCents)}
-              </Descriptions.Item>
-              <Descriptions.Item label={o.colTotal}>
-                {formatMoney(detail.totalAmountCents)}
-              </Descriptions.Item>
-              <Descriptions.Item label={o.colDiscount}>
-                {formatMoney(detail.discountAmountCents)}
-              </Descriptions.Item>
-            </Descriptions>
+            <div className="admin-order-detail-info-grid">
+              <div className="admin-order-detail-info-item">
+                <div className="admin-order-detail-info-item__label">{o.colDate}</div>
+                <div className="admin-order-detail-info-item__value">
+                  {dayjs(detail.createdAt).format("YYYY-MM-DD HH:mm:ss")}
+                </div>
+              </div>
+              <div className="admin-order-detail-info-item">
+                <div className="admin-order-detail-info-item__label">{o.labelBoothInDetail}</div>
+                <div className="admin-order-detail-info-item__value">
+                  {detail.boothName ?? zhtw.common.dash}
+                </div>
+              </div>
+              <div className="admin-order-detail-info-item">
+                <div className="admin-order-detail-info-item__label">{o.labelScheduledInDetail}</div>
+                <div className="admin-order-detail-info-item__value">
+                  {namesDetailIdeographic(detail.scheduledStaffNames)}
+                </div>
+              </div>
+              <div className="admin-order-detail-info-item">
+                <div className="admin-order-detail-info-item__label">{o.labelClockedInDetail}</div>
+                <div className="admin-order-detail-info-item__value">
+                  {namesDetailIdeographic(detail.clockedInStaffNames)}
+                </div>
+              </div>
+            </div>
+            <div className="admin-order-amount-cards">
+              <div className="admin-order-amount-card">
+                <div className="admin-order-amount-card__label">{o.colTotal}</div>
+                <div className="admin-order-amount-card__value is-total">
+                  {formatMoney(detail.totalAmountCents)}
+                </div>
+              </div>
+              <div className="admin-order-amount-card">
+                <div className="admin-order-amount-card__label">{o.colDiscount}</div>
+                <div className="admin-order-amount-card__value is-discount">
+                  {detail.discountAmountCents > 0
+                    ? `-${formatMoney(detail.discountAmountCents)}`
+                    : formatMoney(0)}
+                </div>
+              </div>
+              <div className="admin-order-amount-card">
+                <div className="admin-order-amount-card__label">{o.colFinal}</div>
+                <div className="admin-order-amount-card__value is-final">
+                  {formatMoney(detail.finalAmountCents)}
+                </div>
+              </div>
+            </div>
 
             <div>
               <Title level={5} style={{ marginTop: 0 }}>
@@ -424,9 +435,56 @@ export function AdminOrdersPage() {
                 rowKey="id"
                 pagination={false}
                 columns={itemColumns}
-                dataSource={detail.items}
+                dataSource={detail.items.filter((x) => !x.isGift)}
                 locale={{ emptyText: o.noItems }}
               />
+            </div>
+
+            <div>
+              <Title level={5} style={{ marginTop: 0 }}>
+                {o.sectionPromotions}
+              </Title>
+              <div className="admin-order-promotions">
+                {promotionDisplayRows.length ? (
+                  <ul className="admin-order-promotions__list">
+                    {promotionDisplayRows.map((row) => (
+                      <li key={row.key} className="admin-order-promotions__item">
+                        <div className="admin-order-promotions__title">
+                          <CheckCircle2 size={16} color="#4caf50" />
+                          <span>{row.isManual ? `${zhtw.pos.manualPromoBadge} · ${row.name}` : row.name}</span>
+                        </div>
+                        {row.description && row.description !== row.name ? (
+                          <div className="admin-order-promotions__desc">{row.description}</div>
+                        ) : null}
+                        {row.gifts.length ? (
+                          <div className="admin-order-promotions__gifts">
+                            {row.gifts.map((g, idx) => (
+                              <div key={`${row.key}-${idx}`}>
+                                {zhtw.pos.discountDetailGiftLine(g.name, g.quantity)}
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                        {row.discountAmount > 0 ? (
+                          <div className="admin-order-promotions__deduction">
+                            {zhtw.pos.discountDetailDeduction(`-${formatMoney(row.discountAmount)}`)}
+                          </div>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <Text type="secondary">{zhtw.common.dash}</Text>
+                )}
+                <div className="admin-order-promotions__total">
+                  <span>{zhtw.pos.discountDetailTotalLabel}</span>
+                  <span>
+                    {detail.discountAmountCents > 0
+                      ? `-${formatMoney(detail.discountAmountCents)}`
+                      : formatMoney(0)}
+                  </span>
+                </div>
+              </div>
             </div>
 
             <div>
@@ -434,119 +492,17 @@ export function AdminOrdersPage() {
                 {o.sectionBuyerProfile}
               </Title>
               {buyerProfileRows.length === 0 ? (
-                <Text type="secondary">{o.buyerProfileUnfilled}</Text>
+                <div className="admin-order-buyer-profile__empty">{o.buyerProfileUnfilled}</div>
               ) : (
-                <Descriptions size="small" column={1} bordered>
+                <div className="admin-order-buyer-profile">
                   {buyerProfileRows.map((r) => (
-                    <Descriptions.Item key={r.label} label={r.label}>
-                      {r.value}
-                    </Descriptions.Item>
+                    <div key={r.label} className="admin-order-buyer-profile__row">
+                      <span className="admin-order-buyer-profile__label">{r.label}</span>
+                      <span className="admin-order-buyer-profile__value">{r.value}</span>
+                    </div>
                   ))}
-                </Descriptions>
+                </div>
               )}
-            </div>
-
-            <div>
-              <Title level={5} style={{ marginTop: 0 }}>
-                {o.sectionPromotions}
-              </Title>
-              <Descriptions size="small" column={1} bordered>
-                <Descriptions.Item label={o.promoDiscount}>
-                  {formatMoney(detail.discountAmountCents)}
-                </Descriptions.Item>
-                <Descriptions.Item label={o.promoAuto}>
-                  {snap?.autoPromotionName ?? "—"}
-                </Descriptions.Item>
-                <Descriptions.Item label={o.promoManual}>
-                  {recordedPromotions.length ? (
-                    <ul style={{ margin: 0, paddingLeft: 20 }}>
-                      {recordedPromotions.map((p) => (
-                        <li key={p.id}>
-                          {p.promotionName}
-                          {p.discountAmount ? `（${formatMoney(p.discountAmount)}）` : ""}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : snap?.manualPromotionDetails?.length ||
-                    freeSelectionSnap.length ? (
-                    <ul style={{ margin: 0, paddingLeft: 20 }}>
-                      {snap?.manualPromotionDetails?.map((m, i) => (
-                        <li key={`${m.promotionId ?? i}-${m.name}`}>
-                          {m.name}（{formatMoney(m.discountCents)}）
-                        </li>
-                      ))}
-                      {freeSelectionSnap.map((p) => (
-                        <li key={p.promotionId ?? p.description}>
-                          {p.description}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    "—"
-                  )}
-                </Descriptions.Item>
-                <Descriptions.Item label={o.promoThreshold}>
-                  {snap?.thresholdGiftSummaries?.length ? (
-                    <ul style={{ margin: 0, paddingLeft: 20 }}>
-                      {snap.thresholdGiftSummaries.map((t, i) => (
-                        <li key={i}>{t}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    "—"
-                  )}
-                </Descriptions.Item>
-                <Descriptions.Item label={o.promoGiftLines}>
-                  {recordedGiftItems.length ? (
-                    <ul style={{ margin: 0, paddingLeft: 20 }}>
-                      {recordedGiftItems.map((g) => (
-                        <li key={g.id}>
-                          {g.giftName} × {g.quantity}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : thresholdGiftLines.length ? (
-                    <ul style={{ margin: 0, paddingLeft: 20 }}>
-                      {thresholdGiftLines.map((g) => (
-                        <li key={g.id}>
-                          {g.productName}
-                          {g.size ? `（${g.size}）` : ""} × {g.quantity}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    "—"
-                  )}
-                </Descriptions.Item>
-                <Descriptions.Item label={o.promoFreeSelectionContent}>
-                  {freeSelectionLines.length ? (
-                    <ul style={{ margin: 0, paddingLeft: 20 }}>
-                      {freeSelectionLines.map((g) => (
-                        <li key={g.id}>
-                          {g.productName}
-                          {g.size ? `（${g.size}）` : ""} × {g.quantity}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    "—"
-                  )}
-                </Descriptions.Item>
-                <Descriptions.Item label={o.promoManualFreeLines}>
-                  {manualFreeLines.length ? (
-                    <ul style={{ margin: 0, paddingLeft: 20 }}>
-                      {manualFreeLines.map((g) => (
-                        <li key={g.id}>
-                          {g.productName}
-                          {g.size ? `（${g.size}）` : ""} × {g.quantity}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    "—"
-                  )}
-                </Descriptions.Item>
-              </Descriptions>
             </div>
           </div>
         ) : (

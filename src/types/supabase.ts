@@ -211,6 +211,7 @@ export type OrderPromotionRow = {
   promotion_name: string
   promotion_type: string
   discount_amount: number
+  matched_tier: unknown | null
   created_at: string
 }
 

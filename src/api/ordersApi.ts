@@ -19,6 +19,27 @@ import type {
 } from '../types/supabase'
 
 type BoothNameNested = { name: string } | { name: string }[] | null | undefined
+type PromotionNested =
+  | {
+      kind?: string | null
+      buy_qty?: number | null
+      free_qty?: number | null
+      threshold_amount?: number | null
+      fixed_discount_cents?: number | null
+      discount_percent?: number | null
+      apply_mode?: string | null
+    }
+  | {
+      kind?: string | null
+      buy_qty?: number | null
+      free_qty?: number | null
+      threshold_amount?: number | null
+      fixed_discount_cents?: number | null
+      discount_percent?: number | null
+      apply_mode?: string | null
+    }[]
+  | null
+  | undefined
 
 function unwrapBoothName(booths: BoothNameNested): string | null {
   if (booths == null) return null
@@ -29,6 +50,12 @@ function unwrapBoothName(booths: BoothNameNested): string | null {
 function normalizeNameArray(raw: string[] | null | undefined): string[] {
   if (raw == null || !Array.isArray(raw)) return []
   return raw.filter((x): x is string => typeof x === 'string')
+}
+
+function unwrapPromotionMeta(raw: PromotionNested) {
+  if (!raw) return null
+  if (Array.isArray(raw)) return raw[0] ?? null
+  return raw
 }
 
 function mapOrderRow(row: OrderRow & { booths?: BoothNameNested }): Order {
@@ -95,6 +122,28 @@ export function parsePromotionSnapshot(raw: unknown): OrderPromotionSnapshot | n
             description: typeof x.description === 'string' ? x.description : '',
             selectedItemsSummary:
               typeof x.selectedItemsSummary === 'string' ? x.selectedItemsSummary : '',
+          }))
+      : [],
+    appliedDiscounts: Array.isArray(o.appliedDiscounts)
+      ? o.appliedDiscounts
+          .filter((x): x is Record<string, unknown> => x != null && typeof x === 'object')
+          .map((x) => ({
+            promotionId: typeof x.promotionId === 'string' ? x.promotionId : '',
+            name: typeof x.name === 'string' ? x.name : '—',
+            discountCents:
+              typeof x.discountCents === 'number' && Number.isFinite(x.discountCents)
+                ? x.discountCents
+                : 0,
+            matchedTier:
+              x.matchedTier && typeof x.matchedTier === 'object'
+                ? (x.matchedTier as {
+                    buy_quantity?: number
+                    get_quantity?: number
+                    nth?: number
+                    discount_type?: 'percent' | 'fixed'
+                    discount_value?: number
+                  })
+                : null,
           }))
       : [],
   }
@@ -190,7 +239,23 @@ export async function fetchOrdersForDateRange(
       clocked_in_staff,
       booths ( name ),
       order_items ( product_name, quantity, sort_order ),
-      order_promotions ( id, promotion_id, promotion_name, promotion_type, discount_amount ),
+      order_promotions (
+        id,
+        promotion_id,
+        promotion_name,
+        promotion_type,
+        discount_amount,
+        matched_tier,
+        promotions (
+          kind,
+          buy_qty,
+          free_qty,
+          threshold_amount,
+          fixed_discount_cents,
+          discount_percent,
+          apply_mode
+        )
+      ),
       order_gift_items ( id, gift_id, gift_name, quantity )
     `,
     )
@@ -222,7 +287,14 @@ export async function fetchOrdersForDateRange(
     clocked_in_staff: string[] | null
     booths: BoothNameNested
     order_items: Pick<OrderItemRow, 'product_name' | 'quantity' | 'sort_order'>[] | null
-    order_promotions: Pick<OrderPromotionRow, 'id' | 'promotion_id' | 'promotion_name' | 'promotion_type' | 'discount_amount'>[] | null
+    order_promotions:
+      | (Pick<
+          OrderPromotionRow,
+          'id' | 'promotion_id' | 'promotion_name' | 'promotion_type' | 'discount_amount' | 'matched_tier'
+        > & {
+          promotions?: PromotionNested
+        })[]
+      | null
     order_gift_items: Pick<OrderGiftItemRow, 'id' | 'gift_id' | 'gift_name' | 'quantity'>[] | null
   }
 
@@ -282,7 +354,23 @@ export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | n
         sort_order,
         source
       ),
-      order_promotions ( id, promotion_id, promotion_name, promotion_type, discount_amount ),
+      order_promotions (
+        id,
+        promotion_id,
+        promotion_name,
+        promotion_type,
+        discount_amount,
+        matched_tier,
+        promotions (
+          kind,
+          buy_qty,
+          free_qty,
+          threshold_amount,
+          fixed_discount_cents,
+          discount_percent,
+          apply_mode
+        )
+      ),
       order_gift_items ( id, gift_id, gift_name, quantity )
     `,
     )
@@ -296,7 +384,7 @@ export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | n
   type DetailRow = OrderRow & {
     booths?: BoothNameNested
     order_items: OrderItemRow[] | null
-    order_promotions: OrderPromotionRow[] | null
+    order_promotions: (OrderPromotionRow & { promotions?: PromotionNested })[] | null
     order_gift_items: OrderGiftItemRow[] | null
   }
   const row = data as unknown as DetailRow
@@ -307,6 +395,17 @@ export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | n
     promotionName: x.promotion_name,
     promotionType: x.promotion_type,
     discountAmount: x.discount_amount,
+    matchedTier:
+      x.matched_tier && typeof x.matched_tier === 'object'
+        ? (x.matched_tier as {
+            buy_quantity?: number
+            get_quantity?: number
+            nth?: number
+            discount_type?: 'percent' | 'fixed'
+            discount_value?: number
+          })
+        : null,
+    promotionMeta: unwrapPromotionMeta(x.promotions),
   }))
   const giftItems: OrderGiftItem[] = (row.order_gift_items ?? []).map((x) => ({
     id: x.id,

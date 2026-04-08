@@ -12,6 +12,13 @@ export type AppliedDiscount = {
   description: string
   /** Subtotal discount from this line (minor units); gift-only rows use 0. */
   discountCents: number
+  matchedTier?: {
+    buy_quantity?: number
+    get_quantity?: number
+    nth?: number
+    discount_type?: 'percent' | 'fixed'
+    discount_value?: number
+  } | null
   gifts?: { name: string; quantity: number }[]
 }
 
@@ -105,11 +112,29 @@ export function buildAppliedDiscounts(
     const pid = p?.id ?? basePromotionIdFromRuleId(appliedAutoRuleId)
     const name = p?.name ?? t.appliedDiscountAutoFallback
     const description = p ? describeAutoPromotion(p, appliedAutoRuleId) : name
+    let matchedTier: AppliedDiscount['matchedTier'] = null
+    if (p?.kind === 'BUY_X_GET_Y') {
+      matchedTier = {
+        buy_quantity: p.buyQty ?? undefined,
+        get_quantity: p.freeQty ?? undefined,
+      }
+    } else if (p?.kind === 'TIERED') {
+      const m = appliedAutoRuleId.match(/~t~(.+)$/)
+      const tierId = m?.[1]
+      const tier = tierId ? p.rules?.find((r) => r.id === tierId) : undefined
+      if (tier?.freeQty != null && tier.freeQty > 0) {
+        matchedTier = {
+          buy_quantity: tier.minQty,
+          get_quantity: tier.freeQty,
+        }
+      }
+    }
     out.push({
       promotionId: pid,
       name,
       description,
       discountCents: b.autoDiscountCents,
+      matchedTier,
     })
   }
 
