@@ -16,7 +16,6 @@ import type { BuyerAgeGroup, BuyerGender, BuyerMotivation } from "../../types/or
 import { OrderGiftTag } from "../OrderGiftTag";
 import { BuyerProfileModal } from "./BuyerProfileModal";
 import { zhtw } from "../../locales/zhTW";
-import { palette } from "../../theme/palette";
 import { formatOrderPromotions } from "../../utils/formatOrderPromotions";
 
 dayjs.extend(utc);
@@ -24,6 +23,18 @@ dayjs.extend(timezone);
 
 const p = zhtw.pos.todayOrders;
 const oOrd = zhtw.admin.orders;
+const orderTagStyle = {
+  freeSelection: {
+    color: "#c8a96e",
+    background: "transparent",
+    border: "1px solid #c8a96e",
+  },
+  bundle: {
+    color: "#c8a96e",
+    background: "transparent",
+    border: "1px solid #c8a96e",
+  },
+} as const;
 
 function buildPreview(items: PosOrderLineJson[], maxFirst = 3): string {
   if (items.length === 0) return zhtw.common.dash;
@@ -34,9 +45,17 @@ function buildPreview(items: PosOrderLineJson[], maxFirst = 3): string {
 
 function lineTag(source: string | null, isGift: boolean) {
   if (source === "FREE_SELECTION")
-    return <Tag color="purple">{oOrd.tagFreeSelection}</Tag>;
+    return (
+      <Tag bordered={false} style={orderTagStyle.freeSelection}>
+        {oOrd.tagFreeSelection}
+      </Tag>
+    );
   if (source === "BUNDLE_COMPONENT")
-    return <Tag color={palette.tagBundle}>{oOrd.tagBundleComponent}</Tag>;
+    return (
+      <Tag bordered={false} style={orderTagStyle.bundle}>
+        {oOrd.tagBundleComponent}
+      </Tag>
+    );
   if (isGift) return <OrderGiftTag label={oOrd.tagGift} />;
   return null;
 }

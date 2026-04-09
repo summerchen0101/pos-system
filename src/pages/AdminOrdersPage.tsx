@@ -19,12 +19,28 @@ import type {
   OrderItem,
   OrderListEntry,
 } from "../types/order";
-import { palette } from "../theme/palette";
 import { CheckCircle2 } from "lucide-react";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 const o = zhtw.admin.orders;
+const orderTagStyle = {
+  freeSelection: {
+    color: "#c8a96e",
+    background: "transparent",
+    border: "1px solid #c8a96e",
+  },
+  bundle: {
+    color: "#c8a96e",
+    background: "transparent",
+    border: "1px solid #c8a96e",
+  },
+  manualFree: {
+    color: "#c8a96e",
+    background: "transparent",
+    border: "1px solid #c8a96e",
+  },
+} as const;
 
 function startEndRange(d0: Dayjs, d1: Dayjs): { start: Date; end: Date } {
   const a = d0.isAfter(d1) ? d1 : d0;
@@ -42,11 +58,24 @@ function namesDetailIdeographic(names: string[]): string {
 
 function lineTags(item: OrderItem) {
   if (item.source === "FREE_SELECTION")
-    return <Tag color="purple">{o.tagFreeSelection}</Tag>;
+    return (
+      <Tag bordered={false} style={orderTagStyle.freeSelection}>
+        {o.tagFreeSelection}
+      </Tag>
+    );
   if (item.source === "BUNDLE_COMPONENT")
-    return <Tag color={palette.tagBundle}>{o.tagBundleComponent}</Tag>;
+    return (
+      <Tag bordered={false} style={orderTagStyle.bundle}>
+        {o.tagBundleComponent}
+      </Tag>
+    );
   if (item.isGift) return <OrderGiftTag label={o.tagGift} />;
-  if (item.isManualFree) return <Tag color="gold">{o.tagManualFree}</Tag>;
+  if (item.isManualFree)
+    return (
+      <Tag bordered={false} style={orderTagStyle.manualFree}>
+        {o.tagManualFree}
+      </Tag>
+    );
   return null;
 }
 
