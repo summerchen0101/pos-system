@@ -1,6 +1,5 @@
 import { DeleteOutlined } from '@ant-design/icons'
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { zhtw } from '../../locales/zhTW'
 import { setBoothPinVerifiedInSession } from '../../lib/boothPinSession'
 
@@ -15,7 +14,6 @@ type Props = {
 }
 
 export function BoothPinScreen({ boothId, boothName, expectedPin, onVerified }: Props) {
-  const navigate = useNavigate()
   const [value, setValue] = useState('')
   const [error, setError] = useState(false)
   const len = expectedPin.length
@@ -35,6 +33,11 @@ export function BoothPinScreen({ boothId, boothName, expectedPin, onVerified }: 
     if (error) setError(false)
     setValue((v) => v.slice(0, -1))
   }, [error])
+
+  const clearAll = useCallback(() => {
+    setError(false)
+    setValue('')
+  }, [])
 
   const fail = useCallback(() => {
     setError(true)
@@ -91,8 +94,11 @@ export function BoothPinScreen({ boothId, boothName, expectedPin, onVerified }: 
             </div>
           ))}
           <div className="pos-booth-pin__row">
-            <button type="button" className="pos-booth-pin__key pos-booth-pin__key--muted" onClick={() => navigate('/')}>
-              {t.boothPinBack}
+            <button
+              type="button"
+              className="pos-booth-pin__key pos-booth-pin__key--muted"
+              onClick={clearAll}>
+              {t.boothPinClear}
             </button>
             <button type="button" className="pos-booth-pin__key" onClick={() => appendDigit('0')}>
               0

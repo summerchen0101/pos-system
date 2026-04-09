@@ -161,7 +161,7 @@ export const zhtw = {
     numpadMinus: "減一",
     numpadPlus: "加一",
     boothPinEnter: "請輸入驗證碼",
-    boothPinBack: "返回",
+    boothPinClear: "清空",
     boothPinBackspace: "刪除一碼",
     boothPicker: {
       title: "選擇攤位",
