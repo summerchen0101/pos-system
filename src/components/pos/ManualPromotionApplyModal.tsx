@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { formatMoney } from '../../lib/money'
 import { zhtw } from '../../locales/zhTW'
 import { isManualPromotionEligible, isManualPromotionSelectableKind } from '../../pos/manualPromotionEligibility'
+import { behaviorForGroupId } from '../../promotions/promotionGroupUtils'
 import { useCartStore } from '../../store/cartStore'
 import type { CartLine, Product, Promotion } from '../../types/pos'
 import { FreeSelectionApplyModal } from './FreeSelectionApplyModal'
@@ -15,6 +16,23 @@ function manualFreePromoDescription(p: Promotion, products: readonly Product[]):
   return p.freeItems
     .map((f) => `${byId.get(f.productId)?.name ?? '—'}×${f.quantity}`)
     .join('、')
+}
+
+/** Another manual in the same exclusive group is already applied. */
+function blockedByExclusiveManualGroup(
+  candidate: Promotion,
+  manualPromotionIds: readonly string[],
+  promotions: readonly Promotion[],
+): boolean {
+  const gid = candidate.groupId ?? candidate.group?.id
+  if (!gid) return false
+  if (behaviorForGroupId(gid, promotions) !== 'exclusive') return false
+  return manualPromotionIds.some((id) => {
+    if (id === candidate.id) return false
+    const o = promotions.find((x) => x.id === id)
+    if (!o) return false
+    return (o.groupId ?? o.group?.id) === gid
+  })
 }
 
 function promoOneLine(p: Promotion, products: readonly Product[]): string {
@@ -63,6 +81,7 @@ export function ManualPromotionApplyModal({
         p.applyMode === 'MANUAL' &&
         isManualPromotionSelectableKind(p) &&
         !manualPromotionIds.includes(p.id) &&
+        !blockedByExclusiveManualGroup(p, manualPromotionIds, promotions) &&
         isManualPromotionEligible(p, lines, products),
     )
   }, [promotions, lines, products, manualPromotionIds])

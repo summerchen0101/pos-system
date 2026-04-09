@@ -3,6 +3,7 @@ import { mapDbPromotionsToEngineRules } from './mapDbPromotionsToRules'
 import { evaluatePromotionRule } from './registry'
 import type { CartLineInput, PromotionContext, PromotionRule } from './types'
 import type { Promotion, PromotionGroupBehavior } from '../types/pos'
+import { behaviorForGroupId } from './promotionGroupUtils'
 
 export type AutoDiscountAllocation = {
   ruleId: string
@@ -119,7 +120,7 @@ export function selectAutoPromotionStack(
 
   for (const pid of orderedEligible) {
     const p = promotions.find((x) => x.id === pid)
-    const gid = p?.group?.id ?? null
+    const gid = p?.groupId ?? p?.group?.id ?? null
     if (!gid) {
       ungrouped.push(pid)
       continue
@@ -131,7 +132,7 @@ export function selectAutoPromotionStack(
 
   const groupIdsOrdered: string[] = []
   for (const p of promotions) {
-    const gid = p.group?.id
+    const gid = p.groupId ?? p.group?.id
     if (!gid) continue
     if (!groupBuckets.has(gid)) continue
     if (!groupIdsOrdered.includes(gid)) groupIdsOrdered.push(gid)
@@ -142,8 +143,7 @@ export function selectAutoPromotionStack(
   for (const gid of groupIdsOrdered) {
     const bucket = groupBuckets.get(gid)
     if (!bucket?.length) continue
-    const firstPromo = promotions.find((x) => x.id === bucket[0])
-    const behavior = (firstPromo?.group?.behavior ?? 'stackable') as PromotionGroupBehavior
+    const behavior = behaviorForGroupId(gid, promotions)
     selectedIds.push(...selectFromBucket(bucket, behavior, bestByPromo))
   }
 

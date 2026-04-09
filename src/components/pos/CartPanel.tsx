@@ -40,7 +40,6 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
   const { message } = App.useApp()
   const { cashier } = usePosCashier()
   const lines = useCartStore((s) => s.lines)
-  const manualPromotionIds = useCartStore((s) => s.manualPromotionIds)
   const increment = useCartStore((s) => s.increment)
   const decrement = useCartStore((s) => s.decrement)
   const removeLine = useCartStore((s) => s.removeLine)
@@ -148,11 +147,11 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
   }
 
   const manualTags = useMemo(() => {
-    return manualPromotionIds.map((id) => {
+    return totals.effectiveManualPromotionIds.map((id) => {
       const p = promotions.find((x) => x.id === id)
       return { id, name: p?.name ?? id }
     })
-  }, [manualPromotionIds, promotions])
+  }, [totals.effectiveManualPromotionIds, promotions])
 
   const handleCheckout = () => {
     if (!canCheckout || !boothId) return
@@ -197,7 +196,11 @@ export function CartPanel({ boothId, promotions, products, promotionsError }: Pr
               discountCents: m.discountCents,
             })),
             thresholdGiftSummaries: totals.thresholdGiftSummaries,
-            promotions: buildFreeSelectionPromotionsSnapshot(lines, promotions, manualPromotionIds),
+            promotions: buildFreeSelectionPromotionsSnapshot(
+              lines,
+              promotions,
+              totals.effectiveManualPromotionIds,
+            ),
             appliedDiscounts: totals.appliedDiscounts.map((d) => ({
               promotionId: d.promotionId,
               name: d.name,

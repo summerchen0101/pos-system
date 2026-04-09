@@ -7,6 +7,7 @@ import { fetchProductsForPosBooth } from "../../api/fetchProducts";
 import { fetchPromotions } from "../../api/fetchPromotions";
 import { PosCashierProvider } from "../../context/PosCashierContext";
 import { useManualFreeLineSync } from "../../hooks/useManualFreeLineSync";
+import { usePruneManualPromotionGroups } from "../../hooks/usePruneManualPromotionGroups";
 import { useThresholdGiftSync } from "../../hooks/useThresholdGiftSync";
 import { zhtw } from "../../locales/zhTW";
 import { useCartStore } from "../../store/cartStore";
@@ -162,6 +163,7 @@ function PosLayoutInner() {
     void refreshActiveStaff();
   }, [boothId, refreshActiveStaff]);
 
+  usePruneManualPromotionGroups(promotions, products);
   useManualFreeLineSync(promotions, products);
   useThresholdGiftSync(promotions);
 

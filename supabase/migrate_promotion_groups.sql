@@ -13,6 +13,11 @@ create table if not exists public.promotion_groups (
 alter table public.promotions
   add column if not exists group_id uuid references public.promotion_groups (id) on delete set null;
 
+-- PostgREST / Supabase embed in app: promotion_groups!promotions_group_id_fkey
+-- If the client select fails, confirm FK name: 
+--   select conname from pg_constraint c join pg_class t on c.conrelid = t.oid
+--   where t.relname = 'promotions' and confrelid = 'public.promotion_groups'::regclass;
+
 create index if not exists promotions_group_id_idx on public.promotions (group_id);
 
 alter table public.promotion_groups enable row level security;

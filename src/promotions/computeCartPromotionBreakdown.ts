@@ -9,6 +9,7 @@ import {
   sumCartSubtotalCents,
 } from './aggregate'
 import type { CartLineInput } from './types'
+import { filterManualPromotionIdsByGroups } from './filterManualPromotionIdsByGroups'
 import type { CartLine, Promotion } from '../types/pos'
 
 export type ManualPromotionDetail = {
@@ -26,11 +27,13 @@ export type CartPromotionBreakdown = {
   appliedAutoAllocations: AutoDiscountAllocation[]
   manualDiscountCents: number
   manualDetails: ManualPromotionDetail[]
+  /** Manual ids after promotion-group rules (exclusive / best_only / stackable). */
+  effectiveManualPromotionIds: string[]
   /** Payable total before threshold gifts (auto + manual discounts applied). */
   finalBeforeGiftsCents: number
 }
 
-function promotionContextFromPaidMerch(lines: readonly CartLine[]): PromotionContext {
+export function promotionContextFromPaidMerch(lines: readonly CartLine[]): PromotionContext {
   const inputs: CartLineInput[] = lines
     .filter((l) => !l.isGift && !l.isManualFree && !l.isBundleComponent)
     .map((l) => ({
@@ -101,8 +104,14 @@ export function computeCartPromotionBreakdown(
 
   const bogoCtx = promotionContextFromPaidMerch(lines)
   const appliedAutoRuleIds = stack.allocations.map((a) => a.ruleId)
+  const effectiveManualIds = filterManualPromotionIdsByGroups(
+    manualPromotionIds,
+    promotions,
+    bogoCtx,
+    appliedAutoRuleIds,
+  )
 
-  for (const mid of manualPromotionIds) {
+  for (const mid of effectiveManualIds) {
     const p = promotions.find((x) => x.id === mid)
     if (!p || !p.active || p.applyMode !== 'MANUAL') continue
 
@@ -141,6 +150,7 @@ export function computeCartPromotionBreakdown(
     appliedAutoAllocations: stack.allocations,
     manualDiscountCents: manualSum,
     manualDetails,
+    effectiveManualPromotionIds: effectiveManualIds,
     finalBeforeGiftsCents: running,
   }
 }

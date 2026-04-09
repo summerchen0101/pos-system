@@ -11,7 +11,7 @@ export const PROMOTION_LIST_SELECT = `
   id,
   group_id,
   promotion_booths!inner ( booth_id, booths ( id, name, location ) ),
-  promotion_groups ( id, name, behavior ),
+  promotion_groups!promotions_group_id_fkey ( id, name, behavior ),
   code,
   name,
   kind,

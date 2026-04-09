@@ -1,4 +1,8 @@
 import { supabase } from '../supabase'
+import {
+  enrichPromotionWithGroupFallback,
+  loadPromotionGroupsMap,
+} from './promotionGroupEnrichment'
 import { mapPromotionFromRow, type PromotionRowWithProducts } from './promotionMappers'
 import { PROMOTION_LIST_SELECT } from './promotionSelect'
 import type { Promotion, PromotionApplyMode, PromotionKind } from '../types/pos'
@@ -262,10 +266,15 @@ export async function listPromotionsAdmin(filters?: PromotionListFilters): Promi
     q = q.eq('promotion_booths.booth_id', filters.boothId)
   }
 
-  const { data, error } = await q
+  const [{ data, error }, groupsById] = await Promise.all([q, loadPromotionGroupsMap()])
 
   if (error) throw error
-  return (data ?? []).map((row) => mapPromotionFromRow(row as PromotionRowWithProducts))
+  return (data ?? []).map((row) =>
+    enrichPromotionWithGroupFallback(
+      mapPromotionFromRow(row as PromotionRowWithProducts),
+      groupsById,
+    ),
+  )
 }
 
 export async function createPromotion(input: PromotionInput): Promise<Promotion> {
@@ -283,14 +292,16 @@ export async function createPromotion(input: PromotionInput): Promise<Promotion>
   await syncPromotionRelations(data.id, input)
   await replacePromotionBooths(data.id, input.boothIds)
 
-  const { data: full, error: fetchErr } = await supabase
-    .from('promotions')
-    .select(PROMOTION_LIST_SELECT)
-    .eq('id', data.id)
-    .single()
+  const [{ data: full, error: fetchErr }, groupsById] = await Promise.all([
+    supabase.from('promotions').select(PROMOTION_LIST_SELECT).eq('id', data.id).single(),
+    loadPromotionGroupsMap(),
+  ])
 
   if (fetchErr) throw fetchErr
-  return mapPromotionFromRow(full as PromotionRowWithProducts)
+  return enrichPromotionWithGroupFallback(
+    mapPromotionFromRow(full as PromotionRowWithProducts),
+    groupsById,
+  )
 }
 
 export async function updatePromotion(id: string, input: PromotionInput): Promise<Promotion> {
@@ -302,14 +313,16 @@ export async function updatePromotion(id: string, input: PromotionInput): Promis
   await syncPromotionRelations(id, input)
   await replacePromotionBooths(id, input.boothIds)
 
-  const { data: full, error: fetchErr } = await supabase
-    .from('promotions')
-    .select(PROMOTION_LIST_SELECT)
-    .eq('id', id)
-    .single()
+  const [{ data: full, error: fetchErr }, groupsById] = await Promise.all([
+    supabase.from('promotions').select(PROMOTION_LIST_SELECT).eq('id', id).single(),
+    loadPromotionGroupsMap(),
+  ])
 
   if (fetchErr) throw fetchErr
-  return mapPromotionFromRow(full as PromotionRowWithProducts)
+  return enrichPromotionWithGroupFallback(
+    mapPromotionFromRow(full as PromotionRowWithProducts),
+    groupsById,
+  )
 }
 
 export async function deletePromotion(id: string): Promise<void> {

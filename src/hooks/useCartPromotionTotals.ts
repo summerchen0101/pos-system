@@ -16,6 +16,8 @@ export type CartPromotionTotals = CartTotals & {
   appliedPromotionId: string | null
   appliedPromotionName: string | null
   manualPromotionDetails: ManualPromotionDetail[]
+  /** Staff-picked manual promos that count after group rules (align tags with totals). */
+  effectiveManualPromotionIds: string[]
   thresholdGiftSummaries: string[]
   appliedDiscounts: AppliedDiscount[]
 }
@@ -39,6 +41,7 @@ export function useCartPromotionTotals(promotions: Promotion[]): CartPromotionTo
         promotions,
       ),
       manualPromotionDetails: b.manualDetails,
+      effectiveManualPromotionIds: b.effectiveManualPromotionIds,
       thresholdGiftSummaries: thresholdGiftSummaryLines(
         lines,
         promotions,

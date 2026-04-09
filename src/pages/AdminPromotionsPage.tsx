@@ -520,7 +520,7 @@ export function AdminPromotionsPage() {
     setEditingId(p.id);
     form.setFieldsValue({
       boothIds: [...p.boothIds],
-      groupId: p.group?.id,
+      groupId: p.groupId ?? p.group?.id,
       name: p.name,
       code: p.code ?? "",
       kind: p.kind,

@@ -129,7 +129,9 @@ export type PromotionGiftDetail = {
 
 export type Promotion = {
   id: string
-  /** Optional stacking group (`promotions.group_id`). */
+  /** DB `promotions.group_id` — use for stacking buckets when embed may be missing. */
+  groupId: string | null
+  /** Optional stacking group (`promotions.group_id` + embed). */
   group: PromotionGroupInfo | null
   /** Booths this promotion applies to (from `promotion_booths`). */
   boothIds: string[]

@@ -65,7 +65,9 @@ function firstInventory(
 function mapPromotionGroup(row: PromotionRowWithProducts): PromotionGroupInfo | null {
   const raw = row.promotion_groups
   const g = raw == null ? null : Array.isArray(raw) ? raw[0] ?? null : raw
+  const colId = row.group_id ?? null
   if (!g?.id || !isPromotionGroupBehavior(g.behavior)) return null
+  if (colId != null && g.id !== colId) return null
   return { id: g.id, name: g.name, behavior: g.behavior }
 }
 
@@ -147,6 +149,7 @@ export function mapPromotionFromRow(row: PromotionRowWithProducts): Promotion {
 
   return {
     id: row.id,
+    groupId: row.group_id ?? null,
     group: mapPromotionGroup(row),
     boothIds,
     boothNames,
