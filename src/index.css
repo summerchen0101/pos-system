@@ -3,6 +3,7 @@
  * 調整配色請改 palette.ts。
  */
 :root {
+  font-size: clamp(14px, 0.875rem + 0.5vw, 18px);
   --pos-page-bg: #0e0d0c;
   --pos-text-strong: #f5f0e8;
   --pos-text-secondary: #a09890;

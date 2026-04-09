@@ -132,7 +132,7 @@
 
 .pos-main__header h1 {
   margin: 0 0 0.25rem;
-  font-size: 1.5rem;
+  font-size: 1.15rem;
   font-weight: 600;
   color: var(--pos-text-strong);
 }
@@ -724,7 +724,7 @@ button.pos-qty__value--tap:hover {
 
 .pos-order-summary__title {
   margin: 0 0 0.65rem;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -788,7 +788,8 @@ button.pos-qty__value--tap:hover {
   cursor: pointer;
 }
 
-.pos-order-summary__discount-hit.is-clickable:hover .pos-order-summary__discount-label {
+.pos-order-summary__discount-hit.is-clickable:hover
+  .pos-order-summary__discount-label {
   color: var(--pos-accent);
 }
 
@@ -816,8 +817,10 @@ button.pos-qty__value--tap:hover {
   color: var(--pos-text-muted);
 }
 
-.pos-order-summary__discount-hit.is-clickable:hover .pos-order-summary__discount-info-icon,
-.pos-order-summary__discount-hit.is-clickable:hover .pos-order-summary__discount-chevron {
+.pos-order-summary__discount-hit.is-clickable:hover
+  .pos-order-summary__discount-info-icon,
+.pos-order-summary__discount-hit.is-clickable:hover
+  .pos-order-summary__discount-chevron {
   color: var(--pos-accent);
 }
 
@@ -1342,27 +1345,27 @@ button.pos-qty__value--tap:hover {
 
 .pos-today-orders-card__time {
   color: #a09890;
-  font-size: 13px;
+  font-size: 0.9rem;
   flex-shrink: 0;
   min-width: 40px;
 }
 
 .pos-today-orders-card__final {
   color: #c8a96e;
-  font-size: 14px;
+  font-size: 1rem;
   font-weight: 500;
   flex-shrink: 0;
 }
 
 .pos-today-orders-card__delete.ant-btn {
-  font-size: 13px;
+  font-size: 0.9rem;
   flex-shrink: 0;
   margin-left: 12px;
 }
 
 .pos-today-orders-card__summary {
   color: #f5f0e8;
-  font-size: 14px;
+  font-size: 1rem;
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -1386,7 +1389,7 @@ button.pos-qty__value--tap:hover {
 .pos-today-orders-card__profile-new {
   border-radius: 20px;
   padding: 2px 10px;
-  font-size: 12px;
+  font-size: 0.86rem;
   background: transparent;
   cursor: pointer;
 }
@@ -1414,7 +1417,7 @@ button.pos-qty__value--tap:hover {
   border: none;
   background: transparent;
   color: #a09890;
-  font-size: 13px;
+  font-size: 0.9rem;
   padding: 0;
   cursor: pointer;
 }
@@ -1436,7 +1439,7 @@ button.pos-qty__value--tap:hover {
 
 .pos-today-orders-card__detail-head {
   color: #7a7770;
-  font-size: 13px;
+  font-size: 0.9rem;
   font-weight: 500;
   margin-bottom: 4px;
   background: #1a1916;
@@ -1446,7 +1449,7 @@ button.pos-qty__value--tap:hover {
 
 .pos-today-orders-card__detail-row {
   color: #a09890;
-  font-size: 13px;
+  font-size: 0.9rem;
   padding: 8px;
   border-bottom: 1px solid #1e1d1b;
 }
@@ -1493,7 +1496,7 @@ button.pos-qty__value--tap:hover {
 
 .pos-today-orders-card__record-title {
   color: #7a7770;
-  font-size: 11px;
+  font-size: 0.8rem;
   font-weight: 500;
   margin-bottom: 4px;
 }
@@ -1522,25 +1525,25 @@ button.pos-qty__value--tap:hover {
 
 .pos-today-orders-card__promo-name {
   color: #f5f0e8;
-  font-size: 14px;
+  font-size: 1rem;
   font-weight: 500;
 }
 
 .pos-today-orders-card__promo-desc {
   color: #7a7770;
-  font-size: 12px;
+  font-size: 0.86rem;
   margin: 4px 0 0 24px;
 }
 
 .pos-today-orders-card__promo-gifts {
   color: #a09890;
-  font-size: 12px;
+  font-size: 0.86rem;
   margin: 4px 0 0 24px;
 }
 
 .pos-today-orders-card__promo-deduction {
   color: #c8a96e;
-  font-size: 13px;
+  font-size: 0.9rem;
   margin: 4px 0 0 24px;
 }
 
@@ -1568,7 +1571,7 @@ button.pos-qty__value--tap:hover {
 
 .pos-today-orders-card__record-empty {
   color: #7a7770;
-  font-size: 13px;
+  font-size: 0.9rem;
 }
 
 .pos-today-orders-card__price-summary {
@@ -1588,17 +1591,17 @@ button.pos-qty__value--tap:hover {
 
 .pos-today-orders-card__price-label-muted {
   color: #7a7770;
-  font-size: 13px;
+  font-size: 0.9rem;
 }
 
 .pos-today-orders-card__price-value-muted {
   color: #a09890;
-  font-size: 13px;
+  font-size: 0.9rem;
 }
 
 .pos-today-orders-card__price-value-discount {
   color: #c8a96e;
-  font-size: 13px;
+  font-size: 0.9rem;
 }
 
 .pos-today-orders-card__price-row.is-final {
@@ -1608,12 +1611,12 @@ button.pos-qty__value--tap:hover {
 
 .pos-today-orders-card__price-label-final {
   color: #f5f0e8;
-  font-size: 14px;
+  font-size: 1rem;
   font-weight: 500;
 }
 
 .pos-today-orders-card__price-value-final {
   color: #c8a96e;
-  font-size: 14px;
+  font-size: 1rem;
   font-weight: 500;
 }
