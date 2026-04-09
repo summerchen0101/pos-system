@@ -93,8 +93,8 @@
 }
 
 .pos-category-btn.active {
-  background: var(--pos-accent);
-  border-color: var(--pos-accent);
+  background: #867049;
+  border-color: #9f7b3f;
   color: #fff;
 }
 
@@ -1008,7 +1008,7 @@ button.pos-qty__value--tap:hover {
   padding: 0.9rem 1.1rem;
   border: none;
   border-radius: 10px;
-  background: var(--pos-accent);
+  background: #867049;
   color: #fff;
   font-size: 1rem;
   font-weight: 700;
