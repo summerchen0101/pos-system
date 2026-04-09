@@ -60,6 +60,7 @@ import { ProductSelect } from "../components/admin/ProductSelect";
 import { zhtw } from "../locales/zhTW";
 import { formatMoney } from "../lib/money";
 import type { Category, Product, ProductKind } from "../types/pos";
+import { getProductImageUrl } from "../utils/imageUtils";
 
 const UNCATEGORIZED_SORT_KEY = "__uncategorized__";
 
@@ -288,7 +289,8 @@ export function AdminProductsPage() {
     }
     const u = typeof watchFormImageUrl === "string" ? watchFormImageUrl.trim() : "";
     if (u) {
-      return [{ uid: "remote", name: "image", status: "done", url: u }];
+      const previewUrl = getProductImageUrl(u, "full") ?? u;
+      return [{ uid: "remote", name: "image", status: "done", url: previewUrl }];
     }
     return [];
   }, [pendingImageFile, pendingImageObjectUrl, watchFormImageUrl]);
@@ -709,16 +711,7 @@ export function AdminProductsPage() {
     {
       title: p.colName,
       key: "name",
-      render: (_, row) => (
-        <Space direction="vertical" size={0}>
-          <Text strong>{row.name}</Text>
-          {row.nameEn ? (
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {row.nameEn}
-            </Text>
-          ) : null}
-        </Space>
-      ),
+      render: (_, row) => <Text strong>{row.name}</Text>,
     },
     {
       title: p.colType,

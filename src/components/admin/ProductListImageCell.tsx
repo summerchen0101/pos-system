@@ -1,11 +1,12 @@
 import { CameraOutlined, EditOutlined } from '@ant-design/icons'
 import { App, Spin } from 'antd'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { setProductImageUrl } from '../../api/productsAdmin'
 import {
   PRODUCT_LIST_IMAGE_MAX_BYTES,
   uploadProductListImage,
 } from '../../api/productImageStorage'
+import { ProductImage } from '../ProductImage'
 import { zhtw } from '../../locales/zhTW'
 import type { Product } from '../../types/pos'
 
@@ -21,19 +22,9 @@ export function ProductListImageCell({ product, onImageUrlCommitted }: Props) {
   const { message } = App.useApp()
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
-  const [imgFailed, setImgFailed] = useState(false)
   const [cacheToken, setCacheToken] = useState(0)
 
   const rawUrl = product.imageUrl?.trim() || null
-  const showPhoto = Boolean(rawUrl && !imgFailed)
-  const src =
-    showPhoto && rawUrl
-      ? `${rawUrl}${rawUrl.includes('?') ? '&' : '?'}v=${cacheToken}`
-      : undefined
-
-  useEffect(() => {
-    setImgFailed(false)
-  }, [rawUrl, product.id])
 
   const openPicker = useCallback(() => {
     if (uploading) return
@@ -92,23 +83,16 @@ export function ProductListImageCell({ product, onImageUrlCommitted }: Props) {
         aria-label={p.imageInlineChangeAria}>
         <Spin spinning={uploading} size="small">
           <span className="admin-product-list-img__frame">
-            {showPhoto && src ? (
-              <img
-                src={src}
-                alt=""
-                className="admin-product-list-img__thumb"
-                loading="lazy"
-                decoding="async"
-                onError={() => setImgFailed(true)}
-              />
-            ) : (
-              <span className="admin-product-list-img__placeholder">
-                <CameraOutlined className="admin-product-list-img__placeholder-icon" />
-              </span>
-            )}
+            <ProductImage
+              imageUrl={rawUrl}
+              size="thumb"
+              cacheBust={cacheToken}
+              className="admin-product-list-img__thumb"
+              style={{ width: '100%', height: '100%', borderRadius: 8 }}
+            />
             {!uploading ? (
               <span className="admin-product-list-img__overlay" aria-hidden>
-                {showPhoto ? <EditOutlined /> : <CameraOutlined />}
+                {rawUrl ? <EditOutlined /> : <CameraOutlined />}
               </span>
             ) : null}
           </span>
