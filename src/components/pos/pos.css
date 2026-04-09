@@ -143,17 +143,39 @@
   color: var(--pos-text-muted);
 }
 
-.pos-main__active-staff-wrap {
-  text-align: center;
-  margin: 0.2rem 0 0;
+.pos-main__meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.15rem;
+  font-size: 0.9rem;
 }
 
-.pos-main__active-staff {
-  margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.35;
-  color: var(--pos-text-muted);
-  opacity: 0.88;
+.pos-main__meta-booth {
+  color: #a09890;
+}
+
+.pos-main__meta-sep {
+  color: #4a4845;
+}
+
+.pos-main__meta-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.1rem;
+}
+
+.pos-main__meta-label {
+  color: #7a7770;
+}
+
+.pos-main__meta-value {
+  color: #f5f0e8;
+}
+
+.pos-main__meta-value--active {
+  color: #c8a96e;
 }
 
 .pos-product-grid__status {

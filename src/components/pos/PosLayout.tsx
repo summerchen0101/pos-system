@@ -1,8 +1,9 @@
 import { Button, Space, Typography } from "antd";
 import { Home } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
-import { fetchActiveStaffNamesForBooth, formatPosActiveStaffLine } from "../../api/posActiveStaff";
+import { fetchActiveStaffNamesForBooth } from "../../api/posActiveStaff";
+import { fetchScheduledStaffNamesForBooth } from "../../api/posCheckoutStaff";
 import { fetchProductsForPosBooth } from "../../api/fetchProducts";
 import { fetchPromotions } from "../../api/fetchPromotions";
 import { PosCashierProvider } from "../../context/PosCashierContext";
@@ -80,33 +81,32 @@ function PosLayoutInner() {
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
   const [promotionsError, setPromotionsError] = useState<string | null>(null);
-  const [activeStaffLine, setActiveStaffLine] = useState(
-    () => `${zhtw.pos.activeStaffPrefix}${zhtw.common.dash}`,
-  );
-
-  const refreshActiveStaff = useCallback(async () => {
-    if (!boothId) return;
-    try {
-      const names = await fetchActiveStaffNamesForBooth(boothId);
-      setActiveStaffLine(
-        formatPosActiveStaffLine(
-          names,
-          zhtw.pos.activeStaffPrefix,
-          zhtw.common.dash,
-          zhtw.pos.activeStaffTotal,
-        ),
-      );
-    } catch {
-      setActiveStaffLine(
-        `${zhtw.pos.activeStaffPrefix}${zhtw.common.dash}`,
-      );
-    }
-  }, [boothId]);
+  const [scheduledStaffNames, setScheduledStaffNames] = useState<string[]>([]);
+  const [activeStaffNames, setActiveStaffNames] = useState<string[]>([]);
+  const [staffRefreshToken, setStaffRefreshToken] = useState(0);
 
   useEffect(() => {
     if (!boothId) return;
-    void refreshActiveStaff();
-  }, [boothId, refreshActiveStaff]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [scheduled, active] = await Promise.all([
+          fetchScheduledStaffNamesForBooth(boothId),
+          fetchActiveStaffNamesForBooth(boothId),
+        ]);
+        if (cancelled) return;
+        setScheduledStaffNames(scheduled);
+        setActiveStaffNames(active);
+      } catch {
+        if (cancelled) return;
+        setScheduledStaffNames([]);
+        setActiveStaffNames([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [boothId, staffRefreshToken]);
 
   usePruneManualPromotionGroups(promotions, products);
   useManualFreeLineSync(promotions, products);
@@ -137,6 +137,8 @@ function PosLayoutInner() {
     () => products.filter((p) => p.kind === "STANDARD"),
     [products],
   );
+  const scheduledStaffText = scheduledStaffNames.length > 0 ? scheduledStaffNames.join("、") : zhtw.common.dash;
+  const activeStaffText = activeStaffNames.length > 0 ? activeStaffNames.join("、") : zhtw.common.dash;
 
   const handleAddProduct = (p: Product) => {
     if (p.kind === "CUSTOM_BUNDLE") {
@@ -225,7 +227,12 @@ function PosLayoutInner() {
             <h1>{zhtw.pos.registerTitle}</h1>
             {boothId ? (
               <Space wrap size={8} align="center" className="pos-header-actions">
-                <PosTabletClockButtons boothId={boothId} onClockRecordsChanged={refreshActiveStaff} />
+                <PosTabletClockButtons
+                  boothId={boothId}
+                  onClockRecordsChanged={() =>
+                    setStaffRefreshToken((prev) => prev + 1)
+                  }
+                />
                 <Button
                   type="default"
                   size="small"
@@ -238,18 +245,20 @@ function PosLayoutInner() {
             ) : null}
           </div>
           {boothLabel ? (
-            <p className="pos-main__hint" style={{ marginBottom: 4 }}>
-              {zhtw.pos.currentBooth(boothLabel)}
-            </p>
-          ) : null}
-          {boothId ? (
-            <div className="pos-main__active-staff-wrap">
-              <p className="pos-main__active-staff">{activeStaffLine}</p>
+            <div className="pos-main__meta-row">
+              <span className="pos-main__meta-booth">{zhtw.pos.currentBooth(boothLabel)}</span>
+              <span className="pos-main__meta-sep">|</span>
+              <span className="pos-main__meta-item">
+                <span className="pos-main__meta-label">排班人員：</span>
+                <span className="pos-main__meta-value">{scheduledStaffText}</span>
+              </span>
+              <span className="pos-main__meta-sep">|</span>
+              <span className="pos-main__meta-item">
+                <span className="pos-main__meta-label">在班人員：</span>
+                <span className="pos-main__meta-value pos-main__meta-value--active">{activeStaffText}</span>
+              </span>
             </div>
           ) : null}
-          <p className="pos-main__hint" style={boothLabel ? { marginTop: 0 } : undefined}>
-            {zhtw.pos.hint}
-          </p>
         </header>
         <div className="pos-main__catalog">
           {!productsLoading && !productsError && tabItems.length > 0 ? (
