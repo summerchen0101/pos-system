@@ -465,10 +465,40 @@
   border: 1px solid var(--pos-border);
 }
 
+.pos-cart-line__details {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.pos-cart-line__thumb {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.pos-cart-line__thumb-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 無圖時 ProductImage 佔位：不顯示深色底與框線 */
+.pos-cart-line__thumb > div {
+  background: transparent !important;
+  border: none !important;
+}
+
 .pos-cart-line__info {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
 }
 
 .pos-cart-line__name {

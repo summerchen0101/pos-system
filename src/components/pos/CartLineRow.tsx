@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { NumpadModal } from '../NumpadModal'
+import { ProductImage } from '../ProductImage'
 import { zhtw } from '../../locales/zhTW'
 import { formatMoney } from '../../lib/money'
 import type { CartLine, Product } from '../../types/pos'
@@ -51,24 +52,34 @@ export function CartLineRow({
     <li
       className={`pos-cart-line${isGift ? ' pos-cart-line--gift' : ''}${isManualFree ? ' pos-cart-line--manual-free' : ''}${isBundleComponent ? ' pos-cart-line--bundle-comp' : ''}`}
     >
-      <div className="pos-cart-line__info">
-        <span className="pos-cart-line__name">
-          {label}
-          {isGift ? (
-            <span className="pos-cart-line__gift-badge">{zhtw.pos.giftBadge}</span>
-          ) : null}
-          {isManualFree ? (
-            <span className="pos-cart-line__manual-free-badge">{zhtw.pos.manualFreeBadge}</span>
-          ) : null}
-          {isBundleRoot || isBundleComponent ? (
-            <span className="pos-cart-line__bundle-badge">{zhtw.pos.bundleBadge}</span>
-          ) : null}
-        </span>
-        <span className="pos-cart-line__unit">
-          {formatMoney(unitPrice)}
-          {zhtw.pos.each}
-        </span>
-        <span className="pos-cart-line__stock">{stockLabel}</span>
+      <div className="pos-cart-line__details">
+        <div className="pos-cart-line__thumb" aria-hidden>
+          <ProductImage
+            imageUrl={product.imageUrl}
+            size="thumb"
+            className="pos-cart-line__thumb-img"
+            style={{ width: '100%', height: '100%' }}
+          />
+        </div>
+        <div className="pos-cart-line__info">
+          <span className="pos-cart-line__name">
+            {label}
+            {isGift ? (
+              <span className="pos-cart-line__gift-badge">{zhtw.pos.giftBadge}</span>
+            ) : null}
+            {isManualFree ? (
+              <span className="pos-cart-line__manual-free-badge">{zhtw.pos.manualFreeBadge}</span>
+            ) : null}
+            {isBundleRoot || isBundleComponent ? (
+              <span className="pos-cart-line__bundle-badge">{zhtw.pos.bundleBadge}</span>
+            ) : null}
+          </span>
+          <span className="pos-cart-line__unit">
+            {formatMoney(unitPrice)}
+            {zhtw.pos.each}
+          </span>
+          <span className="pos-cart-line__stock">{stockLabel}</span>
+        </div>
       </div>
       <div className="pos-cart-line__controls">
         <div className="pos-qty" role="group" aria-label={zhtw.pos.qtyGroup(label)}>
