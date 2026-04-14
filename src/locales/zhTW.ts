@@ -54,6 +54,8 @@ export const zhtw = {
     decreaseQty: "減少數量",
     increaseQty: "增加數量",
     removeLine: (name: string) => `移除 ${name}`,
+    /** 購物車列向左滑時，底層顯示的刪除提示 */
+    cartSwipeDelete: '刪除',
     checkout: "結帳",
     chargedThanks: (amount: string) => `已收款 ${amount}，謝謝惠顧！`,
     buyerProfile: {
