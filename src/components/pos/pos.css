@@ -105,6 +105,12 @@
   overflow-y: auto;
   padding: 12px 4px 12px 0;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.pos-product-area::-webkit-scrollbar {
+  display: none;
 }
 
 .pos-main__title-row {
@@ -372,6 +378,12 @@
   -webkit-overflow-scrolling: touch;
   margin-bottom: 0.5rem;
   padding-right: 0.15rem;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.pos-cart-panel__lines-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .pos-cart-panel__footer {
@@ -888,6 +900,12 @@ button.pos-qty__value--tap:hover {
 .pos-discount-detail-modal__body {
   max-height: min(60vh, 420px);
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.pos-discount-detail-modal__body::-webkit-scrollbar {
+  display: none;
 }
 
 .pos-discount-detail-modal__list {
@@ -968,23 +986,25 @@ button.pos-qty__value--tap:hover {
   min-height: 48px;
   padding: 0 0.9rem;
   border-radius: 10px;
-  border: 1px solid var(--pos-border);
-  background: transparent;
-  color: var(--pos-text-muted);
+  border: 1px solid var(--pos-danger);
+  background: var(--pos-danger-soft);
+  color: var(--pos-danger);
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
   transition:
     border-color 0.15s ease,
     color 0.15s ease,
-    background 0.15s ease;
+    background 0.15s ease,
+    filter 0.15s ease;
   touch-action: manipulation;
 }
 
 .pos-cart-clear:hover:not(:disabled) {
   border-color: var(--pos-danger);
-  color: var(--pos-danger);
-  background: var(--pos-danger-soft);
+  color: #fff;
+  background: var(--pos-danger);
+  filter: brightness(1.04);
 }
 
 .pos-cart-clear:disabled {
@@ -1349,6 +1369,12 @@ button.pos-qty__value--tap:hover {
   gap: 8px;
   overflow-y: auto;
   padding: 0 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.pos-today-orders-cards::-webkit-scrollbar {
+  display: none;
 }
 
 .pos-today-orders-card {
