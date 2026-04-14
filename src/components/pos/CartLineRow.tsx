@@ -62,7 +62,7 @@ export function CartLineRow({
   }, [lineId, onRemove])
 
   const onSwipePointerDown = useCallback((e: React.PointerEvent) => {
-    if (e.button !== 0) return
+    if (e.pointerType === 'mouse' && e.button !== 0) return
     const el = e.target as HTMLElement
     if (el.closest('button')) return
     swipeModeRef.current = 'undecided'
@@ -137,111 +137,112 @@ export function CartLineRow({
           onPointerMove={onSwipePointerMove}
           onPointerUp={endSwipe}
           onPointerCancel={endSwipe}
+          onPointerLeave={endSwipe}
         >
           <div className="pos-cart-line__details">
-        <div className="pos-cart-line__thumb" aria-hidden>
-          <ProductImage
-            imageUrl={product.imageUrl}
-            size="thumb"
-            className="pos-cart-line__thumb-img"
-            style={{ width: '100%', height: '100%' }}
-          />
-        </div>
-        <div className="pos-cart-line__info">
-          <span className="pos-cart-line__name">
-            {label}
-            {isGift ? (
-              <span className="pos-cart-line__gift-badge">{zhtw.pos.giftBadge}</span>
-            ) : null}
-            {isManualFree ? (
-              <span className="pos-cart-line__manual-free-badge">{zhtw.pos.manualFreeBadge}</span>
-            ) : null}
-            {isBundleRoot || isBundleComponent ? (
-              <span className="pos-cart-line__bundle-badge">{zhtw.pos.bundleBadge}</span>
-            ) : null}
-          </span>
-          <span className="pos-cart-line__unit">
-            {formatMoney(unitPrice)}
-            {zhtw.pos.each}
-          </span>
-          <span className="pos-cart-line__stock">{stockLabel}</span>
-        </div>
-      </div>
-      <div className="pos-cart-line__controls">
-        <div className="pos-qty" role="group" aria-label={zhtw.pos.qtyGroup(label)}>
-          {showNumpad ? (
-            <>
-              <button
-                type="button"
-                className="pos-qty__btn"
-                onClick={() => onDecrement(lineId)}
-                aria-label={zhtw.pos.decreaseQty}
-              >
-                −
-              </button>
-              <button
-                type="button"
-                className="pos-qty__value pos-qty__value--tap"
-                onClick={() => setNumpadOpen(true)}
-                aria-label={zhtw.pos.numpadQtyTitle}
-              >
-                {quantity}
-              </button>
-              <button
-                type="button"
-                className="pos-qty__btn"
-                onClick={() => onIncrement(lineId)}
-                aria-label={zhtw.pos.increaseQty}
-              >
-                +
-              </button>
-              <NumpadModal
-                open={numpadOpen}
-                title={zhtw.pos.numpadQtyTitle}
-                value={quantity}
-                min={qtyMin}
-                max={qtyMax}
-                onConfirm={(q) => {
-                  onQtyCommit!(lineId, q)
-                  setNumpadOpen(false)
-                }}
-                onCancel={() => setNumpadOpen(false)}
+            <div className="pos-cart-line__thumb" aria-hidden>
+              <ProductImage
+                imageUrl={product.imageUrl}
+                size="thumb"
+                className="pos-cart-line__thumb-img"
+                style={{ width: '100%', height: '100%' }}
               />
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="pos-qty__btn"
-                onClick={() => onDecrement(lineId)}
-                disabled={lockQty}
-                aria-label={zhtw.pos.decreaseQty}
-              >
-                −
-              </button>
-              <span className="pos-qty__value">{quantity}</span>
-              <button
-                type="button"
-                className="pos-qty__btn"
-                onClick={() => onIncrement(lineId)}
-                disabled={lockQty}
-                aria-label={zhtw.pos.increaseQty}
-              >
-                +
-              </button>
-            </>
-          )}
-        </div>
-        <span className="pos-cart-line__total">{formatMoney(lineTotal)}</span>
-        <button
-          type="button"
-          className="pos-cart-line__remove"
-          onClick={() => onRemove(lineId)}
-          aria-label={zhtw.pos.removeLine(label)}
-        >
-          ×
-        </button>
-      </div>
+            </div>
+            <div className="pos-cart-line__info">
+              <span className="pos-cart-line__name">
+                {label}
+                {isGift ? (
+                  <span className="pos-cart-line__gift-badge">{zhtw.pos.giftBadge}</span>
+                ) : null}
+                {isManualFree ? (
+                  <span className="pos-cart-line__manual-free-badge">{zhtw.pos.manualFreeBadge}</span>
+                ) : null}
+                {isBundleRoot || isBundleComponent ? (
+                  <span className="pos-cart-line__bundle-badge">{zhtw.pos.bundleBadge}</span>
+                ) : null}
+              </span>
+              <span className="pos-cart-line__unit">
+                {formatMoney(unitPrice)}
+                {zhtw.pos.each}
+              </span>
+              <span className="pos-cart-line__stock">{stockLabel}</span>
+            </div>
+          </div>
+          <div className="pos-cart-line__controls">
+            <div className="pos-qty" role="group" aria-label={zhtw.pos.qtyGroup(label)}>
+              {showNumpad ? (
+                <>
+                  <button
+                    type="button"
+                    className="pos-qty__btn"
+                    onClick={() => onDecrement(lineId)}
+                    aria-label={zhtw.pos.decreaseQty}
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    className="pos-qty__value pos-qty__value--tap"
+                    onClick={() => setNumpadOpen(true)}
+                    aria-label={zhtw.pos.numpadQtyTitle}
+                  >
+                    {quantity}
+                  </button>
+                  <button
+                    type="button"
+                    className="pos-qty__btn"
+                    onClick={() => onIncrement(lineId)}
+                    aria-label={zhtw.pos.increaseQty}
+                  >
+                    +
+                  </button>
+                  <NumpadModal
+                    open={numpadOpen}
+                    title={zhtw.pos.numpadQtyTitle}
+                    value={quantity}
+                    min={qtyMin}
+                    max={qtyMax}
+                    onConfirm={(q) => {
+                      onQtyCommit!(lineId, q)
+                      setNumpadOpen(false)
+                    }}
+                    onCancel={() => setNumpadOpen(false)}
+                  />
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="pos-qty__btn"
+                    onClick={() => onDecrement(lineId)}
+                    disabled={lockQty}
+                    aria-label={zhtw.pos.decreaseQty}
+                  >
+                    −
+                  </button>
+                  <span className="pos-qty__value">{quantity}</span>
+                  <button
+                    type="button"
+                    className="pos-qty__btn"
+                    onClick={() => onIncrement(lineId)}
+                    disabled={lockQty}
+                    aria-label={zhtw.pos.increaseQty}
+                  >
+                    +
+                  </button>
+                </>
+              )}
+            </div>
+            <span className="pos-cart-line__total">{formatMoney(lineTotal)}</span>
+            <button
+              type="button"
+              className="pos-cart-line__remove"
+              onClick={() => onRemove(lineId)}
+              aria-label={zhtw.pos.removeLine(label)}
+            >
+              ×
+            </button>
+          </div>
         </div>
       </div>
     </li>

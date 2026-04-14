@@ -505,7 +505,7 @@
   padding: 0.65rem 0.75rem;
   background: var(--pos-surface);
   will-change: transform;
-  touch-action: manipulation;
+  touch-action: pan-y;
 }
 
 .pos-cart-line__details {
