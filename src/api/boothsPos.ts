@@ -11,6 +11,8 @@ export type PosBoothEntry = {
   id: string
   name: string
   location: string | null
+  /** Booth-linked warehouse for inventory / stocktake; null if not configured. */
+  warehouseId: string | null
   /** Normalized 4–6 digit PIN, or null if none / invalid in DB. */
   pin: string | null
 }
@@ -29,7 +31,7 @@ export async function listBoothsForPos(): Promise<PosBoothListEntry[]> {
 export async function fetchBoothPosEntry(boothId: string): Promise<PosBoothEntry | null> {
   const { data, error } = await supabase
     .from('booths')
-    .select('id, name, location, pin')
+    .select('id, name, location, pin, warehouse_id')
     .eq('id', boothId)
     .maybeSingle()
   if (error) throw error
@@ -40,6 +42,7 @@ export async function fetchBoothPosEntry(boothId: string): Promise<PosBoothEntry
     id: data.id as string,
     name: data.name as string,
     location: (data.location as string | null) ?? null,
+    warehouseId: (data.warehouse_id as string | null) ?? null,
     pin,
   }
 }

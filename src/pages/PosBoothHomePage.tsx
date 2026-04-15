@@ -73,6 +73,9 @@ export function PosBoothHomePage() {
           <button type="button" className="pos-brand-btn-outline" onClick={openShifts}>
             {t.todayShifts}
           </button>
+          <button type="button" className="pos-brand-btn-outline" onClick={() => navigate("stocktakes")}>
+            {t.stocktakeMgmt}
+          </button>
         </div>
       </div>
 

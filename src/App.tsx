@@ -21,6 +21,8 @@ import { AdminGiftsPage } from "./pages/AdminGiftsPage";
 import { AdminPromotionsPage } from "./pages/AdminPromotionsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { PosBoothHomePage } from "./pages/PosBoothHomePage";
+import { PosBoothStocktakeDetailPage } from "./pages/PosBoothStocktakeDetailPage";
+import { PosBoothStocktakesPage } from "./pages/PosBoothStocktakesPage";
 import { PosHomePage } from "./pages/PosHomePage";
 import { AdminClockLogsPage } from "./pages/AdminClockLogsPage";
 import { AdminShiftsPage } from "./pages/AdminShiftsPage";
@@ -47,6 +49,22 @@ export default function App() {
             <Route path="/pos/:boothId" element={<PosBoothRoute />}>
               <Route index element={<PosBoothHomePage />} />
               <Route path="cashier" element={<PosLayout />} />
+              <Route
+                path="stocktakes"
+                element={
+                  <RequireAuth>
+                    <PosBoothStocktakesPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="stocktakes/:stocktakeId"
+                element={
+                  <RequireAuth>
+                    <PosBoothStocktakeDetailPage />
+                  </RequireAuth>
+                }
+              />
             </Route>
             <Route
               path="/admin"
