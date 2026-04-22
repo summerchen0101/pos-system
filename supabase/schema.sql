@@ -1,7 +1,7 @@
 -- Greenfield / empty project: run this file once.
 --
--- If you ALREADY have tables, use `migrate_existing_to_app_schema.sql` and
--- `migrate_promotions_admin.sql` instead of blind CREATEs.
+-- If you ALREADY have tables, use incremental migrations in `supabase/migrations/`
+-- (e.g. `*_migrate_existing_to_app_schema.sql`, `*_migrate_promotions_admin.sql`) instead of blind CREATEs.
 --
 -- `products.price` and promotion amounts are in minor units (e.g. cents) where applicable.
 
@@ -342,4 +342,4 @@ create policy "orders_insert_anon" on public.orders for insert with check (true)
 drop policy if exists "order_items_select_anon" on public.order_items;
 create policy "order_items_select_anon" on public.order_items for select using (true);
 
--- Checkout RPC: see migrate_order_items_snapshot.sql (stock deduction + line snapshot insert).
+-- Checkout RPC: see `supabase/migrations/*_migrate_order_items_snapshot.sql` (stock deduction + line snapshot insert).
