@@ -62,7 +62,7 @@ import {
   type ClockInUiStatus,
   type ClockOutUiStatus,
 } from "../lib/clockStatus";
-import { formatShiftTime, weekRangeIso } from "../lib/shiftCalendar";
+import { formatShiftTime, monthRangeIso } from "../lib/shiftCalendar";
 import { consecutiveMetaByShiftId, logForShiftSegment } from "../lib/shiftConsecutive";
 import {
   downloadShiftImportTemplate,
@@ -231,12 +231,12 @@ function adminShiftClockDots(
 }
 
 type BoothTabState = {
-  weekAnchor: Dayjs;
+  monthAnchor: Dayjs;
   staffSearch: string;
 };
 
 function defaultBoothTabState(): BoothTabState {
-  return { weekAnchor: dayjs(), staffSearch: "" };
+  return { monthAnchor: dayjs().startOf("month"), staffSearch: "" };
 }
 
 export function AdminShiftsPage() {
@@ -316,12 +316,12 @@ export function AdminShiftsPage() {
   }, [accessibleBooths]);
 
   const activeTabState = activeBoothId ? tabStates[activeBoothId] : undefined;
-  const weekAnchor = activeTabState?.weekAnchor ?? dayjs();
+  const monthAnchor = activeTabState?.monthAnchor ?? dayjs().startOf("month");
   const staffSearch = activeTabState?.staffSearch ?? "";
 
-  const { start: weekStart, end: weekEnd, days } = useMemo(
-    () => weekRangeIso(weekAnchor),
-    [weekAnchor],
+  const { start: monthStart, end: monthEnd, days } = useMemo(
+    () => monthRangeIso(monthAnchor),
+    [monthAnchor],
   );
 
   const patchActiveTab = useCallback(
@@ -363,11 +363,11 @@ export function AdminShiftsPage() {
       return;
     }
 
-    const sh = await listShiftsInRange(activeBoothId, weekStart, weekEnd);
+    const sh = await listShiftsInRange(activeBoothId, monthStart, monthEnd);
     setShifts(sh);
     const logRows = await listClockLogsForShiftIds(sh.map((x) => x.id));
     setLogs(logRows);
-  }, [activeBoothId, weekEnd, weekStart]);
+  }, [activeBoothId, monthEnd, monthStart]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -388,6 +388,11 @@ export function AdminShiftsPage() {
   }, [load]);
 
   const byDate = useMemo(() => groupShiftsByDate(shifts), [shifts]);
+
+  const daysWithShifts = useMemo(
+    () => days.filter((d) => (byDate.get(d.format("YYYY-MM-DD")) ?? []).length > 0),
+    [byDate, days],
+  );
 
   const boothNameById = useMemo(
     () => new Map(booths.map((b) => [b.id, b.name])),
@@ -831,22 +836,22 @@ export function AdminShiftsPage() {
             <Space wrap align="center">
               <Button
                 icon={<LeftOutlined />}
-                onClick={() => patchActiveTab({ weekAnchor: weekAnchor.subtract(1, "week") })}
+                onClick={() => patchActiveTab({ monthAnchor: monthAnchor.subtract(1, "month") })}
               />
               <Button
                 icon={<RightOutlined />}
-                onClick={() => patchActiveTab({ weekAnchor: weekAnchor.add(1, "week") })}
+                onClick={() => patchActiveTab({ monthAnchor: monthAnchor.add(1, "month") })}
               />
-              <Button onClick={() => patchActiveTab({ weekAnchor: dayjs().startOf("isoWeek") })}>
-                {s.weekToday}
+              <Button onClick={() => patchActiveTab({ monthAnchor: dayjs().startOf("month") })}>
+                {s.monthThisMonth}
               </Button>
               <DatePicker
-                picker="week"
-                value={weekAnchor}
-                onChange={(d) => d && patchActiveTab({ weekAnchor: d.startOf("isoWeek") })}
+                picker="month"
+                value={monthAnchor}
+                onChange={(d) => d && patchActiveTab({ monthAnchor: d.startOf("month") })}
               />
               <Text type="secondary">
-                {weekStart} — {weekEnd}
+                {monthStart} — {monthEnd}
               </Text>
             </Space>
             <Space wrap>
@@ -872,57 +877,59 @@ export function AdminShiftsPage() {
             <Text type="secondary">{s.clockDotsLegend}</Text>
           </Space>
 
-          <Row gutter={[12, 12]}>
-            {days.map((d) => {
-              const key = d.format("YYYY-MM-DD");
-              const list = byDate.get(key) ?? [];
-              const visibleList = searchQ ? list.filter(shiftMatchesSearch) : list;
-              const consecMeta = consecutiveMetaByShiftId(list);
-              return (
-                <Col xs={24} sm={12} md={8} lg={6} xl={4} key={key}>
-                  <Card size="small" title={d.format("ddd MM/DD")}>
-                    {list.length === 0 ? (
-                      <Text type="secondary">{s.emptyDay}</Text>
-                    ) : visibleList.length === 0 ? (
-                      <Text type="secondary">{s.noSearchMatches}</Text>
-                    ) : (
-                      <Space direction="vertical" style={{ width: "100%" }} size={8}>
-                        {list.map((sh) => {
-                          if (!shiftMatchesSearch(sh)) return null;
-                          const cm = consecMeta.get(sh.id)!;
-                          const consecBg =
-                            cm.chainLength > 1 ? { background: "rgba(124, 58, 237, 0.1)" } : undefined;
-                          return (
-                            <Card key={sh.id} size="small" styles={{ body: { padding: 8 } }} style={consecBg}>
-                              <div style={{ fontWeight: 600 }}>{sh.user_name ?? sh.user_id}</div>
-                              <div style={{ fontSize: 12, opacity: 0.85 }}>
-                                {sh.booth_name ?? boothNameById.get(sh.booth_id)}
-                              </div>
-                              <div style={{ fontSize: 13 }}>
-                                {formatShiftTime(sh.start_time)} – {formatShiftTime(sh.end_time)}
-                              </div>
-                              {adminShiftClockDots(sh, consecMeta, list, logs, nowTaipei)}
-                              {sh.note ? (
-                                <div style={{ fontSize: 12, marginTop: 4 }}>{sh.note}</div>
-                              ) : null}
-                              <Space style={{ marginTop: 8 }}>
-                                <Button size="small" onClick={() => openEdit(sh)}>
-                                  {common.edit}
-                                </Button>
-                                <Button size="small" danger onClick={() => onDelete(sh)}>
-                                  {common.delete}
-                                </Button>
-                              </Space>
-                            </Card>
-                          );
-                        })}
-                      </Space>
-                    )}
-                  </Card>
-                </Col>
-              );
-            })}
-          </Row>
+          {daysWithShifts.length === 0 ? (
+            <Alert type="info" showIcon message={s.emptyMonth} />
+          ) : (
+            <Row gutter={[12, 12]}>
+              {daysWithShifts.map((d) => {
+                const key = d.format("YYYY-MM-DD");
+                const list = byDate.get(key) ?? [];
+                const visibleList = searchQ ? list.filter(shiftMatchesSearch) : list;
+                const consecMeta = consecutiveMetaByShiftId(list);
+                return (
+                  <Col xs={24} sm={12} md={8} lg={6} xl={4} key={key}>
+                    <Card size="small" title={d.format("ddd MM/DD")}>
+                      {visibleList.length === 0 ? (
+                        <Text type="secondary">{s.noSearchMatches}</Text>
+                      ) : (
+                        <Space direction="vertical" style={{ width: "100%" }} size={8}>
+                          {list.map((sh) => {
+                            if (!shiftMatchesSearch(sh)) return null;
+                            const cm = consecMeta.get(sh.id)!;
+                            const consecBg =
+                              cm.chainLength > 1 ? { background: "rgba(124, 58, 237, 0.1)" } : undefined;
+                            return (
+                              <Card key={sh.id} size="small" styles={{ body: { padding: 8 } }} style={consecBg}>
+                                <div style={{ fontWeight: 600 }}>{sh.user_name ?? sh.user_id}</div>
+                                <div style={{ fontSize: 12, opacity: 0.85 }}>
+                                  {sh.booth_name ?? boothNameById.get(sh.booth_id)}
+                                </div>
+                                <div style={{ fontSize: 13 }}>
+                                  {formatShiftTime(sh.start_time)} – {formatShiftTime(sh.end_time)}
+                                </div>
+                                {adminShiftClockDots(sh, consecMeta, list, logs, nowTaipei)}
+                                {sh.note ? (
+                                  <div style={{ fontSize: 12, marginTop: 4 }}>{sh.note}</div>
+                                ) : null}
+                                <Space style={{ marginTop: 8 }}>
+                                  <Button size="small" onClick={() => openEdit(sh)}>
+                                    {common.edit}
+                                  </Button>
+                                  <Button size="small" danger onClick={() => onDelete(sh)}>
+                                    {common.delete}
+                                  </Button>
+                                </Space>
+                              </Card>
+                            );
+                          })}
+                        </Space>
+                      )}
+                    </Card>
+                  </Col>
+                );
+              })}
+            </Row>
+          )}
         </Card>
       ) : null}
 
@@ -1050,7 +1057,7 @@ export function AdminShiftsPage() {
             </Upload>
             <Button
               onClick={() => {
-                downloadShiftImportTemplate();
+                downloadShiftImportTemplate(undefined, importContextBoothName ?? "攤位A");
               }}>
               {s.importTemplateDownload}
             </Button>

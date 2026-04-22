@@ -382,7 +382,10 @@ export function parseShiftImportXlsx(
   return preview;
 }
 
-export function downloadShiftImportTemplate(filename = "shift_import_template.xlsx"): void {
+export function downloadShiftImportTemplate(
+  filename = "shift_import_template.xlsx",
+  exampleBoothName = "攤位A",
+): void {
   const ws = XLSX.utils.aoa_to_sheet([
     [
       SHIFT_IMPORT_HEADERS.name,
@@ -392,7 +395,7 @@ export function downloadShiftImportTemplate(filename = "shift_import_template.xl
       SHIFT_IMPORT_HEADERS.end,
       SHIFT_IMPORT_HEADERS.note,
     ],
-    ["王小明", "攤位A", "2026/04/07", "09:00", "17:00", ""],
+    ["王小明", exampleBoothName, "2026/04/07", "09:00", "17:00", ""],
   ]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "班表");

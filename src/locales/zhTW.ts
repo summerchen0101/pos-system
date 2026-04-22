@@ -955,8 +955,9 @@ export const zhtw = {
       hint: "管理員可新增、編輯、刪除所有攤位班次；核准換班後系統會交換兩筆班表的人員。",
       newShift: "新增班別",
       emptyDay: "無班次",
+      emptyMonth: "本月尚無班次",
       filterBooth: "篩選攤位",
-      weekToday: "今天",
+      monthThisMonth: "本月",
       staffSearchPlaceholder: "搜尋人員…",
       uploadScheduleBtn: "上傳班表",
       importContextBoothHint: (name: string) =>

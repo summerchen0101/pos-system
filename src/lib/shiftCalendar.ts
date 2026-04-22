@@ -24,6 +24,25 @@ export function weekRangeIso(anchor: Dayjs): {
   };
 }
 
+export function monthRangeIso(anchor: Dayjs): {
+  start: string;
+  end: string;
+  days: Dayjs[];
+} {
+  const startD = anchor.startOf("month");
+  const n = startD.daysInMonth();
+  const days: Dayjs[] = [];
+  for (let i = 0; i < n; i += 1) {
+    days.push(startD.add(i, "day"));
+  }
+  const endD = startD.add(n - 1, "day");
+  return {
+    start: startD.format("YYYY-MM-DD"),
+    end: endD.format("YYYY-MM-DD"),
+    days,
+  };
+}
+
 export function formatShiftTime(t: string): string {
   if (t.length >= 5) return t.slice(0, 5);
   return t;
