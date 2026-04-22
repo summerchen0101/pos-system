@@ -86,12 +86,27 @@ export type TieredQuantityDiscountRule = {
   }[]
 }
 
+/** `TIERED_QUANTITY_FIXED_DISCOUNT` — same ladder; fixed amount off eligible subtotal. */
+export type TieredQuantityFixedDiscountRule = {
+  id: string
+  kind: 'tiered_quantity_fixed_discount'
+  promotionId: string
+  productIds: string[]
+  tiers: {
+    id: string
+    minQty: number
+    discountAmountCents: number
+    sortOrder: number
+  }[]
+}
+
 export type PromotionRule =
   | BuyXGetYFreeRule
   | BulkDiscountRule
   | SingleProductDiscountRule
   | TieredPromotionRule
   | TieredQuantityDiscountRule
+  | TieredQuantityFixedDiscountRule
 
 export type PromotionRuleKind = PromotionRule['kind']
 

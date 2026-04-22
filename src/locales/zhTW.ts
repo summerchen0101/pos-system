@@ -103,6 +103,8 @@ export const zhtw = {
     appliedDiscountDescTierPct: (minQty: number, pct: number) => `滿 ${minQty} 件 · ${pct}% 折扣`,
     appliedDiscountDescTierFree: (minQty: number, freeQty: number) => `滿 ${minQty} 件 · 贈 ${freeQty}`,
     appliedDiscountDescQtyTier: (minQty: number, pct: number) => `累計滿 ${minQty} 件 · ${pct}% 折扣`,
+    appliedDiscountDescQtyTierFixed: (minQty: number, amount: string) =>
+      `累計滿 ${minQty} 件 · 折 ${amount}`,
     appliedDiscountDescFixed: (amount: string) => `固定折抵 ${amount}`,
     appliedDiscountAutoFallback: "自動優惠",
     appliedDiscountManualName: (name: string) => `手動 · ${name}`,
@@ -1061,6 +1063,7 @@ export const zhtw = {
       kindSingle: "單品折扣",
       kindTiered: "階梯式（多規則）",
       kindTieredQtyDiscount: "階梯件數折扣",
+      kindTieredQtyFixedDiscount: "滿量折價",
       kindThreshold: "滿額贈禮",
       kindFixed: "固定折價",
       kindFreeItems: "贈送商品（手動，可多品項）",
@@ -1107,17 +1110,25 @@ export const zhtw = {
       summaryTiered: (n: number) => `${n} 個階梯 — 套用最佳一筆`,
       summaryQtyDiscountTiered: (n: number) =>
         `${n} 個件數門檻 — 依適用品總件數套用最高符合門檻之折數`,
+      summaryQtyFixedDiscountTiered: (n: number) =>
+        `${n} 個件數門檻 — 依適用品總件數套用最高符合門檻之固定折價`,
       tierMinError: (i: number) => `第 ${i} 階：最少數量須 ≥ 1`,
       tierExclusiveError: (i: number) =>
         `第 ${i} 階：請擇一填寫「贈送數量」或「折扣％」`,
       addTierError: "請至少新增一個階梯",
       addQtyTierError: "請至少新增一個件數折扣階梯",
+      addQtyFixedTierError: "請至少新增一個滿量折價階梯",
       qtyDiscountTiersLabel: "件數折扣階梯（ex: 10%OFF = 9折）",
       qtyDiscountTiersExtra:
         "加總「適用商品」在購物車中的件數；達門檻時套用「最高且仍符合」門檻的那一階折數於該品項小計。「折扣％」與滿量折扣相同（從售價扣除的百分比）。儲存時會依最少件數由小到大排序。",
       addQtyDiscountTier: "新增階梯",
+      qtyFixedDiscountTiersLabel: "滿量折價階梯（每階：最少件數 + 折讓金額）",
+      qtyFixedDiscountTiersExtra:
+        "加總「適用商品」在購物車中的件數；達門檻時套用「最高且仍符合」門檻的那一階固定折讓金額（自該品項小計扣除，不會超過小計）。儲存時會依最少件數由小到大排序。",
+      addQtyFixedDiscountTier: "新增折價階梯",
       qtyTierDupMinError: "各階梯的「最少件數」不可重複",
       qtyTierPctError: "折扣％須為 1–100",
+      qtyTierAmountError: "折讓金額須至少 0.01 元",
       qtyTierMinError: "最少件數須 ≥ 1",
       invalidTiers: "階梯資料不正確",
       selectProductError: "請至少選擇一個商品",

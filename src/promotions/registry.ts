@@ -4,6 +4,7 @@ import { evaluateBulkDiscount } from './evaluators/bulkDiscount'
 import { evaluateSingleProductDiscount } from './evaluators/singleProductDiscount'
 import { evaluateTieredPromotion } from './evaluators/tieredPromotion'
 import { evaluateTieredQuantityDiscount } from './evaluators/tieredQuantityDiscount'
+import { evaluateTieredQuantityFixedDiscount } from './evaluators/tieredQuantityFixedDiscount'
 
 export type RuleEvaluation = {
   discountCents: number
@@ -33,6 +34,8 @@ export function evaluatePromotionRule(rule: PromotionRule, ctx: PromotionContext
       return evaluateTieredPromotion(rule, ctx)
     case 'tiered_quantity_discount':
       return evaluateTieredQuantityDiscount(rule, ctx)
+    case 'tiered_quantity_fixed_discount':
+      return evaluateTieredQuantityFixedDiscount(rule, ctx)
     default: {
       const _exhaustive: never = rule
       return _exhaustive

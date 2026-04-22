@@ -28,7 +28,7 @@ export const PROMOTION_LIST_SELECT = `
   promotion_products ( product_id, quantity ),
   promotion_selectable_items ( product_id ),
   promotion_rules ( id, min_qty, free_qty, discount_percent, sort_order ),
-  promotion_tiers ( id, min_qty, discount_percent, sort_order ),
+  promotion_tiers ( id, min_qty, discount_percent, discount_amount_cents, sort_order ),
   gifts!promotions_gift_id_fkey (
     ${giftEmbed}
   )

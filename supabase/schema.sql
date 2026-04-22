@@ -93,6 +93,7 @@ create table if not exists public.promotions (
       'SINGLE_DISCOUNT',
       'TIERED',
       'TIERED_QUANTITY_DISCOUNT',
+      'TIERED_QUANTITY_FIXED_DISCOUNT',
       'GIFT_WITH_THRESHOLD',
       'FIXED_DISCOUNT',
       'FREE_ITEMS',
@@ -183,8 +184,22 @@ create table if not exists public.promotion_tiers (
   id uuid primary key default gen_random_uuid(),
   promotion_id uuid not null references public.promotions (id) on delete cascade,
   min_qty integer not null check (min_qty >= 1),
-  discount_percent integer not null check (discount_percent >= 1 and discount_percent <= 100),
-  sort_order integer not null default 0
+  discount_percent integer,
+  discount_amount_cents integer,
+  sort_order integer not null default 0,
+  constraint promotion_tiers_discount_xor check (
+    (
+      discount_percent is not null
+      and discount_amount_cents is null
+      and discount_percent >= 1
+      and discount_percent <= 100
+    )
+    or (
+      discount_percent is null
+      and discount_amount_cents is not null
+      and discount_amount_cents >= 1
+    )
+  )
 );
 
 create index if not exists promotion_tiers_promotion_id_idx on public.promotion_tiers (promotion_id);

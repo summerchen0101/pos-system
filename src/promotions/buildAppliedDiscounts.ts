@@ -71,8 +71,17 @@ function describeAutoPromotion(p: Promotion, appliedRuleId: string): string {
       const m = appliedRuleId.match(/~qt~(.+)$/)
       const tierId = m?.[1]
       const tier = tierId ? p.quantityDiscountTiers?.find((r) => r.id === tierId) : undefined
-      if (tier) {
+      if (tier && tier.discountPercent != null) {
         return t.appliedDiscountDescQtyTier(tier.minQty, tier.discountPercent)
+      }
+      return p.name
+    }
+    case 'TIERED_QUANTITY_FIXED_DISCOUNT': {
+      const m = appliedRuleId.match(/~qtf~(.+)$/)
+      const tierId = m?.[1]
+      const tier = tierId ? p.quantityDiscountTiers?.find((r) => r.id === tierId) : undefined
+      if (tier && tier.discountAmountCents != null) {
+        return t.appliedDiscountDescQtyTierFixed(tier.minQty, formatMoney(tier.discountAmountCents))
       }
       return p.name
     }

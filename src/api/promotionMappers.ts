@@ -28,7 +28,7 @@ type GiftNestedRow = {
 
 export type PromotionQuantityTierNestedRow = Pick<
   PromotionQuantityTierRow,
-  'id' | 'min_qty' | 'discount_percent' | 'sort_order'
+  'id' | 'min_qty' | 'discount_percent' | 'discount_amount_cents' | 'sort_order'
 >
 
 type BoothNestedRow = { id: string; name: string; location: string | null }
@@ -105,7 +105,8 @@ function mapQuantityDiscountTierRows(
     .map((r) => ({
       id: r.id,
       minQty: r.min_qty,
-      discountPercent: r.discount_percent,
+      discountPercent: r.discount_percent ?? null,
+      discountAmountCents: r.discount_amount_cents ?? null,
       sortOrder: r.sort_order,
     }))
 }

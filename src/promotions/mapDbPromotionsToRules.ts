@@ -80,7 +80,9 @@ export function mapDbPromotionsToEngineRules(promotions: readonly Promotion[]): 
         break
       }
       case 'TIERED_QUANTITY_DISCOUNT': {
-        const tierRows = p.quantityDiscountTiers ?? []
+        const tierRows = (p.quantityDiscountTiers ?? []).filter(
+          (r) => r.discountPercent != null && r.discountPercent >= 1,
+        )
         if (tierRows.length === 0) break
         rules.push({
           id: p.id,
@@ -90,7 +92,26 @@ export function mapDbPromotionsToEngineRules(promotions: readonly Promotion[]): 
           tiers: tierRows.map((r) => ({
             id: r.id,
             minQty: r.minQty,
-            discountPercent: r.discountPercent,
+            discountPercent: r.discountPercent!,
+            sortOrder: r.sortOrder,
+          })),
+        })
+        break
+      }
+      case 'TIERED_QUANTITY_FIXED_DISCOUNT': {
+        const tierRows = (p.quantityDiscountTiers ?? []).filter(
+          (r) => r.discountAmountCents != null && r.discountAmountCents >= 1,
+        )
+        if (tierRows.length === 0) break
+        rules.push({
+          id: p.id,
+          kind: 'tiered_quantity_fixed_discount',
+          promotionId: p.id,
+          productIds: ids,
+          tiers: tierRows.map((r) => ({
+            id: r.id,
+            minQty: r.minQty,
+            discountAmountCents: r.discountAmountCents!,
             sortOrder: r.sortOrder,
           })),
         })

@@ -83,6 +83,10 @@ const KIND_OPTIONS: { value: PromotionKind; label: string }[] = [
   { value: "SINGLE_DISCOUNT", label: pr.kindSingle },
   { value: "TIERED", label: pr.kindTiered },
   { value: "TIERED_QUANTITY_DISCOUNT", label: pr.kindTieredQtyDiscount },
+  {
+    value: "TIERED_QUANTITY_FIXED_DISCOUNT",
+    label: pr.kindTieredQtyFixedDiscount,
+  },
   { value: "GIFT_WITH_THRESHOLD", label: pr.kindThreshold },
   { value: "FIXED_DISCOUNT", label: pr.kindFixed },
   { value: "FREE_ITEMS", label: pr.kindFreeItems },
@@ -114,6 +118,8 @@ function promotionSummary(p: Promotion, products: Product[]): string {
       return pr.summaryTiered(p.rules.length);
     case "TIERED_QUANTITY_DISCOUNT":
       return pr.summaryQtyDiscountTiered(p.quantityDiscountTiers.length);
+    case "TIERED_QUANTITY_FIXED_DISCOUNT":
+      return pr.summaryQtyFixedDiscountTiered(p.quantityDiscountTiers.length);
     case "GIFT_WITH_THRESHOLD":
       return pr.summaryThreshold(
         formatMoney(p.thresholdAmountCents ?? 0),
@@ -149,6 +155,11 @@ type QtyDiscountTierFormRow = {
   discount_percent: number;
 };
 
+type QtyFixedDiscountTierFormRow = {
+  min_qty: number;
+  discount_dollars: number;
+};
+
 type FormValues = {
   boothIds: string[];
   groupId?: string | null;
@@ -164,6 +175,7 @@ type FormValues = {
   productIds: string[];
   tiers?: TierFormRow[];
   qtyDiscountTiers?: QtyDiscountTierFormRow[];
+  qtyFixedDiscountTiers?: QtyFixedDiscountTierFormRow[];
   promotionGiftId?: string;
   thresholdDollars?: number | null;
   /** `FREE_ITEMS` — one row per gift product + qty. */
@@ -207,6 +219,40 @@ function buildQtyDiscountTierInputs(
   return normalized.map((r, i) => ({
     minQty: r.min_qty,
     discountPercent: r.discount_percent,
+    discountAmountCents: null,
+    sortOrder: i,
+  }));
+}
+
+function buildQtyFixedDiscountTierInputs(
+  rows: QtyFixedDiscountTierFormRow[],
+): PromotionQuantityTierInput[] {
+  if (rows.length === 0) return [];
+  const normalized = rows.map((r, i) => ({
+    min_qty: Math.trunc(Number(r.min_qty)),
+    discount_dollars: Number(r.discount_dollars),
+    _i: i,
+  }));
+  for (const r of normalized) {
+    if (Number.isNaN(r.min_qty) || r.min_qty < 1) {
+      throw new Error(pr.qtyTierMinError);
+    }
+    if (Number.isNaN(r.discount_dollars) || r.discount_dollars < 0.01) {
+      throw new Error(pr.qtyTierAmountError);
+    }
+  }
+  normalized.sort((a, b) => a.min_qty - b.min_qty || a._i - b._i);
+  const seen = new Set<number>();
+  for (const r of normalized) {
+    if (seen.has(r.min_qty)) {
+      throw new Error(pr.qtyTierDupMinError);
+    }
+    seen.add(r.min_qty);
+  }
+  return normalized.map((r, i) => ({
+    minQty: r.min_qty,
+    discountPercent: null,
+    discountAmountCents: dollarsToCents(r.discount_dollars),
     sortOrder: i,
   }));
 }
@@ -239,7 +285,9 @@ function toInput(values: FormValues): PromotionInput {
   const quantityTiers: PromotionQuantityTierInput[] =
     values.kind === "TIERED_QUANTITY_DISCOUNT"
       ? buildQtyDiscountTierInputs(values.qtyDiscountTiers ?? [])
-      : [];
+      : values.kind === "TIERED_QUANTITY_FIXED_DISCOUNT"
+        ? buildQtyFixedDiscountTierInputs(values.qtyFixedDiscountTiers ?? [])
+        : [];
   const code = values.code?.trim() ? values.code.trim() : null;
   const name = values.name.trim();
 
@@ -406,6 +454,31 @@ function toInput(values: FormValues): PromotionInput {
     };
   }
 
+  if (values.kind === "TIERED_QUANTITY_FIXED_DISCOUNT") {
+    return {
+      boothIds,
+      groupId,
+      code,
+      name,
+      kind: values.kind,
+      buyQty: null,
+      freeQty: null,
+      discountPercent: null,
+      active: values.active,
+      applyMode,
+      fixedDiscountCents: null,
+      productIds: values.productIds ?? [],
+      freeItems: [],
+      tiers: [],
+      quantityTiers,
+      giftId: null,
+      thresholdAmountCents: null,
+      selectableProductIds: [],
+      maxSelectionQty: null,
+      bogoSingleDealOnly,
+    };
+  }
+
   return {
     boothIds,
     groupId,
@@ -510,6 +583,7 @@ export function AdminPromotionsPage() {
       productIds: [],
       tiers: [],
       qtyDiscountTiers: [],
+      qtyFixedDiscountTiers: [],
       promotionGiftId: undefined,
       thresholdDollars: undefined,
     });
@@ -566,7 +640,14 @@ export function AdminPromotionsPage() {
         p.kind === "TIERED_QUANTITY_DISCOUNT"
           ? p.quantityDiscountTiers.map((t) => ({
               min_qty: t.minQty,
-              discount_percent: t.discountPercent,
+              discount_percent: t.discountPercent ?? 0,
+            }))
+          : [],
+      qtyFixedDiscountTiers:
+        p.kind === "TIERED_QUANTITY_FIXED_DISCOUNT"
+          ? p.quantityDiscountTiers.map((t) => ({
+              min_qty: t.minQty,
+              discount_dollars: centsToDollars(t.discountAmountCents ?? 0),
             }))
           : [],
       promotionGiftId: p.giftId ?? undefined,
@@ -605,6 +686,14 @@ export function AdminPromotionsPage() {
         (!values.qtyDiscountTiers || values.qtyDiscountTiers.length === 0)
       ) {
         message.error(pr.addQtyTierError);
+        return;
+      }
+      if (
+        values.kind === "TIERED_QUANTITY_FIXED_DISCOUNT" &&
+        (!values.qtyFixedDiscountTiers ||
+          values.qtyFixedDiscountTiers.length === 0)
+      ) {
+        message.error(pr.addQtyFixedTierError);
         return;
       }
       if (values.kind === "GIFT_WITH_THRESHOLD") {
@@ -1145,6 +1234,7 @@ export function AdminPromotionsPage() {
                   bogoSingleDealOnly: false,
                   tiers: [],
                   qtyDiscountTiers: [],
+                  qtyFixedDiscountTiers: [],
                 });
               } else if (k === "BULK_DISCOUNT") {
                 form.setFieldsValue({
@@ -1153,6 +1243,7 @@ export function AdminPromotionsPage() {
                   discountPercent: form.getFieldValue("discountPercent") ?? 15,
                   tiers: [],
                   qtyDiscountTiers: [],
+                  qtyFixedDiscountTiers: [],
                 });
               } else if (k === "TIERED") {
                 const cur = form.getFieldValue("tiers") as
@@ -1164,6 +1255,7 @@ export function AdminPromotionsPage() {
                     freeQty: null,
                     discountPercent: null,
                     qtyDiscountTiers: [],
+                    qtyFixedDiscountTiers: [],
                     tiers: [
                       { min_qty: 6, free_qty: 1 },
                       { min_qty: 10, free_qty: 2 },
@@ -1175,6 +1267,7 @@ export function AdminPromotionsPage() {
                     freeQty: null,
                     discountPercent: null,
                     qtyDiscountTiers: [],
+                    qtyFixedDiscountTiers: [],
                   });
                 }
               } else if (k === "TIERED_QUANTITY_DISCOUNT") {
@@ -1187,6 +1280,7 @@ export function AdminPromotionsPage() {
                     freeQty: null,
                     discountPercent: null,
                     tiers: [],
+                    qtyFixedDiscountTiers: [],
                     qtyDiscountTiers: [
                       { min_qty: 1, discount_percent: 5 },
                       { min_qty: 2, discount_percent: 10 },
@@ -1199,6 +1293,33 @@ export function AdminPromotionsPage() {
                     freeQty: null,
                     discountPercent: null,
                     tiers: [],
+                    qtyFixedDiscountTiers: [],
+                  });
+                }
+              } else if (k === "TIERED_QUANTITY_FIXED_DISCOUNT") {
+                const cur = form.getFieldValue("qtyFixedDiscountTiers") as
+                  | QtyFixedDiscountTierFormRow[]
+                  | undefined;
+                if (!cur?.length) {
+                  form.setFieldsValue({
+                    buyQty: null,
+                    freeQty: null,
+                    discountPercent: null,
+                    tiers: [],
+                    qtyDiscountTiers: [],
+                    qtyFixedDiscountTiers: [
+                      { min_qty: 1, discount_dollars: 10 },
+                      { min_qty: 2, discount_dollars: 25 },
+                      { min_qty: 3, discount_dollars: 50 },
+                    ],
+                  });
+                } else {
+                  form.setFieldsValue({
+                    buyQty: null,
+                    freeQty: null,
+                    discountPercent: null,
+                    tiers: [],
+                    qtyDiscountTiers: [],
                   });
                 }
               } else if (k === "GIFT_WITH_THRESHOLD") {
@@ -1208,6 +1329,7 @@ export function AdminPromotionsPage() {
                   discountPercent: null,
                   tiers: [],
                   qtyDiscountTiers: [],
+                  qtyFixedDiscountTiers: [],
                   productIds: [],
                   applyMode: "AUTO",
                   thresholdDollars:
@@ -1220,6 +1342,7 @@ export function AdminPromotionsPage() {
                   discountPercent: null,
                   tiers: [],
                   qtyDiscountTiers: [],
+                  qtyFixedDiscountTiers: [],
                   productIds: [],
                   applyMode: "MANUAL",
                   fixedDiscountDollars:
@@ -1234,6 +1357,7 @@ export function AdminPromotionsPage() {
                   discountPercent: null,
                   tiers: [],
                   qtyDiscountTiers: [],
+                  qtyFixedDiscountTiers: [],
                   applyMode: "MANUAL",
                   productIds: [],
                   freeQty: null,
@@ -1248,6 +1372,7 @@ export function AdminPromotionsPage() {
                   discountPercent: null,
                   tiers: [],
                   qtyDiscountTiers: [],
+                  qtyFixedDiscountTiers: [],
                   applyMode: "MANUAL",
                   productIds: [],
                   freeItemRows: undefined,
@@ -1264,6 +1389,7 @@ export function AdminPromotionsPage() {
                   discountPercent: form.getFieldValue("discountPercent") ?? 10,
                   tiers: [],
                   qtyDiscountTiers: [],
+                  qtyFixedDiscountTiers: [],
                 });
               }
             }
@@ -1512,6 +1638,68 @@ export function AdminPromotionsPage() {
                       onClick={() => add({ min_qty: 1, discount_percent: 5 })}
                       block>
                       {pr.addQtyDiscountTier}
+                    </Button>
+                  </Space>
+                )}
+              </Form.List>
+            </Form.Item>
+          )}
+
+          {kindWatch === "TIERED_QUANTITY_FIXED_DISCOUNT" && (
+            <Form.Item
+              label={pr.qtyFixedDiscountTiersLabel}
+              extra={pr.qtyFixedDiscountTiersExtra}>
+              <Form.List name="qtyFixedDiscountTiers">
+                {(fields, { add, remove }) => (
+                  <Space
+                    direction="vertical"
+                    style={{ width: "100%" }}
+                    size="small">
+                    {fields.map((field) => (
+                      <Space key={field.key} wrap style={{ width: "100%" }}>
+                        <Form.Item
+                          name={[field.name, "min_qty"]}
+                          rules={[{ required: true, type: "number", min: 1 }]}
+                          style={{ marginBottom: 0, width: 120 }}>
+                          <InputNumber
+                            min={1}
+                            placeholder={pr.minQty}
+                            style={{ width: "100%" }}
+                          />
+                        </Form.Item>
+                        <Form.Item
+                          name={[field.name, "discount_dollars"]}
+                          rules={[
+                            {
+                              required: true,
+                              type: "number",
+                              min: 0.01,
+                            },
+                          ]}
+                          style={{ marginBottom: 0, width: 160 }}>
+                          <InputNumber
+                            min={0.01}
+                            step={1}
+                            placeholder={pr.fixedDiscountPh}
+                            style={{ width: "100%" }}
+                            addonAfter="TWD"
+                          />
+                        </Form.Item>
+                        <Button
+                          type="text"
+                          danger
+                          onClick={() => remove(field.name)}>
+                          {pr.removeTier}
+                        </Button>
+                      </Space>
+                    ))}
+                    <Button
+                      type="dashed"
+                      onClick={() =>
+                        add({ min_qty: 1, discount_dollars: 10 })
+                      }
+                      block>
+                      {pr.addQtyFixedDiscountTier}
                     </Button>
                   </Space>
                 )}

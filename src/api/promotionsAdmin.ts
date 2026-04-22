@@ -16,7 +16,10 @@ export type PromotionTierInput = {
 
 export type PromotionQuantityTierInput = {
   minQty: number
-  discountPercent: number
+  /** Set for `TIERED_QUANTITY_DISCOUNT`; otherwise null. */
+  discountPercent: number | null
+  /** Set for `TIERED_QUANTITY_FIXED_DISCOUNT`; otherwise null. */
+  discountAmountCents: number | null
   sortOrder: number
 }
 
@@ -46,7 +49,7 @@ export type PromotionInput = {
   /** `FREE_SELECTION` — max total units across chosen lines. */
   maxSelectionQty: number | null
   tiers: PromotionTierInput[]
-  /** `TIERED_QUANTITY_DISCOUNT` — sorted by `minQty` ascending in DB via `sort_order`. */
+  /** Quantity ladder tiers — percent or fixed amount per `kind`. */
   quantityTiers: PromotionQuantityTierInput[]
   giftId: string | null
   thresholdAmountCents: number | null
@@ -92,7 +95,11 @@ function rowPayload(input: PromotionInput) {
       threshold_amount: input.thresholdAmountCents,
     }
   }
-  if (input.kind === 'TIERED' || input.kind === 'TIERED_QUANTITY_DISCOUNT') {
+  if (
+    input.kind === 'TIERED' ||
+    input.kind === 'TIERED_QUANTITY_DISCOUNT' ||
+    input.kind === 'TIERED_QUANTITY_FIXED_DISCOUNT'
+  ) {
     return {
       ...base,
       buy_qty: null,
@@ -209,6 +216,7 @@ async function replacePromotionTiers(promotionId: string, tiers: PromotionQuanti
       promotion_id: promotionId,
       min_qty: t.minQty,
       discount_percent: t.discountPercent,
+      discount_amount_cents: t.discountAmountCents,
       sort_order: t.sortOrder,
     })),
   )
@@ -248,7 +256,10 @@ async function syncPromotionRelations(id: string, input: PromotionInput) {
   } else {
     await replacePromotionRules(id, [])
   }
-  if (input.kind === 'TIERED_QUANTITY_DISCOUNT') {
+  if (
+    input.kind === 'TIERED_QUANTITY_DISCOUNT' ||
+    input.kind === 'TIERED_QUANTITY_FIXED_DISCOUNT'
+  ) {
     await replacePromotionTiers(id, input.quantityTiers)
   } else {
     await replacePromotionTiers(id, [])

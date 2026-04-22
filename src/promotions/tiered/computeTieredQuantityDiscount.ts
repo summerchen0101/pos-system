@@ -16,10 +16,17 @@ export type TieredQuantityDiscountResult = {
   appliedTierId: string | null
 }
 
-export function pickQuantityDiscountTier(
+export type QuantityTierPickKey = {
+  id: string
+  minQty: number
+  sortOrder: number
+}
+
+/** Among tiers with `minQty <= totalQty`, pick the one with the largest `minQty` (then sortOrder, id). */
+export function pickQuantityTierByTotalQty<T extends QuantityTierPickKey>(
   totalQty: number,
-  tiers: readonly QuantityDiscountTierLine[],
-): QuantityDiscountTierLine | null {
+  tiers: readonly T[],
+): T | null {
   if (totalQty < 1 || tiers.length === 0) return null
   const qualifying = tiers.filter((t) => totalQty >= t.minQty)
   if (qualifying.length === 0) return null
@@ -29,6 +36,13 @@ export function pickQuantityDiscountTier(
     return a.id.localeCompare(b.id)
   })
   return qualifying[0] ?? null
+}
+
+export function pickQuantityDiscountTier(
+  totalQty: number,
+  tiers: readonly QuantityDiscountTierLine[],
+): QuantityDiscountTierLine | null {
+  return pickQuantityTierByTotalQty(totalQty, tiers)
 }
 
 export function computeTieredQuantityDiscount(
@@ -42,7 +56,7 @@ export function computeTieredQuantityDiscount(
     return { discountCents: 0, appliedTierId: null }
   }
 
-  const tier = pickQuantityDiscountTier(totalQty, tiers)
+  const tier = pickQuantityTierByTotalQty(totalQty, tiers)
   if (!tier || tier.discountPercent < 1) {
     return { discountCents: 0, appliedTierId: null }
   }

@@ -174,7 +174,8 @@ export type PromotionQuantityTierRow = {
   id: string
   promotion_id: string
   min_qty: number
-  discount_percent: number
+  discount_percent: number | null
+  discount_amount_cents: number | null
   sort_order: number
 }
 
