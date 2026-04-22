@@ -338,6 +338,10 @@ export const zhtw = {
       menuInventoryLogs: "異動紀錄",
       menuStocktakes: "盤點管理",
     },
+    api: {
+      sessionExpired: "登入已失效，請重新登入。",
+      forbidden: "沒有權限執行此操作。",
+    },
     dashboard: {
       pageTitle: "營運總覽",
       filterDateRange: "日期區間",

@@ -1,3 +1,5 @@
+import { FunctionsHttpError } from '@supabase/supabase-js'
+import { isEdgeUnauthorizedCode } from './adminApiAuthContract'
 import { supabase } from '../supabase'
 import type { AppRole } from './authProfile'
 
@@ -32,6 +34,26 @@ async function invokeManageUsers<T extends Record<string, unknown> = Record<stri
   })
 
   if (error) {
+    if (error instanceof FunctionsHttpError) {
+      const st = error.context.status
+      let code = 'INVOCATION_FAILED'
+      try {
+        const b = (await error.context.clone().json()) as { code?: string; message?: string }
+        if (typeof b?.code === 'string') code = b.code
+      } catch {
+        /* no json body */
+      }
+      if (st === 401) {
+        throw new ManageUsersError(
+          isEdgeUnauthorizedCode(code) ? code : 'INVALID_SESSION',
+          error.message,
+        )
+      }
+      if (st === 403) {
+        throw new ManageUsersError(code === 'FORBIDDEN' ? 'FORBIDDEN' : code, error.message)
+      }
+      throw new ManageUsersError(code, error.message)
+    }
     throw new ManageUsersError('INVOCATION_FAILED', error.message)
   }
 

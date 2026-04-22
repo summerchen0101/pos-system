@@ -40,7 +40,7 @@ async function requireManageUsersActor(
   const authHeader = req.headers.get("Authorization") ?? "";
   const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
   if (!jwt) {
-    return { ok: false, response: json({ ok: false, code: "NO_AUTH" }) };
+    return { ok: false, response: json({ ok: false, code: "NO_AUTH" }, 401) };
   }
 
   const adminClient = createClient(supabaseUrl, serviceKey, {
@@ -49,7 +49,7 @@ async function requireManageUsersActor(
 
   const { data: userData, error: userErr } = await adminClient.auth.getUser(jwt);
   if (userErr || !userData.user) {
-    return { ok: false, response: json({ ok: false, code: "INVALID_SESSION" }) };
+    return { ok: false, response: json({ ok: false, code: "INVALID_SESSION" }, 401) };
   }
 
   const actorId = userData.user.id;
@@ -61,7 +61,7 @@ async function requireManageUsersActor(
 
   const r = profile?.role ?? "";
   if (r !== "ADMIN" && r !== "MANAGER") {
-    return { ok: false, response: json({ ok: false, code: "FORBIDDEN" }) };
+    return { ok: false, response: json({ ok: false, code: "FORBIDDEN" }, 403) };
   }
 
   return { ok: true, adminClient, actorId, actorRole: r as ActorRole };
@@ -161,13 +161,13 @@ Deno.serve(async (req) => {
   }
 
   if (req.method !== "POST") {
-    return json({ ok: false, code: "METHOD_NOT_ALLOWED" });
+    return json({ ok: false, code: "METHOD_NOT_ALLOWED" }, 405);
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !serviceKey) {
-    return json({ ok: false, code: "SERVER_MISCONFIGURED" });
+    return json({ ok: false, code: "SERVER_MISCONFIGURED" }, 500);
   }
 
   const gate = await requireManageUsersActor(req, supabaseUrl, serviceKey);
@@ -178,7 +178,7 @@ Deno.serve(async (req) => {
   try {
     body = await req.json();
   } catch {
-    return json({ ok: false, code: "BAD_JSON" });
+    return json({ ok: false, code: "BAD_JSON" }, 400);
   }
 
   const action = String(body.action ?? "");
@@ -218,7 +218,7 @@ Deno.serve(async (req) => {
 
     if (action === "create") {
       if (actorRole !== "ADMIN") {
-        return json({ ok: false, code: "FORBIDDEN" });
+        return json({ ok: false, code: "FORBIDDEN" }, 403);
       }
       const usernameRaw = String(body.username ?? "").trim().toLowerCase();
       const password = String(body.password ?? "");
@@ -232,24 +232,24 @@ Deno.serve(async (req) => {
         ? (body.boothIds as unknown[]).map((x) => String(x))
         : [];
 
-      if (!name) return json({ ok: false, code: "VALIDATION", message: "name" });
-      if (!USERNAME_RE.test(usernameRaw)) return json({ ok: false, code: "INVALID_USERNAME" });
-      if (password.length < 6) return json({ ok: false, code: "PASSWORD_SHORT" });
+      if (!name) return json({ ok: false, code: "VALIDATION", message: "name" }, 400);
+      if (!USERNAME_RE.test(usernameRaw)) return json({ ok: false, code: "INVALID_USERNAME" }, 400);
+      if (password.length < 6) return json({ ok: false, code: "PASSWORD_SHORT" }, 400);
       if (role !== "ADMIN" && role !== "MANAGER" && role !== "STAFF") {
-        return json({ ok: false, code: "VALIDATION", message: "role" });
+        return json({ ok: false, code: "VALIDATION", message: "role" }, 400);
       }
 
       if (!(await verifyBoothIds(adminClient, boothIds))) {
-        return json({ ok: false, code: "INVALID_BOOTHS" });
+        return json({ ok: false, code: "INVALID_BOOTHS" }, 400);
       }
 
       if (await usernameTaken(adminClient, usernameRaw)) {
-        return json({ ok: false, code: "USERNAME_TAKEN" });
+        return json({ ok: false, code: "USERNAME_TAKEN" }, 400);
       }
 
       const email = internalEmail(usernameRaw);
       if (await emailExistsInAuth(adminClient, email)) {
-        return json({ ok: false, code: "USERNAME_TAKEN" });
+        return json({ ok: false, code: "USERNAME_TAKEN" }, 400);
       }
 
       const { data: created, error: cErr } = await adminClient.auth.admin.createUser({
@@ -267,9 +267,9 @@ Deno.serve(async (req) => {
           msg.includes("duplicate") ||
           msg.includes("exists")
         ) {
-          return json({ ok: false, code: "USERNAME_TAKEN" });
+          return json({ ok: false, code: "USERNAME_TAKEN" }, 400);
         }
-        return json({ ok: false, code: "AUTH_ERROR", message: cErr?.message ?? "createUser" });
+        return json({ ok: false, code: "AUTH_ERROR", message: cErr?.message ?? "createUser" }, 500);
       }
 
       const userId = created.user.id;
@@ -308,11 +308,11 @@ Deno.serve(async (req) => {
           ? ""
           : String(passwordRaw);
 
-      if (!UUID_RE.test(userId)) return json({ ok: false, code: "VALIDATION", message: "userId" });
-      if (!name) return json({ ok: false, code: "VALIDATION", message: "name" });
-      if (!USERNAME_RE.test(usernameRaw)) return json({ ok: false, code: "INVALID_USERNAME" });
+      if (!UUID_RE.test(userId)) return json({ ok: false, code: "VALIDATION", message: "userId" }, 400);
+      if (!name) return json({ ok: false, code: "VALIDATION", message: "name" }, 400);
+      if (!USERNAME_RE.test(usernameRaw)) return json({ ok: false, code: "INVALID_USERNAME" }, 400);
       if (password.length > 0 && password.length < 6) {
-        return json({ ok: false, code: "PASSWORD_SHORT" });
+        return json({ ok: false, code: "PASSWORD_SHORT" }, 400);
       }
 
       const { data: targetProfile, error: tpErr } = await adminClient
@@ -320,14 +320,14 @@ Deno.serve(async (req) => {
         .select("role")
         .eq("id", userId)
         .single();
-      if (tpErr || !targetProfile) return json({ ok: false, code: "VALIDATION", message: "user" });
+      if (tpErr || !targetProfile) return json({ ok: false, code: "VALIDATION", message: "user" }, 400);
 
       if (actorRole === "MANAGER") {
         if ((targetProfile as { role: string }).role !== "STAFF") {
-          return json({ ok: false, code: "FORBIDDEN" });
+          return json({ ok: false, code: "FORBIDDEN" }, 403);
         }
         if (!(await managerSharesBoothWithStaff(adminClient, actorId, userId))) {
-          return json({ ok: false, code: "FORBIDDEN" });
+          return json({ ok: false, code: "FORBIDDEN" }, 403);
         }
         role = "STAFF";
         const { data: ubCur, error: ubErr } = await adminClient
@@ -338,10 +338,10 @@ Deno.serve(async (req) => {
         boothIds = (ubCur ?? []).map((r: { booth_id: string }) => r.booth_id);
       } else {
         if (role !== "ADMIN" && role !== "MANAGER" && role !== "STAFF") {
-          return json({ ok: false, code: "VALIDATION", message: "role" });
+          return json({ ok: false, code: "VALIDATION", message: "role" }, 400);
         }
         if (!(await verifyBoothIds(adminClient, boothIds))) {
-          return json({ ok: false, code: "INVALID_BOOTHS" });
+          return json({ ok: false, code: "INVALID_BOOTHS" }, 400);
         }
       }
 
@@ -350,18 +350,18 @@ Deno.serve(async (req) => {
         .select("username")
         .eq("id", userId)
         .single();
-      if (curErr || !cur) return json({ ok: false, code: "VALIDATION", message: "user" });
+      if (curErr || !cur) return json({ ok: false, code: "VALIDATION", message: "user" }, 400);
 
       const oldUsername = String((cur as { username: string }).username).toLowerCase();
 
       if (usernameRaw !== oldUsername) {
         if (await usernameTaken(adminClient, usernameRaw, userId)) {
-          return json({ ok: false, code: "USERNAME_TAKEN" });
+          return json({ ok: false, code: "USERNAME_TAKEN" }, 400);
         }
         const newEmail = internalEmail(usernameRaw);
         const { data: authU, error: gErr } = await adminClient.auth.admin.getUserById(userId);
         if (gErr || !authU?.user) {
-          return json({ ok: false, code: "AUTH_ERROR", message: gErr?.message ?? "getUserById" });
+          return json({ ok: false, code: "AUTH_ERROR", message: gErr?.message ?? "getUserById" }, 500);
         }
         const currentEmail = (authU.user.email ?? "").toLowerCase();
         if (newEmail !== currentEmail) {
@@ -369,23 +369,23 @@ Deno.serve(async (req) => {
           const emailTakenByOther = all.some(
             (u) => (u.email ?? "").toLowerCase() === newEmail && u.id !== userId,
           );
-          if (emailTakenByOther) return json({ ok: false, code: "USERNAME_TAKEN" });
+          if (emailTakenByOther) return json({ ok: false, code: "USERNAME_TAKEN" }, 400);
         }
         const { error: eErr } = await adminClient.auth.admin.updateUserById(userId, {
           email: newEmail,
           user_metadata: { name, username: usernameRaw },
         });
-        if (eErr) return json({ ok: false, code: "AUTH_ERROR", message: eErr.message });
+        if (eErr) return json({ ok: false, code: "AUTH_ERROR", message: eErr.message }, 500);
       } else {
         const { error: metaErr } = await adminClient.auth.admin.updateUserById(userId, {
           user_metadata: { name, username: usernameRaw },
         });
-        if (metaErr) return json({ ok: false, code: "AUTH_ERROR", message: metaErr.message });
+        if (metaErr) return json({ ok: false, code: "AUTH_ERROR", message: metaErr.message }, 500);
       }
 
       if (password.length > 0) {
         const { error: pErr } = await adminClient.auth.admin.updateUserById(userId, { password });
-        if (pErr) return json({ ok: false, code: "AUTH_ERROR", message: pErr.message });
+        if (pErr) return json({ ok: false, code: "AUTH_ERROR", message: pErr.message }, 500);
       }
 
       const { error: uErr } = await adminClient
@@ -407,13 +407,13 @@ Deno.serve(async (req) => {
 
     if (action === "delete") {
       if (actorRole !== "ADMIN") {
-        return json({ ok: false, code: "FORBIDDEN" });
+        return json({ ok: false, code: "FORBIDDEN" }, 403);
       }
       const userId = String(body.userId ?? "");
-      if (!UUID_RE.test(userId)) return json({ ok: false, code: "VALIDATION", message: "userId" });
+      if (!UUID_RE.test(userId)) return json({ ok: false, code: "VALIDATION", message: "userId" }, 400);
 
       if (userId === actorId) {
-        return json({ ok: false, code: "SELF_DELETE" });
+        return json({ ok: false, code: "SELF_DELETE" }, 400);
       }
 
       const { data: target } = await adminClient
@@ -426,19 +426,19 @@ Deno.serve(async (req) => {
         const { data: admins, error: aErr } = await adminClient.from("users").select("id").eq("role", "ADMIN");
         if (aErr) throw aErr;
         if ((admins ?? []).length <= 1) {
-          return json({ ok: false, code: "LAST_ADMIN" });
+          return json({ ok: false, code: "LAST_ADMIN" }, 400);
         }
       }
 
       const { error: dErr } = await adminClient.auth.admin.deleteUser(userId, false);
-      if (dErr) return json({ ok: false, code: "AUTH_ERROR", message: dErr.message });
+      if (dErr) return json({ ok: false, code: "AUTH_ERROR", message: dErr.message }, 500);
 
       return json({ ok: true });
     }
 
-    return json({ ok: false, code: "UNKNOWN_ACTION" });
+    return json({ ok: false, code: "UNKNOWN_ACTION" }, 400);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    return json({ ok: false, code: "INTERNAL", message });
+    return json({ ok: false, code: "INTERNAL", message }, 500);
   }
 });

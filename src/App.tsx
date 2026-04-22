@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { defaultAdminHomePath } from "./api/authProfile";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { RequireAuth } from "./auth/RequireAuth";
+import { AdminApiAuthListener } from "./components/AdminApiAuthListener";
 import { PosBoothRoute } from "./components/pos/PosBoothRoute";
 import { PosLayout } from "./components/pos/PosLayout";
 import { AdminLayout } from "./layouts/AdminLayout";
@@ -43,6 +44,7 @@ export default function App() {
     <AntdApp>
       <BrowserRouter>
         <AuthProvider>
+          <AdminApiAuthListener />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<PosHomePage />} />
