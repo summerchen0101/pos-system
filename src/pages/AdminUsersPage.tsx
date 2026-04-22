@@ -8,11 +8,12 @@ import {
   Select,
   Space,
   Table,
+  Tabs,
   Tag,
   Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { isAdminRole, isManagerRole, type AppRole } from "../api/authProfile";
 import { listBoothsAdmin, type AdminBooth } from "../api/boothsAdmin";
@@ -33,6 +34,12 @@ const u = zhtw.admin.users;
 const common = zhtw.common;
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,20}$/;
+
+const BOOTH_TAB_ALL = "all";
+
+function adminBoothLabel(b: AdminBooth): string {
+  return b.location ? `${b.name}（${b.location}）` : b.name;
+}
 
 type ModalMode = "create" | "edit" | null;
 
@@ -96,6 +103,7 @@ export function AdminUsersPage() {
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [editing, setEditing] = useState<ManagedUserRow | null>(null);
   const [saving, setSaving] = useState(false);
+  const [boothTabKey, setBoothTabKey] = useState<string>(BOOTH_TAB_ALL);
 
   const token = session?.access_token;
 
@@ -128,6 +136,20 @@ export function AdminUsersPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (boothTabKey === BOOTH_TAB_ALL) return;
+    if (!booths.some((b) => b.id === boothTabKey)) {
+      setBoothTabKey(BOOTH_TAB_ALL);
+    }
+  }, [booths, boothTabKey]);
+
+  const filteredRows = useMemo(() => {
+    if (boothTabKey === BOOTH_TAB_ALL) return rows;
+    return rows.filter(
+      (r) => r.role === "ADMIN" || r.boothIds.includes(boothTabKey),
+    );
+  }, [rows, boothTabKey]);
 
   const openCreate = () => {
     setEditing(null);
@@ -257,7 +279,7 @@ export function AdminUsersPage() {
   };
 
   const boothOptions = booths.map((b) => ({
-    label: b.location ? `${b.name}（${b.location}）` : b.name,
+    label: adminBoothLabel(b),
     value: b.id,
   }));
 
@@ -304,7 +326,15 @@ export function AdminUsersPage() {
       width: 120,
       render: (r: AppRole) =>
         r === "ADMIN" ? (
-          <Tag color={palette.tagRoleAdmin}>{u.roleAdmin}</Tag>
+          <Tag
+            style={{
+              margin: 0,
+              background: palette.tagRoleAdmin,
+              color: "#ffffff",
+              borderColor: palette.tagRoleAdmin,
+            }}>
+            {u.roleAdmin}
+          </Tag>
         ) : r === "MANAGER" ? (
           <Tag color="purple">{u.roleManager}</Tag>
         ) : (
@@ -362,6 +392,18 @@ export function AdminUsersPage() {
       <Text type="secondary" style={{ display: "block", marginBottom: 16 }}>
         {u.hint}
       </Text>
+      <Tabs
+        style={{ marginBottom: 16 }}
+        activeKey={boothTabKey}
+        onChange={setBoothTabKey}
+        items={[
+          { key: BOOTH_TAB_ALL, label: u.boothTabAll },
+          ...booths.map((b) => ({
+            key: b.id,
+            label: adminBoothLabel(b),
+          })),
+        ]}
+      />
       <Card
         extra={
           fullUserAdmin ? (
@@ -374,7 +416,7 @@ export function AdminUsersPage() {
           rowKey="id"
           loading={loading}
           columns={columns}
-          dataSource={rows}
+          dataSource={filteredRows}
           pagination={{ pageSize: 12 }}
         />
       </Card>

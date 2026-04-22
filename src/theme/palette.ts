@@ -46,7 +46,8 @@ export const palette = {
   tagAccentMuted: "#9d8b62",
   tagBundle: "#9d8b62",
   tagGift: "#c8a96e",
-  tagRoleAdmin: "#c8a96e",
+  /** 後台「管理員」角色標籤底色（略深於 accent，配白字） */
+  tagRoleAdmin: "#b08d4a",
   tagSwapAccepted: "#c8a96e",
 } as const;
 

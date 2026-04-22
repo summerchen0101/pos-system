@@ -607,6 +607,7 @@ export const zhtw = {
       roleManager: "店長",
       roleStaff: "店員",
       allBooths: "全部",
+      boothTabAll: "全部",
       newUser: "新增使用者",
       modalCreate: "新增使用者",
       modalEdit: "編輯使用者",
