@@ -39,6 +39,8 @@ function promoOneLine(p: Promotion, products: readonly Product[]): string {
   switch (p.kind) {
     case 'FIXED_DISCOUNT':
       return formatMoney(p.fixedDiscountCents ?? 0)
+    case 'FIXED_PERCENT_DISCOUNT':
+      return `${p.discountPercent ?? 0}%`
     case 'BUY_X_GET_Y':
       return (
         zhtw.pos.manualPromoBogoLine(p.buyQty ?? 0, p.freeQty ?? 0) +

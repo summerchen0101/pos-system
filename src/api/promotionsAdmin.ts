@@ -121,6 +121,17 @@ function rowPayload(input: PromotionInput) {
       threshold_amount: null,
     }
   }
+  if (input.kind === 'FIXED_PERCENT_DISCOUNT') {
+    return {
+      ...base,
+      buy_qty: null,
+      free_qty: null,
+      discount_percent: input.discountPercent,
+      fixed_discount_cents: null,
+      gift_id: null,
+      threshold_amount: null,
+    }
+  }
   if (input.kind === 'SINGLE_FIXED_DISCOUNT') {
     return {
       ...base,
@@ -251,7 +262,11 @@ async function syncPromotionRelations(id: string, input: PromotionInput) {
     await replacePromotionSelectableItems(id, input.selectableProductIds)
   } else {
     await replacePromotionSelectableItems(id, [])
-    if (input.kind === 'GIFT_WITH_THRESHOLD' || input.kind === 'FIXED_DISCOUNT') {
+    if (
+      input.kind === 'GIFT_WITH_THRESHOLD' ||
+      input.kind === 'FIXED_DISCOUNT' ||
+      input.kind === 'FIXED_PERCENT_DISCOUNT'
+    ) {
       await replacePromotionProductEntries(id, [])
     } else if (input.kind === 'FREE_ITEMS') {
       await replacePromotionProductEntries(id, input.freeItems)

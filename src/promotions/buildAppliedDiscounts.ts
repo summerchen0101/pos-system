@@ -89,6 +89,8 @@ function describeAutoPromotion(p: Promotion, appliedRuleId: string): string {
       }
       return p.name
     }
+    case 'FIXED_PERCENT_DISCOUNT':
+      return t.appliedDiscountDescFixedPercent(p.discountPercent ?? 0)
     default:
       return p.name
   }
@@ -103,6 +105,9 @@ function describeManualPromotion(p: Promotion): string {
   if (p.kind === 'FIXED_DISCOUNT') {
     const cents = p.fixedDiscountCents ?? 0
     return t.appliedDiscountDescFixed(formatMoney(cents))
+  }
+  if (p.kind === 'FIXED_PERCENT_DISCOUNT') {
+    return t.appliedDiscountDescFixedPercent(p.discountPercent ?? 0)
   }
   return p.name
 }

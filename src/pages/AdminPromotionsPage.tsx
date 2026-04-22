@@ -90,6 +90,7 @@ const KIND_OPTIONS: { value: PromotionKind; label: string }[] = [
   },
   { value: "GIFT_WITH_THRESHOLD", label: pr.kindThreshold },
   { value: "FIXED_DISCOUNT", label: pr.kindFixed },
+  { value: "FIXED_PERCENT_DISCOUNT", label: pr.kindFixedPercent },
   { value: "FREE_ITEMS", label: pr.kindFreeItems },
   { value: "FREE_SELECTION", label: pr.kindFreeSelection },
 ];
@@ -130,6 +131,8 @@ function promotionSummary(p: Promotion, products: Product[]): string {
       );
     case "FIXED_DISCOUNT":
       return pr.summaryFixed(formatMoney(p.fixedDiscountCents ?? 0));
+    case "FIXED_PERCENT_DISCOUNT":
+      return pr.summaryFixedPercent(p.discountPercent ?? 0);
     case "FREE_ITEMS": {
       if (!p.freeItems.length) return dash;
       const byId = new Map(products.map((x) => [x.id, x]));
@@ -334,6 +337,31 @@ function toInput(values: FormValues): PromotionInput {
       active: values.active,
       applyMode,
       fixedDiscountCents: dollarsToCents(Number(values.fixedDiscountDollars)),
+      productIds: [],
+      freeItems: [],
+      tiers: [],
+      quantityTiers: [],
+      giftId: null,
+      thresholdAmountCents: null,
+      selectableProductIds: [],
+      maxSelectionQty: null,
+      bogoSingleDealOnly,
+    };
+  }
+
+  if (values.kind === "FIXED_PERCENT_DISCOUNT") {
+    return {
+      boothIds,
+      groupId,
+      code,
+      name,
+      kind: values.kind,
+      buyQty: null,
+      freeQty: null,
+      discountPercent: Math.trunc(Number(values.discountPercent)),
+      active: values.active,
+      applyMode,
+      fixedDiscountCents: null,
       productIds: [],
       freeItems: [],
       tiers: [],
@@ -644,6 +672,7 @@ export function AdminPromotionsPage() {
       productIds:
         p.kind === "GIFT_WITH_THRESHOLD" ||
         p.kind === "FIXED_DISCOUNT" ||
+        p.kind === "FIXED_PERCENT_DISCOUNT" ||
         p.kind === "FREE_ITEMS" ||
         p.kind === "FREE_SELECTION"
           ? []
@@ -750,6 +779,18 @@ export function AdminPromotionsPage() {
           return;
         }
       }
+      if (values.kind === "FIXED_PERCENT_DISCOUNT") {
+        const pct = Number(values.discountPercent);
+        if (
+          values.discountPercent == null ||
+          Number.isNaN(pct) ||
+          pct < 1 ||
+          pct > 100
+        ) {
+          message.error(pr.fixedPercentDiscountError);
+          return;
+        }
+      }
       if (values.kind === "FREE_ITEMS") {
         const rows = values.freeItemRows ?? [];
         if (rows.length < 1) {
@@ -802,6 +843,7 @@ export function AdminPromotionsPage() {
       if (
         input.kind !== "GIFT_WITH_THRESHOLD" &&
         input.kind !== "FIXED_DISCOUNT" &&
+        input.kind !== "FIXED_PERCENT_DISCOUNT" &&
         input.kind !== "FREE_ITEMS" &&
         input.kind !== "FREE_SELECTION" &&
         input.productIds.length === 0
@@ -833,6 +875,15 @@ export function AdminPromotionsPage() {
         (!input.fixedDiscountCents || input.fixedDiscountCents < 1)
       ) {
         message.error(pr.fixedDiscountError);
+        return;
+      }
+      if (
+        input.kind === "FIXED_PERCENT_DISCOUNT" &&
+        (input.discountPercent == null ||
+          input.discountPercent < 1 ||
+          input.discountPercent > 100)
+      ) {
+        message.error(pr.fixedPercentDiscountError);
         return;
       }
       setSaving(true);
@@ -1017,7 +1068,9 @@ export function AdminPromotionsPage() {
       width: 72,
       align: "center",
       render: (_, row) =>
-        row.kind === "GIFT_WITH_THRESHOLD" || row.kind === "FIXED_DISCOUNT"
+        row.kind === "GIFT_WITH_THRESHOLD" ||
+        row.kind === "FIXED_DISCOUNT" ||
+        row.kind === "FIXED_PERCENT_DISCOUNT"
           ? common.dash
           : row.kind === "FREE_ITEMS"
             ? row.freeItems.length
@@ -1380,6 +1433,18 @@ export function AdminPromotionsPage() {
                   applyMode: "MANUAL",
                   fixedDiscountDollars:
                     form.getFieldValue("fixedDiscountDollars") ?? 50,
+                });
+              } else if (k === "FIXED_PERCENT_DISCOUNT") {
+                form.setFieldsValue({
+                  buyQty: null,
+                  freeQty: null,
+                  fixedDiscountDollars: undefined,
+                  tiers: [],
+                  qtyDiscountTiers: [],
+                  qtyFixedDiscountTiers: [],
+                  productIds: [],
+                  applyMode: "MANUAL",
+                  discountPercent: form.getFieldValue("discountPercent") ?? 10,
                 });
               } else if (k === "FREE_ITEMS") {
                 const cur = form.getFieldValue("freeItemRows") as
@@ -1815,6 +1880,19 @@ export function AdminPromotionsPage() {
                 placeholder={pr.fixedDiscountPh}
               />
             </Form.Item>
+          ) : kindWatch === "FIXED_PERCENT_DISCOUNT" ? (
+            <Form.Item
+              name="discountPercent"
+              label={pr.labelFixedPercentDiscount}
+              rules={[{ required: true, type: "number", min: 1, max: 100 }]}
+              extra={pr.fixedPercentDiscountExtra}>
+              <InputNumber
+                min={1}
+                max={100}
+                style={{ width: "100%" }}
+                placeholder={pr.discountPctPh}
+              />
+            </Form.Item>
           ) : kindWatch === "FREE_SELECTION" ? (
             <>
               <Form.Item
@@ -1915,6 +1993,7 @@ export function AdminPromotionsPage() {
                     if (
                       k === "GIFT_WITH_THRESHOLD" ||
                       k === "FIXED_DISCOUNT" ||
+                      k === "FIXED_PERCENT_DISCOUNT" ||
                       k === "FREE_ITEMS" ||
                       k === "FREE_SELECTION"
                     )

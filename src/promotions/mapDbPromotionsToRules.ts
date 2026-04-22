@@ -14,6 +14,17 @@ export function mapDbPromotionsToEngineRules(promotions: readonly Promotion[]): 
     if (!p.active || !isPromotionKindString(p.kind)) continue
     if (p.applyMode === 'MANUAL') continue
     if (p.kind === 'GIFT_WITH_THRESHOLD') continue
+    if (p.kind === 'FIXED_PERCENT_DISCOUNT') {
+      const pct = p.discountPercent ?? 0
+      if (pct >= 1 && pct <= 100) {
+        rules.push({
+          id: `${p.id}~cartpct`,
+          kind: 'cart_percent_discount',
+          percentOff: pct,
+        })
+      }
+      continue
+    }
     if (p.kind === 'FIXED_DISCOUNT' || p.kind === 'FREE_ITEMS' || p.kind === 'FREE_SELECTION') continue
 
     const ids = p.productIds

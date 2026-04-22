@@ -97,6 +97,7 @@ create table if not exists public.promotions (
       'TIERED_QUANTITY_FIXED_DISCOUNT',
       'GIFT_WITH_THRESHOLD',
       'FIXED_DISCOUNT',
+      'FIXED_PERCENT_DISCOUNT',
       'FREE_ITEMS',
       'FREE_SELECTION'
     )

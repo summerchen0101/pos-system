@@ -78,6 +78,7 @@ export const PROMOTION_KINDS = [
   'TIERED_QUANTITY_FIXED_DISCOUNT',
   'GIFT_WITH_THRESHOLD',
   'FIXED_DISCOUNT',
+  'FIXED_PERCENT_DISCOUNT',
   'FREE_ITEMS',
   'FREE_SELECTION',
 ] as const
@@ -150,10 +151,13 @@ export type Promotion = {
    * Other kinds: always false in UI/API.
    */
   bogoSingleDealOnly: boolean
+  /**
+   * Percent off for percent-based kinds (`BULK_DISCOUNT`, `SINGLE_DISCOUNT`, `FIXED_PERCENT_DISCOUNT`, tiers, etc.).
+   */
   discountPercent: number | null
   active: boolean
   applyMode: PromotionApplyMode
-  /** `FIXED_DISCOUNT` — amount off in minor units. */
+  /** `FIXED_DISCOUNT` / `SINGLE_FIXED_DISCOUNT` — amount off in minor units. */
   fixedDiscountCents: number | null
   productIds: string[]
   /** Populated when `kind === 'TIERED'`. */

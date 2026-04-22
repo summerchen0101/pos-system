@@ -4,6 +4,7 @@ export function isManualPromotionSelectableKind(p: Promotion): boolean {
   return (
     p.kind === 'BUY_X_GET_Y' ||
     p.kind === 'FIXED_DISCOUNT' ||
+    p.kind === 'FIXED_PERCENT_DISCOUNT' ||
     p.kind === 'FREE_ITEMS' ||
     p.kind === 'FREE_SELECTION'
   )
@@ -20,6 +21,11 @@ export function isManualPromotionEligible(
   const paid = lines.filter((l) => !l.isGift && !l.isManualFree && !l.isBundleComponent)
 
   if (p.kind === 'FIXED_DISCOUNT') return (p.fixedDiscountCents ?? 0) >= 1
+
+  if (p.kind === 'FIXED_PERCENT_DISCOUNT') {
+    const pct = p.discountPercent ?? 0
+    return pct >= 1 && pct <= 100
+  }
 
   if (p.kind === 'BUY_X_GET_Y') {
     if (paid.length === 0) return true

@@ -86,7 +86,7 @@ function buyXGetYRuleFromPromotion(p: Promotion): PromotionRule | null {
 
 /**
  * Auto promos: stacked per `promotion_groups` behavior; ungrouped AUTO promos all apply.
- * Manual promos stack after auto: FIXED_DISCOUNT and BUY_X_GET_Y add further discounts, capped so total ≥ 0.
+ * Manual promos stack after auto: FIXED_DISCOUNT, FIXED_PERCENT_DISCOUNT, and BUY_X_GET_Y add further discounts, capped so total ≥ 0.
  */
 export function computeCartPromotionBreakdown(
   lines: readonly CartLine[],
@@ -119,6 +119,17 @@ export function computeCartPromotionBreakdown(
       const fixed = p.fixedDiscountCents ?? 0
       if (fixed < 1) continue
       const d = Math.min(fixed, running)
+      if (d <= 0) continue
+      manualSum += d
+      running -= d
+      manualDetails.push({ promotionId: p.id, name: p.name, discountCents: d })
+      continue
+    }
+
+    if (p.kind === 'FIXED_PERCENT_DISCOUNT') {
+      const pct = p.discountPercent ?? 0
+      if (pct < 1 || pct > 100) continue
+      const d = Math.min(Math.round((running * pct) / 100), running)
       if (d <= 0) continue
       manualSum += d
       running -= d

@@ -107,6 +107,13 @@ export type TieredQuantityFixedDiscountRule = {
   }[]
 }
 
+/** `FIXED_PERCENT_DISCOUNT` (AUTO) — percent off paid-merch cart subtotal before sequential stack caps. */
+export type CartPercentDiscountRule = {
+  id: string
+  kind: 'cart_percent_discount'
+  percentOff: number
+}
+
 export type PromotionRule =
   | BuyXGetYFreeRule
   | BulkDiscountRule
@@ -115,6 +122,7 @@ export type PromotionRule =
   | TieredPromotionRule
   | TieredQuantityDiscountRule
   | TieredQuantityFixedDiscountRule
+  | CartPercentDiscountRule
 
 export type PromotionRuleKind = PromotionRule['kind']
 
