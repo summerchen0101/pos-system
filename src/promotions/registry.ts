@@ -2,6 +2,7 @@ import type { PromotionContext, PromotionRule } from './types'
 import { evaluateBuyXGetYFree } from './evaluators/buyXGetYFree'
 import { evaluateBulkDiscount } from './evaluators/bulkDiscount'
 import { evaluateSingleProductDiscount } from './evaluators/singleProductDiscount'
+import { evaluateSingleProductFixedDiscount } from './evaluators/singleProductFixedDiscount'
 import { evaluateTieredPromotion } from './evaluators/tieredPromotion'
 import { evaluateTieredQuantityDiscount } from './evaluators/tieredQuantityDiscount'
 import { evaluateTieredQuantityFixedDiscount } from './evaluators/tieredQuantityFixedDiscount'
@@ -28,6 +29,11 @@ export function evaluatePromotionRule(rule: PromotionRule, ctx: PromotionContext
     case 'single_product_discount':
       return {
         discountCents: evaluateSingleProductDiscount(rule, ctx),
+        appliedRuleId: rule.id,
+      }
+    case 'single_product_fixed_discount':
+      return {
+        discountCents: evaluateSingleProductFixedDiscount(rule, ctx),
         appliedRuleId: rule.id,
       }
     case 'tiered_promotion':

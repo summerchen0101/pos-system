@@ -5,7 +5,7 @@ import type { PromotionRule } from './types'
 /**
  * Expands DB promotions into engine rules. Composite rule ids:
  * - Bulk: `promotionId`
- * - Per product: `${promotionId}~p~${productId}`
+ * - Per product (percent): `${promotionId}~p~${productId}`; (fixed): `${promotionId}~pf~${productId}`
  */
 export function mapDbPromotionsToEngineRules(promotions: readonly Promotion[]): PromotionRule[] {
   const rules: PromotionRule[] = []
@@ -57,6 +57,19 @@ export function mapDbPromotionsToEngineRules(promotions: readonly Promotion[]): 
             kind: 'single_product_discount',
             productId: pid,
             percentOff: pct,
+          })
+        }
+        break
+      }
+      case 'SINGLE_FIXED_DISCOUNT': {
+        const cents = p.fixedDiscountCents ?? 0
+        if (cents < 1) break
+        for (const pid of ids) {
+          rules.push({
+            id: `${p.id}~pf~${pid}`,
+            kind: 'single_product_fixed_discount',
+            productId: pid,
+            amountOffCents: cents,
           })
         }
         break

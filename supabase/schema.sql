@@ -91,6 +91,7 @@ create table if not exists public.promotions (
       'BUY_X_GET_Y',
       'BULK_DISCOUNT',
       'SINGLE_DISCOUNT',
+      'SINGLE_FIXED_DISCOUNT',
       'TIERED',
       'TIERED_QUANTITY_DISCOUNT',
       'TIERED_QUANTITY_FIXED_DISCOUNT',

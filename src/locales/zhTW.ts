@@ -100,6 +100,7 @@ export const zhtw = {
     appliedDiscountDescBogo: (x: number, y: number) => `買 ${x} 送 ${y}`,
     appliedDiscountDescBulk: (min: number, pct: number) => `滿 ${min} 件 · ${pct}% 折扣`,
     appliedDiscountDescSingle: (pct: number) => `單品 ${pct}% 折扣`,
+    appliedDiscountDescSingleFixed: (amount: string) => `單品折 ${amount}`,
     appliedDiscountDescTierPct: (minQty: number, pct: number) => `滿 ${minQty} 件 · ${pct}% 折扣`,
     appliedDiscountDescTierFree: (minQty: number, freeQty: number) => `滿 ${minQty} 件 · 贈 ${freeQty}`,
     appliedDiscountDescQtyTier: (minQty: number, pct: number) => `累計滿 ${minQty} 件 · ${pct}% 折扣`,
@@ -1061,6 +1062,7 @@ export const zhtw = {
       bogoSingleDealShort: "限一組",
       kindBulk: "滿量折扣",
       kindSingle: "單品折扣",
+      kindSingleFixed: "單品折價",
       kindTiered: "階梯式（多規則）",
       kindTieredQtyDiscount: "階梯件數折扣",
       kindTieredQtyFixedDiscount: "滿量折價",
@@ -1081,6 +1083,9 @@ export const zhtw = {
       applyAuto: "自動",
       applyManual: "手動",
       colApplyMode: "套用",
+      labelSingleFixedDiscount: "每個適用品項折讓（TWD）",
+      singleFixedDiscountExtra:
+        "每個勾選的適用商品：依該品項在購物車中的行小計折讓此金額（不會超過該行小計）。與「單品折扣」相同，整車自動優惠只套用折扣最大的一條規則。",
       labelFixedDiscount: "折價金額（TWD）",
       fixedDiscountPh: "例：50",
       fixedDiscountExtra:
@@ -1107,6 +1112,7 @@ export const zhtw = {
       summaryBogo: (x: string, y: string) => `買 ${x} 送 ${y}`,
       summaryBulk: (n: string, pct: number) => `滿 ${n} 件 → ${pct}% 折扣`,
       summarySingle: (pct: number) => `指定品項 ${pct}% 折扣`,
+      summarySingleFixed: (amount: string) => `指定品項各折 ${amount}（依行小計上限）`,
       summaryTiered: (n: number) => `${n} 個階梯 — 套用最佳一筆`,
       summaryQtyDiscountTiered: (n: number) =>
         `${n} 個件數門檻 — 依適用品總件數套用最高符合門檻之折數`,

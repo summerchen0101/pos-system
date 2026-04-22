@@ -81,6 +81,7 @@ const KIND_OPTIONS: { value: PromotionKind; label: string }[] = [
   { value: "BUY_X_GET_Y", label: pr.kindBogo },
   { value: "BULK_DISCOUNT", label: pr.kindBulk },
   { value: "SINGLE_DISCOUNT", label: pr.kindSingle },
+  { value: "SINGLE_FIXED_DISCOUNT", label: pr.kindSingleFixed },
   { value: "TIERED", label: pr.kindTiered },
   { value: "TIERED_QUANTITY_DISCOUNT", label: pr.kindTieredQtyDiscount },
   {
@@ -114,6 +115,8 @@ function promotionSummary(p: Promotion, products: Product[]): string {
       return pr.summaryBulk(String(p.buyQty ?? dash), p.discountPercent ?? 0);
     case "SINGLE_DISCOUNT":
       return pr.summarySingle(p.discountPercent ?? 0);
+    case "SINGLE_FIXED_DISCOUNT":
+      return pr.summarySingleFixed(formatMoney(p.fixedDiscountCents ?? 0));
     case "TIERED":
       return pr.summaryTiered(p.rules.length);
     case "TIERED_QUANTITY_DISCOUNT":
@@ -454,6 +457,31 @@ function toInput(values: FormValues): PromotionInput {
     };
   }
 
+  if (values.kind === "SINGLE_FIXED_DISCOUNT") {
+    return {
+      boothIds,
+      groupId,
+      code,
+      name,
+      kind: values.kind,
+      buyQty: null,
+      freeQty: null,
+      discountPercent: null,
+      active: values.active,
+      applyMode,
+      fixedDiscountCents: dollarsToCents(Number(values.fixedDiscountDollars)),
+      productIds: values.productIds ?? [],
+      freeItems: [],
+      tiers: [],
+      quantityTiers: [],
+      giftId: null,
+      thresholdAmountCents: null,
+      selectableProductIds: [],
+      maxSelectionQty: null,
+      bogoSingleDealOnly,
+    };
+  }
+
   if (values.kind === "TIERED_QUANTITY_FIXED_DISCOUNT") {
     return {
       boothIds,
@@ -608,7 +636,8 @@ export function AdminPromotionsPage() {
       freeQty: p.freeQty,
       discountPercent: p.discountPercent,
       fixedDiscountDollars:
-        p.kind === "FIXED_DISCOUNT" && p.fixedDiscountCents != null
+        (p.kind === "FIXED_DISCOUNT" || p.kind === "SINGLE_FIXED_DISCOUNT") &&
+        p.fixedDiscountCents != null
           ? centsToDollars(p.fixedDiscountCents)
           : undefined,
       active: p.active,
@@ -709,7 +738,10 @@ export function AdminPromotionsPage() {
           return;
         }
       }
-      if (values.kind === "FIXED_DISCOUNT") {
+      if (
+        values.kind === "FIXED_DISCOUNT" ||
+        values.kind === "SINGLE_FIXED_DISCOUNT"
+      ) {
         if (
           values.fixedDiscountDollars == null ||
           Number(values.fixedDiscountDollars) <= 0
@@ -796,7 +828,8 @@ export function AdminPromotionsPage() {
         return;
       }
       if (
-        input.kind === "FIXED_DISCOUNT" &&
+        (input.kind === "FIXED_DISCOUNT" ||
+          input.kind === "SINGLE_FIXED_DISCOUNT") &&
         (!input.fixedDiscountCents || input.fixedDiscountCents < 1)
       ) {
         message.error(pr.fixedDiscountError);
@@ -1382,6 +1415,27 @@ export function AdminPromotionsPage() {
                     : [],
                   maxSelectionQty: form.getFieldValue("maxSelectionQty") ?? 3,
                 });
+              } else if (k === "SINGLE_DISCOUNT") {
+                form.setFieldsValue({
+                  buyQty: null,
+                  freeQty: null,
+                  fixedDiscountDollars: undefined,
+                  tiers: [],
+                  qtyDiscountTiers: [],
+                  qtyFixedDiscountTiers: [],
+                  discountPercent: form.getFieldValue("discountPercent") ?? 10,
+                });
+              } else if (k === "SINGLE_FIXED_DISCOUNT") {
+                form.setFieldsValue({
+                  buyQty: null,
+                  freeQty: null,
+                  discountPercent: null,
+                  tiers: [],
+                  qtyDiscountTiers: [],
+                  qtyFixedDiscountTiers: [],
+                  fixedDiscountDollars:
+                    form.getFieldValue("fixedDiscountDollars") ?? 10,
+                });
               } else {
                 form.setFieldsValue({
                   buyQty: null,
@@ -1521,6 +1575,21 @@ export function AdminPromotionsPage() {
               label={pr.discountPct}
               rules={[{ required: true, type: "number", min: 1, max: 100 }]}>
               <InputNumber min={1} max={100} style={{ width: "100%" }} />
+            </Form.Item>
+          )}
+
+          {kindWatch === "SINGLE_FIXED_DISCOUNT" && (
+            <Form.Item
+              name="fixedDiscountDollars"
+              label={pr.labelSingleFixedDiscount}
+              rules={[{ required: true, type: "number", min: 0.01 }]}
+              extra={pr.singleFixedDiscountExtra}>
+              <InputNumber
+                min={0.01}
+                step={1}
+                style={{ width: "100%" }}
+                placeholder={pr.fixedDiscountPh}
+              />
             </Form.Item>
           )}
 

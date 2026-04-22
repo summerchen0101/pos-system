@@ -53,6 +53,10 @@ function describeAutoPromotion(p: Promotion, appliedRuleId: string): string {
       const pct = p.discountPercent ?? 0
       return t.appliedDiscountDescSingle(pct)
     }
+    case 'SINGLE_FIXED_DISCOUNT': {
+      const cents = p.fixedDiscountCents ?? 0
+      return t.appliedDiscountDescSingleFixed(formatMoney(cents))
+    }
     case 'TIERED': {
       const m = appliedRuleId.match(/~t~(.+)$/)
       const tierId = m?.[1]
