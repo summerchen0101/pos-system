@@ -18,6 +18,17 @@
  *
  * 前端：`adminPathRules` 路徑權限 + `supabase` 自訂 fetch 對 PostgREST/Edge 401/403
  * 觸發 `adminApiAuthHandler`（不取代 RLS）。
+ *
+ * 我的班表（`MyShiftsPage` → `shifts`）：`shifts_select` 見 migrate_manager_role.sql。
+ * STAFF 可讀 (1) `user_id = auth.uid()` 的列 (2) `booth_id in current_user_booth_ids()`（`user_booths`）。
+ * 部署須已套用該遷移；若店員只看得到自己、看不到同攤同事，請在 DB 或後台使用者管理確認
+ * 該帳號的 `user_booths` 是否包含排班所屬 `booth_id`。
+ *
+ * 班表卡片姓名：`listShiftsInRange` 嵌套 `users(name)`；除 `users_select_same_booth` 外，
+ * `users_select_shift_roster_at_my_booths`（migrate_users_select_shift_roster.sql）允許 STAFF/MANAGER
+ * 讀取在「自己所屬攤位」`shifts` 上出現過的使用者列。`shifts_select` 須以 `is_staff_or_manager()`
+ * 取代對 `users` 的 inline subquery（見 migrate_manager_role.sql），否則 `users` roster policy
+ * 在檢查 `shifts` 可見性時會 users → shifts → users 而 42P17。
  */
 
 export {}

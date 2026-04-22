@@ -29,6 +29,22 @@ $$;
 
 grant execute on function public.is_manager() to authenticated;
 
+-- Used in shifts_select (and roster policies) instead of subquerying public.users from another table policy.
+create or replace function public.is_staff_or_manager()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.users u
+    where u.id = auth.uid() and u.role in ('STAFF', 'MANAGER')
+  );
+$$;
+
+grant execute on function public.is_staff_or_manager() to authenticated;
+
 -- Avoid RLS recursion: policies must not subquery user_booths/users in ways that re-enter each other.
 create or replace function public.manager_can_select_staff_user(p_staff_id uuid)
 returns boolean
@@ -121,10 +137,7 @@ create policy "shifts_select" on public.shifts
         and (r.requester_shift_id = shifts.id or r.target_shift_id = shifts.id)
     )
     or (
-      exists (
-        select 1 from public.users u
-        where u.id = auth.uid() and u.role in ('MANAGER', 'STAFF')
-      )
+      public.is_staff_or_manager()
       and booth_id in (select public.current_user_booth_ids())
     )
   );

@@ -4,6 +4,7 @@ import {
   RightOutlined,
 } from "@ant-design/icons";
 import {
+  Alert,
   App,
   Button,
   Card,
@@ -299,6 +300,16 @@ export function MyShiftsPage() {
         {m.pageTitle}
       </Title>
       <Text type="secondary">{m.hint}</Text>
+
+      {profile.role === "STAFF" && profile.boothIds.length === 0 ? (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginTop: 16 }}
+          message={m.noBoothsAlertTitle}
+          description={m.noBoothsAlertDescription}
+        />
+      ) : null}
 
       <Card style={{ marginTop: 16 }} loading={loading}>
         <Space wrap style={{ marginBottom: 16 }}>

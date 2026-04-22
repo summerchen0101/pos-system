@@ -852,6 +852,9 @@ export const zhtw = {
     myShifts: {
       pageTitle: "我的班表",
       hint: "顯示您所屬攤位之本週所有班次，藍色強調為您的班。打卡僅限自己的班，且須於班表當日、上下班時間前後 30 分鐘內。",
+      noBoothsAlertTitle: "尚未指派攤位",
+      noBoothsAlertDescription:
+        "未被指派任何攤位時，班表僅會顯示與您本人綁定的班次。請聯繫管理者在「使用者」中為您設定攤位權限，即可查看該攤的完整排班。",
       emptyDay: "無班次",
       booth: "攤位",
       clockStatus: "打卡",
