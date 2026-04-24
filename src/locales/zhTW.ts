@@ -555,6 +555,7 @@ export const zhtw = {
       labelNote: "備註",
       notePh: "選填",
       colCreatedAt: "建立時間",
+      colLastEditedAt: "最後編輯時間",
       colWarehouse: "倉庫",
       colStatus: "狀態",
       colNote: "備註",
@@ -586,6 +587,10 @@ export const zhtw = {
       colDiff: "差異",
       colReason: "原因",
       submitConfirm: "確認送出盤點",
+      saveProgress: "儲存進度",
+      saveSuccessTitle: "已儲存",
+      saveSuccessBody: "可繼續盤點，或返回盤點列表。",
+      saveError: "儲存失敗",
       submitIncompleteTitle: "尚有未填寫項目",
       submitIncompleteBody: (n: number) =>
         `尚有 ${n} 項商品未填寫實際數量，確定要送出？未填項目將不調整庫存（視同與系統庫存一致）。`,

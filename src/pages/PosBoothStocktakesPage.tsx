@@ -17,9 +17,17 @@ import type { ColumnsType } from "antd/es/table";
 import type { Dayjs } from "dayjs";
 import dayjs from "dayjs";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+  useOutletContext,
+  useParams,
+} from "react-router-dom";
 import { isAdminRole } from "../api/authProfile";
-import { listBoothWarehouseStock, type BoothWarehouseStockLine } from "../api/inventoryBooth";
+import {
+  listBoothWarehouseStock,
+  type BoothWarehouseStockLine,
+} from "../api/inventoryBooth";
 import {
   createStocktakeAdmin,
   deleteStocktakeDraftAdmin,
@@ -57,8 +65,8 @@ export function PosBoothStocktakesPage() {
 
   const canUseBooth = Boolean(
     profile &&
-      warehouseId &&
-      (isAdminRole(profile.role) || profile.boothIds.includes(entry.id)),
+    warehouseId &&
+    (isAdminRole(profile.role) || profile.boothIds.includes(entry.id)),
   );
 
   const [filterForm] = Form.useForm<FilterValues>();
@@ -135,7 +143,10 @@ export function PosBoothStocktakesPage() {
       navigate(`/pos/${boothId}/stocktakes/${id}`);
     } catch (e) {
       if (e && typeof e === "object" && "errorFields" in e) return;
-      const msg = e && typeof e === "object" && "message" in e ? String((e as { message: string }).message) : "";
+      const msg =
+        e && typeof e === "object" && "message" in e
+          ? String((e as { message: string }).message)
+          : "";
       message.error(stocktakeErrorMessage(msg));
     } finally {
       setCreating(false);
@@ -160,13 +171,32 @@ export function PosBoothStocktakesPage() {
         },
       });
     },
-    [common.delete, fetchList, message, modal, st.createError, st.deleteBody, st.deleteTitle, st.deletedOk],
+    [
+      common.delete,
+      fetchList,
+      message,
+      modal,
+      st.createError,
+      st.deleteBody,
+      st.deleteTitle,
+      st.deletedOk,
+    ],
   );
 
   const stockColumns: ColumnsType<BoothWarehouseStockLine> = useMemo(
     () => [
-      { title: pst.colCategory, key: "c", width: 120, render: (_, r) => r.categoryName ?? common.dash },
-      { title: pst.colProduct, dataIndex: "productName", key: "p", ellipsis: true },
+      {
+        title: pst.colCategory,
+        key: "c",
+        width: 200,
+        render: (_, r) => r.categoryName ?? common.dash,
+      },
+      {
+        title: pst.colProduct,
+        dataIndex: "productName",
+        key: "p",
+        ellipsis: true,
+      },
       {
         title: pst.colStock,
         dataIndex: "stock",
@@ -188,11 +218,19 @@ export function PosBoothStocktakesPage() {
         render: (iso: string) => dayjs(iso).format("YYYY-MM-DD HH:mm"),
       },
       {
+        title: st.colLastEditedAt,
+        dataIndex: "lastEditedAt",
+        key: "u",
+        width: 168,
+        render: (iso: string) => dayjs(iso).format("YYYY-MM-DD HH:mm"),
+      },
+      {
         title: st.colStatus,
         dataIndex: "status",
         key: "s",
         width: 100,
-        render: (s: StocktakeStatus) => (s === "draft" ? st.statusDraft : st.statusCompleted),
+        render: (s: StocktakeStatus) =>
+          s === "draft" ? st.statusDraft : st.statusCompleted,
       },
       {
         title: st.colNote,
@@ -220,7 +258,11 @@ export function PosBoothStocktakesPage() {
                     {st.continue}
                   </Button>
                 </Link>
-                <Button type="link" size="small" danger onClick={() => onDeleteDraft(r)}>
+                <Button
+                  type="link"
+                  size="small"
+                  danger
+                  onClick={() => onDeleteDraft(r)}>
                   {st.deleteDraft}
                 </Button>
               </>
@@ -238,21 +280,38 @@ export function PosBoothStocktakesPage() {
     [boothId, common.dash, onDeleteDraft, st],
   );
 
-  const gateAlert =
-    !warehouseId ? (
-      <Alert type="warning" showIcon message={pst.noWarehouseTitle} description={pst.noWarehouseBody} />
-    ) : profile && !canUseBooth ? (
-      <Alert type="error" showIcon message={pst.forbiddenTitle} description={pst.forbiddenBody} />
-    ) : null;
+  const gateAlert = !warehouseId ? (
+    <Alert
+      type="warning"
+      showIcon
+      message={pst.noWarehouseTitle}
+      description={pst.noWarehouseBody}
+    />
+  ) : profile && !canUseBooth ? (
+    <Alert
+      type="error"
+      showIcon
+      message={pst.forbiddenTitle}
+      description={pst.forbiddenBody}
+    />
+  ) : null;
 
   return (
     <div className="pos-brand-shell">
       <div className="pos-brand-shell__inner pos-brand-shell__inner--wide">
         <PosBrandLogo height={48} className="pos-brand-logo-wrap" />
-        <Typography.Title level={4} style={{ margin: "0 0 8px", color: "var(--pos-brand-text)", width: "100%" }}>
+        <Typography.Title
+          level={4}
+          style={{
+            margin: "0 0 8px",
+            color: "var(--pos-brand-text)",
+            width: "100%",
+          }}>
           {pst.pageTitle}
         </Typography.Title>
-        <Typography.Text type="secondary" style={{ display: "block", marginBottom: 16, width: "100%" }}>
+        <Typography.Text
+          type="secondary"
+          style={{ display: "block", marginBottom: 16, width: "100%" }}>
           {entry.name}
         </Typography.Text>
 
@@ -260,7 +319,13 @@ export function PosBoothStocktakesPage() {
 
         {canUseBooth && warehouseId ? (
           <>
-            <Space style={{ marginBottom: 16, width: "100%", justifyContent: "space-between" }} wrap>
+            <Space
+              style={{
+                marginBottom: 16,
+                width: "100%",
+                justifyContent: "space-between",
+              }}
+              wrap>
               <Link to={`/pos/${boothId}`}>
                 <Button type="link" style={{ paddingLeft: 0 }}>
                   ← {pst.backBoothHome}
@@ -280,28 +345,45 @@ export function PosBoothStocktakesPage() {
                   label: pst.tabStocktakes,
                   children: (
                     <>
-                      <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
+                      <Typography.Paragraph
+                        type="secondary"
+                        style={{ marginBottom: 12 }}>
                         {pst.stocktakesHint}
                       </Typography.Paragraph>
-                      <Card style={{ marginBottom: 16, background: "var(--pos-brand-surface)" }}>
+                      <Card
+                        style={{
+                          marginBottom: 16,
+                          background: "var(--pos-brand-surface)",
+                        }}>
                         <Form form={filterForm} layout="vertical">
                           <Space wrap size="middle" align="start">
-                            <Form.Item name="status" label={st.filterStatus} style={{ marginBottom: 0 }}>
+                            <Form.Item
+                              name="status"
+                              label={st.filterStatus}
+                              style={{ marginBottom: 0 }}>
                               <Select
                                 allowClear
                                 placeholder={st.filterAllStatus}
                                 style={{ minWidth: 140 }}
                                 options={[
                                   { value: "draft", label: st.statusDraft },
-                                  { value: "completed", label: st.statusCompleted },
+                                  {
+                                    value: "completed",
+                                    label: st.statusCompleted,
+                                  },
                                 ]}
                               />
                             </Form.Item>
-                            <Form.Item name="range" label={st.filterRange} style={{ marginBottom: 0 }}>
+                            <Form.Item
+                              name="range"
+                              label={st.filterRange}
+                              style={{ marginBottom: 0 }}>
                               <DatePicker.RangePicker />
                             </Form.Item>
                             <Form.Item label=" " style={{ marginBottom: 0 }}>
-                              <Button type="primary" onClick={() => void fetchList()}>
+                              <Button
+                                type="primary"
+                                onClick={() => void fetchList()}>
                                 {common.apply}
                               </Button>
                             </Form.Item>
@@ -327,14 +409,19 @@ export function PosBoothStocktakesPage() {
                   children: (
                     <>
                       <Space style={{ marginBottom: 12 }}>
-                        <Button onClick={() => void loadStock()} loading={stockLoading}>
+                        <Button
+                          onClick={() => void loadStock()}
+                          loading={stockLoading}>
                           {pst.refreshStock}
                         </Button>
                       </Space>
                       {stockError ? (
-                        <Typography.Text type="danger">{stockError}</Typography.Text>
+                        <Typography.Text type="danger">
+                          {stockError}
+                        </Typography.Text>
                       ) : (
-                        <Card style={{ background: "var(--pos-brand-surface)" }}>
+                        <Card
+                          style={{ background: "var(--pos-brand-surface)" }}>
                           <Table<BoothWarehouseStockLine>
                             rowKey="productId"
                             loading={stockLoading}
@@ -350,7 +437,13 @@ export function PosBoothStocktakesPage() {
                 },
               ]}
               onChange={(key) => {
-                if (key === "stock" && stockLines.length === 0 && !stockLoading && !stockError) void loadStock();
+                if (
+                  key === "stock" &&
+                  stockLines.length === 0 &&
+                  !stockLoading &&
+                  !stockError
+                )
+                  void loadStock();
               }}
             />
           </>
@@ -365,8 +458,13 @@ export function PosBoothStocktakesPage() {
           destroyOnClose
           okText={common.save}>
           <Form form={createForm} layout="vertical" style={{ marginTop: 8 }}>
-            <Typography.Text type="secondary">{pst.createNoteOnly}</Typography.Text>
-            <Form.Item name="note" label={st.labelNote} style={{ marginTop: 12 }}>
+            <Typography.Text type="secondary">
+              {pst.createNoteOnly}
+            </Typography.Text>
+            <Form.Item
+              name="note"
+              label={st.labelNote}
+              style={{ marginTop: 12 }}>
               <Input.TextArea rows={2} placeholder={st.notePh} />
             </Form.Item>
           </Form>

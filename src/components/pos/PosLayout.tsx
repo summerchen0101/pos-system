@@ -11,6 +11,7 @@ import { useManualFreeLineSync } from "../../hooks/useManualFreeLineSync";
 import { usePruneManualPromotionGroups } from "../../hooks/usePruneManualPromotionGroups";
 import { useThresholdGiftSync } from "../../hooks/useThresholdGiftSync";
 import { zhtw } from "../../locales/zhTW";
+import { buildCategoryTabs, categoryTabKey } from "../../lib/posCategoryTabs";
 import { useCartStore } from "../../store/cartStore";
 import type { Product, Promotion } from "../../types/pos";
 import type { PosBoothOutletContext } from "./PosBoothRoute";
@@ -19,43 +20,6 @@ import { CartPanel } from "./CartPanel";
 import { PosTabletClockButtons } from "./PosTabletClockButtons";
 import { ProductGrid } from "./ProductGrid";
 import "./pos.css";
-
-/** Tab key for products without `category_id`. */
-const UNCATEGORIZED_TAB_KEY = "__uncategorized__";
-
-function categoryTabKey(p: Product): string {
-  return p.categoryId ?? UNCATEGORIZED_TAB_KEY;
-}
-
-function categoryTabLabel(p: Product, uncategorized: string): string {
-  const n = p.categoryName?.trim();
-  return n || uncategorized;
-}
-
-/** Unique categories from catalog; stable key, sorted by admin `categories.sort_order` (uncategorized last). */
-function categoryTabsFromProducts(
-  products: Product[],
-  uncategorizedLabel: string,
-): { key: string; label: string }[] {
-  const byKey = new Map<string, { label: string; sort: number }>();
-  for (const p of products) {
-    const key = categoryTabKey(p);
-    if (!byKey.has(key)) {
-      byKey.set(key, {
-        label: categoryTabLabel(p, uncategorizedLabel),
-        sort: p.categorySortOrder,
-      });
-    }
-  }
-  return [...byKey.entries()]
-    .sort(([ka, a], [kb, b]) => {
-      if (ka === UNCATEGORIZED_TAB_KEY) return 1;
-      if (kb === UNCATEGORIZED_TAB_KEY) return -1;
-      if (a.sort !== b.sort) return a.sort - b.sort;
-      return a.label.localeCompare(b.label, "zh-Hant");
-    })
-    .map(([key, v]) => ({ key, label: v.label }));
-}
 
 export function PosLayout() {
   return (
@@ -113,7 +77,15 @@ function PosLayoutInner() {
   useThresholdGiftSync(promotions);
 
   const tabItems = useMemo(
-    () => categoryTabsFromProducts(products, zhtw.pos.uncategorized),
+    () =>
+      buildCategoryTabs(
+        products.map((p) => ({
+          categoryId: p.categoryId,
+          categoryName: p.categoryName,
+          categorySortOrder: p.categorySortOrder,
+        })),
+        zhtw.pos.uncategorized,
+      ),
     [products],
   );
 
@@ -126,7 +98,7 @@ function PosLayoutInner() {
 
   const gridProducts = useMemo(() => {
     if (!displayTab) return [];
-    const list = products.filter((p) => categoryTabKey(p) === displayTab);
+    const list = products.filter((p) => categoryTabKey(p.categoryId) === displayTab);
     return [...list].sort(
       (a, b) =>
         a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "zh-Hant"),

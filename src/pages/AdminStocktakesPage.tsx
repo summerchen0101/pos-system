@@ -168,6 +168,13 @@ export function AdminStocktakesPage() {
       render: (iso: string) => dayjs(iso).format("YYYY-MM-DD HH:mm"),
     },
     {
+      title: st.colLastEditedAt,
+      dataIndex: "lastEditedAt",
+      key: "u",
+      width: 168,
+      render: (iso: string) => dayjs(iso).format("YYYY-MM-DD HH:mm"),
+    },
+    {
       title: st.colWarehouse,
       key: "w",
       render: (_, r) => r.warehouseName ?? common.dash,

@@ -1,22 +1,25 @@
-import { App, Button, Card, Input, InputNumber, Space, Table, Typography } from "antd";
+import { App, Button, Card, Input, InputNumber, Modal, Space, Table, Tabs, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { canManageStocktakeForWarehouse } from "../api/authProfile";
 import {
   completeStocktakeAdmin,
   getStocktakeDetailAdmin,
+  saveStocktakeProgressAdmin,
   type StocktakeDetail,
   type StocktakeItemDetail,
 } from "../api/stocktakesAdmin";
 import { useAuth } from "../auth/AuthContext";
 import { zhtw } from "../locales/zhTW";
+import { buildCategoryTabs, categoryTabKey } from "../lib/posCategoryTabs";
 
 const { Title, Text } = Typography;
 const st = zhtw.admin.stocktakes;
 const common = zhtw.common;
+const posTw = zhtw.pos;
 
 type LineDraft = { actual: number | null; reason: string };
 
@@ -33,8 +36,16 @@ function submitErrorMessage(raw: string): string {
   return raw || st.submitError;
 }
 
+function saveErrorMessage(raw: string): string {
+  if (raw.includes("forbidden")) return st.submitForbidden;
+  if (raw.includes("stocktake_not_draft")) return st.submitError;
+  if (raw.includes("stocktake_not_found")) return st.loadError;
+  return raw || st.saveError;
+}
+
 export function AdminStocktakeDetailPage() {
   const { stocktakeId } = useParams<{ stocktakeId: string }>();
+  const navigate = useNavigate();
   const { message, modal } = App.useApp();
   const { profile } = useAuth();
 
@@ -42,6 +53,9 @@ export function AdminStocktakeDetailPage() {
   const [loading, setLoading] = useState(true);
   const [lines, setLines] = useState<Record<string, LineDraft>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveDoneOpen, setSaveDoneOpen] = useState(false);
+  const [activeCategoryTab, setActiveCategoryTab] = useState("");
 
   const load = useCallback(async () => {
     if (!stocktakeId) return;
@@ -86,16 +100,62 @@ export function AdminStocktakeDetailPage() {
     return detail.items.filter((it) => lines[it.id]?.actual === null || lines[it.id]?.actual === undefined).length;
   }, [detail, lines]);
 
+  const categoryTabItems = useMemo(
+    () =>
+      detail
+        ? buildCategoryTabs(
+            detail.items.map((it) => ({
+              categoryId: it.categoryId,
+              categoryName: it.categoryName,
+              categorySortOrder: it.categorySortOrder,
+            })),
+            posTw.uncategorized,
+          )
+        : [],
+    [detail],
+  );
+
+  const categoryKeySet = useMemo(() => new Set(categoryTabItems.map((t) => t.key)), [categoryTabItems]);
+
+  const displayCategoryTab = useMemo(() => {
+    if (activeCategoryTab && categoryKeySet.has(activeCategoryTab)) return activeCategoryTab;
+    return categoryTabItems[0]?.key ?? "";
+  }, [activeCategoryTab, categoryKeySet, categoryTabItems]);
+
+  const filteredItems = useMemo(() => {
+    if (!detail || !displayCategoryTab) return [];
+    return detail.items.filter((it) => categoryTabKey(it.categoryId) === displayCategoryTab);
+  }, [detail, displayCategoryTab]);
+
+  const buildItemsPayload = () => {
+    if (!detail) return [];
+    return detail.items.map((it) => ({
+      itemId: it.id,
+      actualStock: lines[it.id]?.actual ?? null,
+      reason: lines[it.id]?.reason?.trim() ? lines[it.id]!.reason.trim() : null,
+    }));
+  };
+
+  const runSaveProgress = async () => {
+    if (!detail || detail.status !== "draft" || !stocktakeId || !canEdit) return;
+    try {
+      setSaving(true);
+      await saveStocktakeProgressAdmin(stocktakeId, buildItemsPayload());
+      await load();
+      setSaveDoneOpen(true);
+    } catch (e) {
+      const msg = e && typeof e === "object" && "message" in e ? String((e as { message: string }).message) : "";
+      message.error(saveErrorMessage(msg));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const runComplete = async () => {
     if (!detail || detail.status !== "draft" || !stocktakeId || !canEdit) return;
     try {
       setSubmitting(true);
-      const payload = detail.items.map((it) => ({
-        itemId: it.id,
-        actualStock: lines[it.id]?.actual ?? null,
-        reason: lines[it.id]?.reason?.trim() ? lines[it.id]!.reason.trim() : null,
-      }));
-      const res = await completeStocktakeAdmin(stocktakeId, payload);
+      const res = await completeStocktakeAdmin(stocktakeId, buildItemsPayload());
       message.success(st.submitSuccess(res.adjusted_lines, res.increase_qty, res.decrease_qty));
       await load();
     } catch (e) {
@@ -266,22 +326,53 @@ export function AdminStocktakeDetailPage() {
             </Text>
           ) : null}
           <Card>
+            {!loading && categoryTabItems.length > 0 ? (
+              <Tabs
+                activeKey={displayCategoryTab}
+                onChange={setActiveCategoryTab}
+                items={categoryTabItems.map((t) => ({ key: t.key, label: t.label }))}
+                style={{ marginBottom: 12 }}
+              />
+            ) : null}
             <Table<StocktakeItemDetail>
               rowKey="id"
               loading={loading}
               columns={draftColumns}
-              dataSource={detail.items}
+              dataSource={filteredItems}
               pagination={{ pageSize: 30 }}
               scroll={{ x: 900 }}
             />
           </Card>
           {detail.status === "draft" && canEdit ? (
-            <Space style={{ marginTop: 16 }}>
+            <Space style={{ marginTop: 16 }} wrap>
+              <Button loading={saving} onClick={() => void runSaveProgress()}>
+                {st.saveProgress}
+              </Button>
               <Button type="primary" loading={submitting} onClick={onSubmit}>
                 {st.submitConfirm}
               </Button>
             </Space>
           ) : null}
+          <Modal
+            title={st.saveSuccessTitle}
+            open={saveDoneOpen}
+            onCancel={() => setSaveDoneOpen(false)}
+            footer={[
+              <Button key="stay" onClick={() => setSaveDoneOpen(false)}>
+                {st.continue}
+              </Button>,
+              <Button
+                key="list"
+                type="primary"
+                onClick={() => {
+                  setSaveDoneOpen(false);
+                  navigate("/admin/inventory/stocktakes");
+                }}>
+                {st.backToList}
+              </Button>,
+            ]}>
+            <Text type="secondary">{st.saveSuccessBody}</Text>
+          </Modal>
         </>
       ) : (
         !loading && <Text type="secondary">{st.loadError}</Text>

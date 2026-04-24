@@ -1,3 +1,4 @@
+import { compareCatalogOrder } from './productMapper'
 import { supabase } from '../supabase'
 
 export type StocktakeStatus = 'draft' | 'completed'
@@ -11,6 +12,7 @@ export type StocktakeListEntry = {
   createdByName: string | null
   createdAt: string
   completedAt: string | null
+  lastEditedAt: string
 }
 
 export async function listStocktakesAdmin(filters: {
@@ -30,11 +32,12 @@ export async function listStocktakesAdmin(filters: {
       created_by,
       created_at,
       completed_at,
+      updated_at,
       warehouse:warehouses!stocktakes_warehouse_id_fkey(name),
       operator:users!stocktakes_created_by_fkey(name)
     `,
     )
-    .order('created_at', { ascending: false })
+    .order('updated_at', { ascending: false })
 
   if (filters.warehouseId) q = q.eq('warehouse_id', filters.warehouseId)
   if (filters.status) q = q.eq('status', filters.status)
@@ -52,6 +55,7 @@ export async function listStocktakesAdmin(filters: {
     created_by: string | null
     created_at: string
     completed_at: string | null
+    updated_at: string
     warehouse?: { name: string } | null
     operator?: { name: string } | null
   }
@@ -65,6 +69,7 @@ export async function listStocktakesAdmin(filters: {
     createdByName: r.operator?.name ?? null,
     createdAt: r.created_at,
     completedAt: r.completed_at,
+    lastEditedAt: r.updated_at,
   }))
 }
 
@@ -83,7 +88,12 @@ export type StocktakeItemDetail = {
   id: string
   productId: string
   productName: string
+  categoryId: string | null
   categoryName: string | null
+  /** From `categories.sort_order`, or 999999 when uncategorized (same as `mapProductRow`). */
+  categorySortOrder: number
+  /** From `products.sort_order`. */
+  productSortOrder: number
   systemStock: number
   actualStock: number | null
   difference: number | null
@@ -129,7 +139,12 @@ export async function getStocktakeDetailAdmin(id: string): Promise<StocktakeDeta
       actual_stock,
       difference,
       reason,
-      product:products!stocktake_items_product_id_fkey(name, categories(name))
+      product:products!stocktake_items_product_id_fkey(
+        name,
+        sort_order,
+        category_id,
+        categories ( name, sort_order )
+      )
     `,
     )
     .eq('stocktake_id', id)
@@ -142,24 +157,49 @@ export async function getStocktakeDetailAdmin(id: string): Promise<StocktakeDeta
     actual_stock: number | null
     difference: number | null
     reason: string | null
-    product?: { name: string; categories?: { name: string } | null } | null
+    product?: {
+      name: string
+      sort_order?: number | null
+      category_id?: string | null
+      categories?: { name: string; sort_order?: number | null } | null
+    } | null
   }
 
   const mapped = ((items ?? []) as unknown as ItRow[])
     .map((it) => {
-      const cat = it.product?.categories
+      const pr = it.product
+      const cat = pr?.categories
+      const catSo = cat?.sort_order
+      const categorySortOrder =
+        catSo !== undefined && catSo !== null ? Math.trunc(Number(catSo) || 0) : 999999
       return {
         id: it.id,
         productId: it.product_id,
-        productName: it.product?.name ?? '',
+        productName: pr?.name ?? '',
+        categoryId: pr?.category_id ?? null,
         categoryName: cat?.name ?? null,
+        categorySortOrder,
+        productSortOrder: Math.trunc(Number(pr?.sort_order) || 0),
         systemStock: it.system_stock,
         actualStock: it.actual_stock,
         difference: it.difference,
         reason: it.reason,
       }
     })
-    .sort((a, b) => a.productName.localeCompare(b.productName, 'zh-Hant'))
+    .sort((a, b) =>
+      compareCatalogOrder(
+        {
+          categorySortOrder: a.categorySortOrder,
+          sortOrder: a.productSortOrder,
+          name: a.productName,
+        },
+        {
+          categorySortOrder: b.categorySortOrder,
+          sortOrder: b.productSortOrder,
+          name: b.productName,
+        },
+      ),
+    )
 
   return {
     id: row.id,
@@ -196,19 +236,23 @@ export type CompleteStocktakeResult = {
   decrease_qty: number
 }
 
-export async function completeStocktakeAdmin(
-  stocktakeId: string,
+function stocktakeItemsRpcPayload(
   items: { itemId: string; actualStock: number | null; reason: string | null }[],
-): Promise<CompleteStocktakeResult> {
-  const payload = items.map((r) => ({
+) {
+  return items.map((r) => ({
     item_id: r.itemId,
     actual_stock: r.actualStock,
     reason: r.reason?.trim() ? r.reason.trim() : null,
   }))
+}
 
+export async function completeStocktakeAdmin(
+  stocktakeId: string,
+  items: { itemId: string; actualStock: number | null; reason: string | null }[],
+): Promise<CompleteStocktakeResult> {
   const { data, error } = await supabase.rpc('complete_stocktake', {
     p_stocktake_id: stocktakeId,
-    p_items: payload,
+    p_items: stocktakeItemsRpcPayload(items),
   })
   if (error) throw error
   const j = data as CompleteStocktakeResult
@@ -217,4 +261,15 @@ export async function completeStocktakeAdmin(
     increase_qty: Number(j.increase_qty ?? 0),
     decrease_qty: Number(j.decrease_qty ?? 0),
   }
+}
+
+export async function saveStocktakeProgressAdmin(
+  stocktakeId: string,
+  items: { itemId: string; actualStock: number | null; reason: string | null }[],
+): Promise<void> {
+  const { error } = await supabase.rpc('save_stocktake_progress', {
+    p_stocktake_id: stocktakeId,
+    p_items: stocktakeItemsRpcPayload(items),
+  })
+  if (error) throw error
 }

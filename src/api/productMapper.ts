@@ -1,12 +1,26 @@
 import type { Product, ProductBundleGroup, ProductKind } from '../types/pos'
 
+/** Plain fields for the same ordering as POS / admin catalog (category → product → name). */
+export type CatalogSortFields = {
+  categorySortOrder: number
+  sortOrder: number
+  name: string
+}
+
+export function compareCatalogOrder(a: CatalogSortFields, b: CatalogSortFields): number {
+  if (a.categorySortOrder !== b.categorySortOrder) return a.categorySortOrder - b.categorySortOrder
+  if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+  return a.name.localeCompare(b.name, 'zh-Hant')
+}
+
 /** POS / admin: category order first, then product order within category. */
 export function sortCatalogProducts(products: readonly Product[]): Product[] {
-  return [...products].sort((a, b) => {
-    if (a.categorySortOrder !== b.categorySortOrder) return a.categorySortOrder - b.categorySortOrder
-    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
-    return a.name.localeCompare(b.name, 'zh-Hant')
-  })
+  return [...products].sort((a, b) =>
+    compareCatalogOrder(
+      { categorySortOrder: a.categorySortOrder, sortOrder: a.sortOrder, name: a.name },
+      { categorySortOrder: b.categorySortOrder, sortOrder: b.sortOrder, name: b.name },
+    ),
+  )
 }
 import { PRODUCT_KINDS } from '../types/pos'
 import type { ProductRow } from '../types/supabase'

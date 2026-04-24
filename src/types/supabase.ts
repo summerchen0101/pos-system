@@ -93,6 +93,7 @@ export type StocktakeRow = {
   created_by: string | null
   completed_at: string | null
   created_at: string
+  updated_at: string
 }
 
 export type StocktakeItemRow = {
@@ -348,10 +349,11 @@ export type Database = {
       }
       stocktakes: {
         Row: StocktakeRow
-        Insert: Omit<StocktakeRow, 'id' | 'created_at' | 'completed_at'> & {
+        Insert: Omit<StocktakeRow, 'id' | 'created_at' | 'completed_at' | 'updated_at'> & {
           id?: string
           created_at?: string
           completed_at?: string | null
+          updated_at?: string
         }
         Update: Partial<Omit<StocktakeRow, 'id'>>
         Relationships: []
@@ -758,6 +760,10 @@ export type Database = {
         Returns: string
       }
       complete_stocktake: {
+        Args: { p_stocktake_id: string; p_items?: unknown }
+        Returns: Record<string, unknown>
+      }
+      save_stocktake_progress: {
         Args: { p_stocktake_id: string; p_items?: unknown }
         Returns: Record<string, unknown>
       }
