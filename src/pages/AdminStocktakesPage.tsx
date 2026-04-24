@@ -14,10 +14,13 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import type { Dayjs } from "dayjs";
 import dayjs from "dayjs";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { listWarehousesAdmin } from "../api/inventoryAdmin";
-import { isAdminRole } from "../api/authProfile";
+import {
+  canManageStocktakeForWarehouse,
+  isAdminRole,
+} from "../api/authProfile";
 import {
   createStocktakeAdmin,
   deleteStocktakeDraftAdmin,
@@ -52,6 +55,9 @@ export function AdminStocktakesPage() {
   const { message, modal } = App.useApp();
   const { profile } = useAuth();
   const admin = profile ? isAdminRole(profile.role) : false;
+  const canCreateStocktake = Boolean(
+    profile && (admin || profile.managedWarehouseIds.length > 0),
+  );
   const navigate = useNavigate();
   const [filterForm] = Form.useForm<FilterValues>();
   const [createForm] = Form.useForm<CreateForm>();
@@ -98,6 +104,13 @@ export function AdminStocktakesPage() {
   useEffect(() => {
     void loadWarehouses();
   }, [loadWarehouses]);
+
+  const scopedWarehouseOptions = useMemo(() => {
+    if (!profile) return [] as { value: string; label: string }[];
+    if (isAdminRole(profile.role)) return warehouseOptions;
+    const allowed = new Set(profile.managedWarehouseIds);
+    return warehouseOptions.filter((o) => allowed.has(o.value));
+  }, [profile, warehouseOptions]);
 
   useEffect(() => {
     void fetchList();
@@ -192,7 +205,7 @@ export function AdminStocktakesPage() {
                   {st.continue}
                 </Button>
               </Link>
-              {admin ? (
+              {profile && canManageStocktakeForWarehouse(profile, r.warehouseId) ? (
                 <Button type="link" size="small" danger onClick={() => onDeleteDraft(r)}>
                   {st.deleteDraft}
                 </Button>
@@ -216,7 +229,7 @@ export function AdminStocktakesPage() {
         <Title level={4} style={{ margin: 0 }}>
           {st.pageTitle}
         </Title>
-        {admin ? (
+        {canCreateStocktake ? (
           <Button type="primary" onClick={openCreate}>
             {st.newStocktake}
           </Button>
@@ -233,7 +246,7 @@ export function AdminStocktakesPage() {
                 allowClear
                 placeholder={st.filterAllWarehouses}
                 style={{ minWidth: 200 }}
-                options={warehouseOptions}
+                options={scopedWarehouseOptions}
               />
             </Form.Item>
             <Form.Item name="status" label={st.filterStatus} style={{ marginBottom: 0 }}>
@@ -270,7 +283,7 @@ export function AdminStocktakesPage() {
 
       <Modal
         title={st.modalCreateTitle}
-        open={admin && createOpen}
+        open={canCreateStocktake && createOpen}
         onCancel={() => setCreateOpen(false)}
         onOk={() => void submitCreate()}
         confirmLoading={creating}
@@ -281,7 +294,12 @@ export function AdminStocktakesPage() {
             name="warehouseId"
             label={st.labelWarehouse}
             rules={[{ required: true, message: common.required }]}>
-            <Select showSearch optionFilterProp="label" options={warehouseOptions} placeholder={st.labelWarehouse} />
+            <Select
+              showSearch
+              optionFilterProp="label"
+              options={scopedWarehouseOptions}
+              placeholder={st.labelWarehouse}
+            />
           </Form.Item>
           <Form.Item name="note" label={st.labelNote}>
             <Input.TextArea rows={2} placeholder={st.notePh} />

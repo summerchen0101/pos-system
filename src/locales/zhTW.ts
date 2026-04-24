@@ -593,7 +593,8 @@ export const zhtw = {
         `盤點完成：共調整 ${adj} 項商品，增加 ${inc} 件，減少 ${dec} 件。`,
       submitError: "送出失敗",
       readOnlyHint: "此盤點已完成，僅供檢視。",
-      managerReadOnly: "店長僅能檢視盤點紀錄。",
+      submitForbidden: "無權限完成此盤點或資料已變更，請重新整理後再試。",
+      draftNotInScope: "此盤點掛載之倉庫不在您所屬攤位範圍內，僅能檢視。",
     },
     users: {
       pageTitle: "使用者與權限",

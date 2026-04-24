@@ -9,6 +9,8 @@ export type UserProfile = {
   phone: string | null
   role: AppRole
   boothIds: string[]
+  /** Warehouses linked to booths in `user_booths` (for booth-scoped stocktake, etc.). */
+  managedWarehouseIds: string[]
 }
 
 export function isAdminRole(role: AppRole): boolean {
@@ -27,6 +29,14 @@ export function prefersAdminDashboardLanding(role: AppRole): boolean {
 /** Default `/admin` index: STAFF goes to orders (no dashboard). */
 export function defaultAdminHomePath(role: AppRole): string {
   return prefersAdminDashboardLanding(role) ? '/admin/dashboard' : '/admin/orders'
+}
+
+export function canManageStocktakeForWarehouse(
+  profile: UserProfile,
+  warehouseId: string,
+): boolean {
+  if (isAdminRole(profile.role)) return true
+  return profile.managedWarehouseIds.includes(warehouseId)
 }
 
 export async function fetchUserProfile(): Promise<UserProfile | null> {
@@ -48,12 +58,43 @@ export async function fetchUserProfile(): Promise<UserProfile | null> {
 
   if (ube) throw ube
 
+  const boothIds = (ub ?? []).map((x) => x.booth_id)
+  const managedWarehouseIds: string[] = []
+  if (boothIds.length > 0) {
+    const seen = new Set<string>()
+    const { data: bRows, error: be } = await supabase
+      .from('booths')
+      .select('warehouse_id')
+      .in('id', boothIds)
+    if (be) throw be
+    for (const b of bRows ?? []) {
+      const wid = b.warehouse_id as string | null
+      if (wid && !seen.has(wid)) {
+        seen.add(wid)
+        managedWarehouseIds.push(wid)
+      }
+    }
+    const { data: wRows, error: we } = await supabase
+      .from('warehouses')
+      .select('id')
+      .in('booth_id', boothIds)
+    if (we) throw we
+    for (const w of wRows ?? []) {
+      const wid = w.id as string
+      if (wid && !seen.has(wid)) {
+        seen.add(wid)
+        managedWarehouseIds.push(wid)
+      }
+    }
+  }
+
   return {
     id: row.id,
     name: row.name,
     username: row.username,
     phone: row.phone,
     role: row.role as AppRole,
-    boothIds: (ub ?? []).map((x) => x.booth_id),
+    boothIds,
+    managedWarehouseIds,
   }
 }

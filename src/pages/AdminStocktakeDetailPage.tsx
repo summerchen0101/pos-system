@@ -4,7 +4,7 @@ import dayjs from "dayjs";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { isAdminRole } from "../api/authProfile";
+import { canManageStocktakeForWarehouse } from "../api/authProfile";
 import {
   completeStocktakeAdmin,
   getStocktakeDetailAdmin,
@@ -28,7 +28,7 @@ function diffStyle(d: number | null | undefined): CSSProperties | undefined {
 }
 
 function submitErrorMessage(raw: string): string {
-  if (raw.includes("forbidden")) return st.managerReadOnly;
+  if (raw.includes("forbidden")) return st.submitForbidden;
   if (raw.includes("stocktake_not_draft")) return st.submitError;
   return raw || st.submitError;
 }
@@ -37,7 +37,6 @@ export function AdminStocktakeDetailPage() {
   const { stocktakeId } = useParams<{ stocktakeId: string }>();
   const { message, modal } = App.useApp();
   const { profile } = useAuth();
-  const admin = profile ? isAdminRole(profile.role) : false;
 
   const [detail, setDetail] = useState<StocktakeDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,13 +73,21 @@ export function AdminStocktakeDetailPage() {
     void load();
   }, [load]);
 
+  const canEdit = useMemo(
+    () =>
+      Boolean(
+        profile && detail && canManageStocktakeForWarehouse(profile, detail.warehouseId),
+      ),
+    [profile, detail],
+  );
+
   const countUnfilled = useMemo(() => {
     if (!detail || detail.status !== "draft") return 0;
     return detail.items.filter((it) => lines[it.id]?.actual === null || lines[it.id]?.actual === undefined).length;
   }, [detail, lines]);
 
   const runComplete = async () => {
-    if (!detail || detail.status !== "draft" || !stocktakeId) return;
+    if (!detail || detail.status !== "draft" || !stocktakeId || !canEdit) return;
     try {
       setSubmitting(true);
       const payload = detail.items.map((it) => ({
@@ -100,7 +107,7 @@ export function AdminStocktakeDetailPage() {
   };
 
   const onSubmit = () => {
-    if (!admin || !detail || detail.status !== "draft") return;
+    if (!canEdit || !detail || detail.status !== "draft") return;
     if (countUnfilled > 0) {
       modal.confirm({
         title: st.submitIncompleteTitle,
@@ -142,7 +149,7 @@ export function AdminStocktakeDetailPage() {
       },
     ];
 
-    if (detail?.status === "draft" && admin) {
+    if (detail?.status === "draft" && canEdit) {
       cols.push({
         title: st.colActual,
         key: "act",
@@ -212,7 +219,7 @@ export function AdminStocktakeDetailPage() {
     }
 
     return cols;
-  }, [admin, detail?.status, lines]);
+  }, [canEdit, detail?.status, lines]);
 
   if (!stocktakeId) {
     return <Text type="secondary">Invalid id</Text>;
@@ -249,7 +256,9 @@ export function AdminStocktakeDetailPage() {
             {detail.status === "completed" ? (
               <Text type="secondary">{st.readOnlyHint}</Text>
             ) : null}
-            {!admin && detail.status === "draft" ? <Text type="warning">{st.managerReadOnly}</Text> : null}
+            {detail.status === "draft" && !canEdit ? (
+              <Text type="warning">{st.draftNotInScope}</Text>
+            ) : null}
           </Space>
           {detail.note ? (
             <Text type="secondary" style={{ display: "block", marginBottom: 12 }}>
@@ -266,7 +275,7 @@ export function AdminStocktakeDetailPage() {
               scroll={{ x: 900 }}
             />
           </Card>
-          {detail.status === "draft" && admin ? (
+          {detail.status === "draft" && canEdit ? (
             <Space style={{ marginTop: 16 }}>
               <Button type="primary" loading={submitting} onClick={onSubmit}>
                 {st.submitConfirm}

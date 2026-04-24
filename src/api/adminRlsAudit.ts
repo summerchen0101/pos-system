@@ -12,6 +12,7 @@
  * | 主檔寫入 | is_admin 政策 | 依專屬政策 | 無 |
  * | booths 讀 | 指派的或 admin；寫入 admin | 依政策 | 依政策 |
  * | orders 讀 | admin 或所屬攤 | 攤位範圍內 | 攤位範圍內 |
+ * | 盤點寫入 | is_admin 或攤位倉庫（`create_stocktake` / `complete_stocktake` 內 `user_may_manage_stocktake_warehouse`） | 同 | 同 |
  * | 多數 RPC (checkout 等) | 內建 booth / uid 檢查 | 依各版 migration | 收銀路徑 |
  *
  * 缺口處理：新表或新 RPC 必須一併補上 policy 或 security definer 內角色檢查，否則僅能依賴 service role/Edge。

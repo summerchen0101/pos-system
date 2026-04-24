@@ -38,11 +38,21 @@ export async function fetchBoothPosEntry(boothId: string): Promise<PosBoothEntry
   if (!data) return null
   const raw = (data.pin as string | null | undefined)?.trim() ?? ''
   const pin = /^[0-9]{4,6}$/.test(raw) ? raw : null
+  let warehouseId: string | null = (data.warehouse_id as string | null) ?? null
+  if (!warehouseId) {
+    const { data: w, error: we } = await supabase
+      .from('warehouses')
+      .select('id')
+      .eq('booth_id', boothId)
+      .limit(1)
+      .maybeSingle()
+    if (!we && w) warehouseId = w.id as string
+  }
   return {
     id: data.id as string,
     name: data.name as string,
     location: (data.location as string | null) ?? null,
-    warehouseId: (data.warehouse_id as string | null) ?? null,
+    warehouseId,
     pin,
   }
 }
