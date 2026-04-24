@@ -11,5 +11,5 @@ export function evaluateSingleProductFixedDiscount(
   if (!line || line.quantity <= 0) return 0
 
   const subtotal = line.quantity * line.unitPriceCents
-  return Math.min(amount, subtotal)
+  return Math.min(amount * line.quantity, subtotal)
 }

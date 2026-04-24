@@ -1086,9 +1086,9 @@ export const zhtw = {
       applyAuto: "自動",
       applyManual: "手動",
       colApplyMode: "套用",
-      labelSingleFixedDiscount: "每個適用品項折讓（TWD）",
+      labelSingleFixedDiscount: "每件適用品項折讓（TWD）",
       singleFixedDiscountExtra:
-        "每個勾選的適用商品：依該品項在購物車中的行小計折讓此金額（不會超過該行小計）。與「單品折扣」相同，整車自動優惠只套用折扣最大的一條規則。",
+        "每個勾選的適用商品依「件」累加折讓：件數 × 上列金額，總額不會超過該行小計。與「單品折扣」相同，整車自動優惠只套用折扣最大的一條規則。",
       labelFixedDiscount: "折價金額（TWD）",
       fixedDiscountPh: "例：50",
       fixedDiscountExtra:
