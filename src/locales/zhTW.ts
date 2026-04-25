@@ -16,6 +16,12 @@ export const zhtw = {
     reset: "重設",
     new: "新增",
     apply: "套用",
+    dateQuickYesterday: "昨日",
+    dateQuickToday: "今日",
+    dateQuickThisWeek: "本週",
+    dateQuickLastWeek: "上週",
+    dateQuickThisMonth: "本月",
+    dateQuickLastMonth: "上月",
   },
   auth: {
     loginTitle: "登入",

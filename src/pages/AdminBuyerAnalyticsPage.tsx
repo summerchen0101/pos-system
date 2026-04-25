@@ -25,6 +25,7 @@ import { listBoothsAdmin, type AdminBooth } from '../api/boothsAdmin'
 import { useAuth } from '../auth/AuthContext'
 import { zhtw } from '../locales/zhTW'
 import type { BuyerAgeGroup, BuyerGender, BuyerMotivation } from '../types/order'
+import { DateRangeQuickButtons } from '../components/DateRangeQuickButtons'
 import { palette } from '../theme/palette'
 
 const { RangePicker } = DatePicker
@@ -55,7 +56,7 @@ function groupCount<K extends string>(items: K[]): Record<K, number> {
 export function AdminBuyerAnalyticsPage() {
   const { token } = theme.useToken()
   const { profile } = useAuth()
-  const [range, setRange] = useState<[Dayjs, Dayjs]>(() => [dayjs().startOf('month'), dayjs().endOf('day')])
+  const [range, setRange] = useState<[Dayjs, Dayjs]>(() => [dayjs(), dayjs()])
   const [boothId, setBoothId] = useState<string | null>(null)
   const [booths, setBooths] = useState<AdminBooth[]>([])
   const [loading, setLoading] = useState(true)
@@ -240,6 +241,7 @@ export function AdminBuyerAnalyticsPage() {
       <Title level={4} style={{ marginTop: 0 }}>{a.pageTitle}</Title>
       <Space wrap style={{ marginBottom: 16 }}>
         <Text>{a.filterDateRange}</Text>
+        <DateRangeQuickButtons onChange={setRange} />
         <RangePicker value={range} onChange={(v) => v && v[0] && v[1] && setRange([v[0], v[1]])} />
         <Text>{a.filterBooth}</Text>
         <Select

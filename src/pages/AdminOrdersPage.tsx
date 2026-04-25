@@ -19,6 +19,7 @@ import type {
   OrderItem,
   OrderListEntry,
 } from "../types/order";
+import { DateRangeQuickButtons } from "../components/DateRangeQuickButtons";
 import { CheckCircle2 } from "lucide-react";
 
 const { Title, Text } = Typography;
@@ -353,6 +354,7 @@ export function AdminOrdersPage() {
       </Title>
       <Space wrap style={{ marginBottom: 16 }}>
         <span>{o.filterDateRange}</span>
+        <DateRangeQuickButtons onChange={setDateRange} />
         <RangePicker
           value={dateRange}
           onChange={(v) => v && v[0] && v[1] && setDateRange([v[0], v[1]])}

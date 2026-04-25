@@ -26,6 +26,7 @@ import {
   fetchDashboardStats,
   type DashboardTopProduct,
 } from "../api/dashboardApi";
+import { DateRangeQuickButtons } from "../components/DateRangeQuickButtons";
 import { formatMoney } from "../lib/money";
 import { zhtw } from "../locales/zhTW";
 
@@ -154,6 +155,7 @@ export function AdminDashboardPage() {
       </Title>
       <Space wrap style={{ marginBottom: 20 }}>
         <Text>{d.filterDateRange}</Text>
+        <DateRangeQuickButtons onChange={setRange} />
         <RangePicker
           value={range}
           onChange={(v) => v && v[0] && v[1] && setRange([v[0], v[1]])}
