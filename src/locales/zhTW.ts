@@ -564,6 +564,7 @@ export const zhtw = {
       statusDraft: "進行中",
       statusCompleted: "已完成",
       continue: "繼續盤點",
+      editStocktake: "修改",
       viewDetail: "查看明細",
       deleteDraft: "刪除",
       deleteTitle: "刪除此盤點單？",

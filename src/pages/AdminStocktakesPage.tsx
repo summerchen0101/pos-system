@@ -209,7 +209,7 @@ export function AdminStocktakesPage() {
             <>
               <Link to={`/admin/inventory/stocktakes/${r.id}`}>
                 <Button type="link" size="small">
-                  {st.continue}
+                  {st.editStocktake}
                 </Button>
               </Link>
               {profile && canManageStocktakeForWarehouse(profile, r.warehouseId) ? (

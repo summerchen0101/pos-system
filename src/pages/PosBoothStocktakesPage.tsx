@@ -255,7 +255,7 @@ export function PosBoothStocktakesPage() {
               <>
                 <Link to={`/pos/${boothId}/stocktakes/${r.id}`}>
                   <Button type="link" size="small">
-                    {st.continue}
+                    {st.editStocktake}
                   </Button>
                 </Link>
                 <Button
