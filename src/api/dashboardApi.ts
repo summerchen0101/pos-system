@@ -50,17 +50,26 @@ export async function fetchDashboardStats(filters: DashboardFilters): Promise<Da
   const startIso = filters.rangeStart.toISOString()
   const endIso = filters.rangeEnd.toISOString()
 
-  let q = supabase
+  let boothQ = supabase.from('booths').select('id, name').order('name')
+  if (filters.boothId) {
+    boothQ = boothQ.eq('id', filters.boothId)
+  }
+
+  let orderQ = supabase
     .from('orders')
     .select('id, final_amount, booth_id, booths ( name )')
     .gte('created_at', startIso)
     .lte('created_at', endIso)
 
   if (filters.boothId) {
-    q = q.eq('booth_id', filters.boothId)
+    orderQ = orderQ.eq('booth_id', filters.boothId)
   }
 
-  const { data: orderRows, error: orderErr } = await q
+  const [
+    { data: boothRows, error: boothErr },
+    { data: orderRows, error: orderErr },
+  ] = await Promise.all([boothQ, orderQ])
+  if (boothErr) throw boothErr
   if (orderErr) throw orderErr
 
   const orders = (orderRows ?? []) as OrderAggRow[]
@@ -79,14 +88,17 @@ export async function fetchDashboardStats(filters: DashboardFilters): Promise<Da
     byBooth.set(o.booth_id, cur)
   }
 
-  const salesByBooth: DashboardSalesByBooth[] = [...byBooth.entries()]
-    .map(([boothId, v]) => ({
-      boothId,
-      boothName: v.name,
-      orderCount: v.orderCount,
-      salesCents: v.salesCents,
-    }))
-    .sort((a, b) => b.salesCents - a.salesCents)
+  const salesByBooth: DashboardSalesByBooth[] = (boothRows ?? []).map(
+    (row: { id: string; name: string }) => {
+      const v = byBooth.get(row.id)
+      return {
+        boothId: row.id,
+        boothName: row.name,
+        orderCount: v?.orderCount ?? 0,
+        salesCents: v?.salesCents ?? 0,
+      }
+    },
+  )
 
   let topProducts: DashboardTopProduct[] = []
   if (orderIds.length > 0) {

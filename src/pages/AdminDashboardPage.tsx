@@ -148,6 +148,26 @@ export function AdminDashboardPage() {
   const chartAxisColor = token.colorTextSecondary;
   const chartGrid = token.colorSplit;
 
+  const chartTooltip = useMemo(
+    () => ({
+      contentStyle: {
+        background: token.colorBgElevated,
+        border: `1px solid ${token.colorBorder}`,
+      },
+      itemStyle: { color: token.colorText },
+      labelStyle: { color: token.colorText },
+    }),
+    [token],
+  );
+
+  const barChartTooltip = useMemo(
+    () => ({
+      ...chartTooltip,
+      cursor: { fill: token.colorFillTertiary },
+    }),
+    [chartTooltip, token],
+  );
+
   return (
     <div className="admin-page">
       <Title level={4} style={{ marginTop: 0 }}>
@@ -217,14 +237,11 @@ export function AdminDashboardPage() {
                       tick={{ fill: chartAxisColor, fontSize: 11 }}
                     />
                     <Tooltip
+                      {...barChartTooltip}
                       formatter={(value: number) => [
                         `NT$${value}`,
                         d.tooltipRevenue,
                       ]}
-                      contentStyle={{
-                        background: token.colorBgElevated,
-                        border: `1px solid ${token.colorBorder}`,
-                      }}
                     />
                     <Bar
                       dataKey="revenue"
@@ -254,14 +271,11 @@ export function AdminDashboardPage() {
                     />
                     <YAxis tick={{ fill: chartAxisColor, fontSize: 11 }} />
                     <Tooltip
+                      {...barChartTooltip}
                       formatter={(value: number) => [
                         `NT$${value}`,
                         d.tooltipSales,
                       ]}
-                      contentStyle={{
-                        background: token.colorBgElevated,
-                        border: `1px solid ${token.colorBorder}`,
-                      }}
                     />
                     <Bar
                       dataKey="sales"

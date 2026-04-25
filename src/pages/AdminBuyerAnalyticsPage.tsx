@@ -236,6 +236,26 @@ export function AdminBuyerAnalyticsPage() {
     URL.revokeObjectURL(url)
   }
 
+  const chartTooltip = useMemo(
+    () => ({
+      contentStyle: {
+        background: token.colorBgElevated,
+        border: `1px solid ${token.colorBorder}`,
+      } as const,
+      itemStyle: { color: token.colorText },
+      labelStyle: { color: token.colorText },
+    }),
+    [token],
+  )
+
+  const barChartTooltip = useMemo(
+    () => ({
+      ...chartTooltip,
+      cursor: { fill: token.colorFillTertiary },
+    }),
+    [chartTooltip, token],
+  )
+
   return (
     <div className="admin-page">
       <Title level={4} style={{ marginTop: 0 }}>{a.pageTitle}</Title>
@@ -280,7 +300,7 @@ export function AdminBuyerAnalyticsPage() {
                   <Pie data={genderData} dataKey="value" nameKey="name" outerRadius={96} label>
                     {genderData.map((g) => <Cell key={g.key} fill={g.color} />)}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip {...chartTooltip} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -294,7 +314,7 @@ export function AdminBuyerAnalyticsPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke={token.colorSplit} />
                   <XAxis type="number" tick={{ fill: token.colorTextSecondary, fontSize: 11 }} />
                   <YAxis type="category" dataKey="name" width={100} tick={{ fill: token.colorTextSecondary, fontSize: 11 }} />
-                  <Tooltip />
+                  <Tooltip {...barChartTooltip} />
                   <Bar dataKey="value" fill={palette.accent} radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -312,7 +332,7 @@ export function AdminBuyerAnalyticsPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke={token.colorSplit} />
                   <XAxis type="number" tick={{ fill: token.colorTextSecondary, fontSize: 11 }} />
                   <YAxis type="category" dataKey="name" width={100} tick={{ fill: token.colorTextSecondary, fontSize: 11 }} />
-                  <Tooltip />
+                  <Tooltip {...barChartTooltip} />
                   <Bar dataKey="value" fill="#9d8b62" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -327,7 +347,7 @@ export function AdminBuyerAnalyticsPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke={token.colorSplit} />
                   <XAxis type="number" tick={{ fill: token.colorTextSecondary, fontSize: 11 }} />
                   <YAxis type="category" dataKey="motivation" width={100} tick={{ fill: token.colorTextSecondary, fontSize: 11 }} />
-                  <Tooltip />
+                  <Tooltip {...barChartTooltip} />
                   <Bar dataKey="male" stackId="g" fill={palette.accent} />
                   <Bar dataKey="female" stackId="g" fill="#9d8b62" />
                   <Bar dataKey="other" stackId="g" fill="#7b6a47" />
