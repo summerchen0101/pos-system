@@ -12,8 +12,15 @@ export function buildProductSelectGroups(
   kinds: ProductKind[],
   uncategorizedLabel: string,
   excludeIds: Set<string>,
+  /** When set, only products whose id is in this set are listed (e.g. in-stock in a warehouse). */
+  restrictToIds?: Set<string>,
 ): NonNullable<SelectProps["options"]> {
-  const list = products.filter((p) => kinds.includes(p.kind) && !excludeIds.has(p.id));
+  const list = products.filter(
+    (p) =>
+      kinds.includes(p.kind) &&
+      !excludeIds.has(p.id) &&
+      (!restrictToIds || restrictToIds.has(p.id)),
+  );
 
   const byCat = new Map<string, Product[]>();
   for (const p of list) {

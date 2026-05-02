@@ -22,11 +22,17 @@ export type ProductSelectProps = {
   disabled?: boolean;
   loading?: boolean;
   style?: CSSProperties;
+  /** Merged into the select dropdown (e.g. minWidth for wide option labels). */
+  dropdownStyle?: CSSProperties;
+  /** When false, dropdown width need not match trigger (use with dropdownStyle minWidth). */
+  popupMatchSelectWidth?: boolean;
   className?: string;
   /** Admin catalog slice; skips product fetch when set (categories still load for group order). */
   products?: Product[];
   /** Exclude ids (e.g. bundle parent when picking components). */
   excludeProductIds?: string[];
+  /** When set, only these catalog products appear. When `'loading'`, shows loading and no options. */
+  restrictToProductIds?: Set<string> | "loading";
 };
 
 export function ProductSelect({
@@ -40,9 +46,12 @@ export function ProductSelect({
   disabled,
   loading: loadingProp,
   style,
+  dropdownStyle,
+  popupMatchSelectWidth,
   className,
   products: productsProp,
   excludeProductIds,
+  restrictToProductIds,
 }: ProductSelectProps) {
   const { message } = App.useApp();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -106,17 +115,18 @@ export function ProductSelect({
     };
   }, [productsProp, kindsKey, kinds, message]);
 
-  const options = useMemo(
-    () =>
-      buildProductSelectGroups(
-        products,
-        categories,
-        kinds,
-        ps.uncategorized,
-        excludeSet,
-      ),
-    [products, categories, kinds, excludeSet],
-  );
+  const options = useMemo(() => {
+    const restrictSetForBuild =
+      restrictToProductIds === "loading" ? new Set<string>() : restrictToProductIds;
+    return buildProductSelectGroups(
+      products,
+      categories,
+      kinds,
+      ps.uncategorized,
+      excludeSet,
+      restrictSetForBuild,
+    );
+  }, [products, categories, kinds, excludeSet, restrictToProductIds]);
 
   const productById = useMemo(
     () => new Map(products.map((p) => [p.id, p])),
@@ -146,7 +156,9 @@ export function ProductSelect({
     return false;
   };
 
-  const loading = loadingProp ?? (productsProp === undefined && fetchLoading);
+  const loading =
+    loadingProp ??
+    (restrictToProductIds === "loading" || (productsProp === undefined && fetchLoading));
 
   return (
     <Select
@@ -164,6 +176,8 @@ export function ProductSelect({
       disabled={disabled}
       loading={loading}
       style={style}
+      dropdownStyle={dropdownStyle}
+      popupMatchSelectWidth={popupMatchSelectWidth}
       notFoundContent={ps.empty}
       optionFilterProp="label"
     />

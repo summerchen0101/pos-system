@@ -840,6 +840,20 @@ export type Database = {
         Args: { p_sheet_id: string }
         Returns: Record<string, unknown>
       }
+      submit_consumption_sheet: {
+        Args: {
+          p_warehouse_id: string
+          p_note?: string | null
+          p_consumption_date?: string | null
+          p_kind?: string | null
+          p_lines?: unknown
+        }
+        Returns: Record<string, unknown>
+      }
+      delete_completed_consumption_sheet: {
+        Args: { p_sheet_id: string }
+        Returns: Record<string, unknown>
+      }
       pos_list_orders_for_booth_day: {
         Args: { p_booth_id: string; p_day?: string | null }
         Returns: unknown

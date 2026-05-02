@@ -15,6 +15,33 @@ export const CONSUMPTION_KINDS: ConsumptionKind[] = [
   'other',
 ]
 
+function mapListItemsToKindAndSummary(
+  rawItems:
+    | {
+        id: string
+        quantity: number
+        kind: string
+        product?: { name: string } | null
+      }[]
+    | null
+    | undefined,
+): { kind: ConsumptionKind | null; itemsSummary: string } {
+  const items = rawItems ?? []
+  const sorted = [...items].sort((a, b) => a.id.localeCompare(b.id))
+  const positive = sorted.filter((i) => Math.trunc(Number(i.quantity) || 0) > 0)
+  const firstKind = positive[0]?.kind ?? sorted[0]?.kind
+  const kind: ConsumptionKind | null =
+    firstKind && CONSUMPTION_KINDS.includes(firstKind as ConsumptionKind)
+      ? (firstKind as ConsumptionKind)
+      : null
+  const parts = positive.map((i) => {
+    const name = (i.product?.name ?? '').trim() || '—'
+    const q = Math.trunc(Number(i.quantity) || 0)
+    return `${name}x${q}`
+  })
+  return { kind, itemsSummary: parts.join(', ') }
+}
+
 export type ConsumptionSheetListEntry = {
   id: string
   warehouseId: string
@@ -26,6 +53,10 @@ export type ConsumptionSheetListEntry = {
   createdAt: string
   completedAt: string | null
   lastEditedAt: string
+  /** Primary line kind for list display (first line with quantity > 0). */
+  kind: ConsumptionKind | null
+  /** e.g. `蘋果x1, 餅乾x2` */
+  itemsSummary: string
 }
 
 export async function listConsumptionSheetsAdmin(filters: {
@@ -48,18 +79,26 @@ export async function listConsumptionSheetsAdmin(filters: {
       completed_at,
       updated_at,
       warehouse:warehouses(name),
-      operator:users(name)
+      operator:users(name),
+      consumption_sheet_items (
+        id,
+        quantity,
+        kind,
+        product:products ( name )
+      )
     `,
     )
     .order('updated_at', { ascending: false })
 
   if (filters.warehouseId) q = q.eq('warehouse_id', filters.warehouseId)
-  if (filters.status) q = q.eq('status', filters.status)
+  const statusFilter =
+    filters.status === undefined ? ('completed' as const) : filters.status
+  if (statusFilter) q = q.eq('status', statusFilter)
   if (filters.rangeStart) {
-    q = q.gte('consumption_date', dayjs(filters.rangeStart).format('YYYY-MM-DD'))
+    q = q.gte('created_at', dayjs(filters.rangeStart).startOf('day').toISOString())
   }
   if (filters.rangeEnd) {
-    q = q.lte('consumption_date', dayjs(filters.rangeEnd).format('YYYY-MM-DD'))
+    q = q.lte('created_at', dayjs(filters.rangeEnd).endOf('day').toISOString())
   }
 
   const { data, error } = await q
@@ -77,20 +116,31 @@ export async function listConsumptionSheetsAdmin(filters: {
     updated_at: string
     warehouse?: { name: string } | null
     operator?: { name: string } | null
+    consumption_sheet_items?: {
+      id: string
+      quantity: number
+      kind: string
+      product?: { name: string } | null
+    }[] | null
   }
 
-  return ((data ?? []) as unknown as Row[]).map((r) => ({
-    id: r.id,
-    warehouseId: r.warehouse_id,
-    warehouseName: r.warehouse?.name ?? null,
-    status: r.status,
-    note: r.note,
-    consumptionDate: r.consumption_date,
-    createdByName: r.operator?.name ?? null,
-    createdAt: r.created_at,
-    completedAt: r.completed_at,
-    lastEditedAt: r.updated_at,
-  }))
+  return ((data ?? []) as unknown as Row[]).map((r) => {
+    const { kind, itemsSummary } = mapListItemsToKindAndSummary(r.consumption_sheet_items)
+    return {
+      id: r.id,
+      warehouseId: r.warehouse_id,
+      warehouseName: r.warehouse?.name ?? null,
+      status: r.status,
+      note: r.note,
+      consumptionDate: r.consumption_date,
+      createdByName: r.operator?.name ?? null,
+      createdAt: r.created_at,
+      completedAt: r.completed_at,
+      lastEditedAt: r.updated_at,
+      kind,
+      itemsSummary,
+    }
+  })
 }
 
 export type ConsumptionSheetLineDetail = {
@@ -288,5 +338,45 @@ export async function completeConsumptionSheetAdmin(sheetId: string): Promise<Co
 
 export async function deleteConsumptionDraftAdmin(id: string): Promise<void> {
   const { error } = await supabase.from('consumption_sheets').delete().eq('id', id).eq('status', 'draft')
+  if (error) throw error
+}
+
+export type ConsumptionSubmitLinePayload = {
+  productId: string
+  quantity: number
+  note?: string | null
+}
+
+export async function submitConsumptionSheetAdmin(input: {
+  warehouseId: string
+  kind: ConsumptionKind
+  note?: string | null
+  consumptionDate?: string | null
+  lines: ConsumptionSubmitLinePayload[]
+}): Promise<CompleteConsumptionSheetResult> {
+  const p_lines = input.lines.map((r) => ({
+    product_id: r.productId,
+    quantity: Math.max(0, Math.trunc(Number(r.quantity) || 0)),
+    note: r.note?.trim() ? r.note.trim() : null,
+  }))
+  const { data, error } = await supabase.rpc('submit_consumption_sheet', {
+    p_warehouse_id: input.warehouseId,
+    p_note: input.note?.trim() ? input.note.trim() : null,
+    p_consumption_date: input.consumptionDate?.trim() ? input.consumptionDate.trim() : null,
+    p_kind: input.kind,
+    p_lines,
+  })
+  if (error) throw error
+  const j = data as CompleteConsumptionSheetResult
+  return {
+    deducted_lines: Number(j.deducted_lines ?? 0),
+    total_qty: Number(j.total_qty ?? 0),
+  }
+}
+
+export async function deleteCompletedConsumptionSheetAdmin(sheetId: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_completed_consumption_sheet', {
+    p_sheet_id: sheetId,
+  })
   if (error) throw error
 }

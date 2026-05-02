@@ -122,6 +122,17 @@ export async function listProductsForInventory(): Promise<ProductWithCategory[]>
   }))
 }
 
+/** Product ids that have stock > 0 in the given warehouse (e.g. consumption line pickers). */
+export async function listProductIdsWithPositiveStock(warehouseId: string): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from('inventory')
+    .select('product_id')
+    .eq('warehouse_id', warehouseId)
+    .gt('stock', 0)
+  if (error) throw error
+  return new Set((data ?? []).map((r) => r.product_id as string))
+}
+
 export async function fetchInventoryMatrix(): Promise<{
   warehouses: { id: string; name: string }[]
   rows: { product: ProductWithCategory; stockByWarehouse: Record<string, number> }[]
