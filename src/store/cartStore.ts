@@ -163,7 +163,7 @@ export const useCartStore = create<CartState>((set) => ({
         : [...state.manualPromotionIds, promotionId],
       lines: [
         ...paidStandardLines(state.lines),
-        ...state.lines.filter((l) => !l.isManualFree || l.manualPromotionId !== promotionId),
+        ...manualLines(state.lines).filter((l) => l.manualPromotionId !== promotionId),
         ...newLines,
         ...paidBundleLines(state.lines),
         ...giftLinesOnly(state.lines),
