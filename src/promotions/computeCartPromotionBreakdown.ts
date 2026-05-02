@@ -1,3 +1,4 @@
+import { quantizeToYuanCents } from '../lib/money'
 import { cartLineInputsFromPos } from './posAdapter'
 import { evaluatePromotionRule } from './registry'
 import type { AutoDiscountAllocation } from './selectAutoPromotionStack'
@@ -11,6 +12,7 @@ import {
 import type { CartLineInput } from './types'
 import { filterManualPromotionIdsByGroups } from './filterManualPromotionIdsByGroups'
 import type { CartLine, Promotion } from '../types/pos'
+import { normalizeCartBreakdownToYuan } from './yuanRounding'
 
 export type ManualPromotionDetail = {
   promotionId: string
@@ -116,7 +118,7 @@ export function computeCartPromotionBreakdown(
     if (!p || !p.active || p.applyMode !== 'MANUAL') continue
 
     if (p.kind === 'FIXED_DISCOUNT') {
-      const fixed = p.fixedDiscountCents ?? 0
+      const fixed = quantizeToYuanCents(p.fixedDiscountCents ?? 0)
       if (fixed < 1) continue
       const d = Math.min(fixed, running)
       if (d <= 0) continue
@@ -129,7 +131,9 @@ export function computeCartPromotionBreakdown(
     if (p.kind === 'FIXED_PERCENT_DISCOUNT') {
       const pct = p.discountPercent ?? 0
       if (pct < 1 || pct > 100) continue
-      const d = Math.min(Math.round((running * pct) / 100), running)
+      const raw = Math.round((running * pct) / 100)
+      const q = quantizeToYuanCents(raw)
+      const d = Math.min(q, running)
       if (d <= 0) continue
       manualSum += d
       running -= d
@@ -153,7 +157,7 @@ export function computeCartPromotionBreakdown(
     }
   }
 
-  return {
+  return normalizeCartBreakdownToYuan({
     subtotalCents: stack.originalTotalCents,
     autoDiscountCents,
     autoFinalCents,
@@ -163,7 +167,7 @@ export function computeCartPromotionBreakdown(
     manualDetails,
     effectiveManualPromotionIds: effectiveManualIds,
     finalBeforeGiftsCents: running,
-  }
+  })
 }
 
 export function payableAmountBeforeGiftsCents(

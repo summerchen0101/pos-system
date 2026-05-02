@@ -1,3 +1,4 @@
+import { quantizeToYuanCents } from '../lib/money'
 import type { PromotionContext, PromotionRule } from './types'
 import { evaluateBuyXGetYFree } from './evaluators/buyXGetYFree'
 import { evaluateBulkDiscount } from './evaluators/bulkDiscount'
@@ -14,40 +15,47 @@ export type RuleEvaluation = {
   appliedRuleId: string
 }
 
+function quantized(ev: RuleEvaluation): RuleEvaluation {
+  return {
+    discountCents: quantizeToYuanCents(ev.discountCents),
+    appliedRuleId: ev.appliedRuleId,
+  }
+}
+
 /** Discount in cents if the rule applies in isolation (no stacking). */
 export function evaluatePromotionRule(rule: PromotionRule, ctx: PromotionContext): RuleEvaluation {
   switch (rule.kind) {
     case 'buy_x_get_y_free':
-      return {
+      return quantized({
         discountCents: evaluateBuyXGetYFree(rule, ctx),
         appliedRuleId: rule.id,
-      }
+      })
     case 'bulk_discount':
-      return {
+      return quantized({
         discountCents: evaluateBulkDiscount(rule, ctx),
         appliedRuleId: rule.id,
-      }
+      })
     case 'single_product_discount':
-      return {
+      return quantized({
         discountCents: evaluateSingleProductDiscount(rule, ctx),
         appliedRuleId: rule.id,
-      }
+      })
     case 'single_product_fixed_discount':
-      return {
+      return quantized({
         discountCents: evaluateSingleProductFixedDiscount(rule, ctx),
         appliedRuleId: rule.id,
-      }
+      })
     case 'tiered_promotion':
-      return evaluateTieredPromotion(rule, ctx)
+      return quantized(evaluateTieredPromotion(rule, ctx))
     case 'tiered_quantity_discount':
-      return evaluateTieredQuantityDiscount(rule, ctx)
+      return quantized(evaluateTieredQuantityDiscount(rule, ctx))
     case 'tiered_quantity_fixed_discount':
-      return evaluateTieredQuantityFixedDiscount(rule, ctx)
+      return quantized(evaluateTieredQuantityFixedDiscount(rule, ctx))
     case 'cart_percent_discount':
-      return {
+      return quantized({
         discountCents: evaluateCartPercentDiscount(rule, ctx),
         appliedRuleId: rule.id,
-      }
+      })
     default: {
       const _exhaustive: never = rule
       return _exhaustive

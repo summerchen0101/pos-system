@@ -1,3 +1,4 @@
+import { quantizeToYuanCents } from '../lib/money'
 import type { Promotion, PromotionGroupBehavior } from '../types/pos'
 import { evaluatePromotionRule } from './registry'
 import { behaviorForGroupId } from './promotionGroupUtils'
@@ -44,11 +45,11 @@ function manualPromoDiscountScore(
   promotions: readonly Promotion[],
   appliedAutoRuleIds: readonly string[],
 ): number {
-  if (p.kind === 'FIXED_DISCOUNT') return p.fixedDiscountCents ?? 0
+  if (p.kind === 'FIXED_DISCOUNT') return quantizeToYuanCents(p.fixedDiscountCents ?? 0)
   if (p.kind === 'FIXED_PERCENT_DISCOUNT') {
     const pct = p.discountPercent ?? 0
     if (pct < 1 || pct > 100) return 0
-    return Math.round((bogoCtx.originalTotalCents * pct) / 100)
+    return quantizeToYuanCents(Math.round((bogoCtx.originalTotalCents * pct) / 100))
   }
   if (p.kind === 'BUY_X_GET_Y') {
     if (manualBogoConflictsWithAuto(appliedAutoRuleIds, p, promotions)) return 0
