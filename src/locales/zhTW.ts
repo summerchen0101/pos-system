@@ -678,6 +678,7 @@ export const zhtw = {
       createError: "送出失敗",
       detailTitle: "例外消耗單",
       detailInvalid: "此單據不存在或已不是有效紀錄。",
+      detailCreatedAtLabel: "新增日期",
       backToList: "返回例外消耗列表",
       colProduct: "商品",
       colKind: "類型",

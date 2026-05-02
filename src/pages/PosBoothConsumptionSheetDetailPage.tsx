@@ -182,12 +182,9 @@ export function PosBoothConsumptionSheetDetailPage() {
             </Title>
             <Space wrap style={{ marginBottom: 12 }}>
               <Text type="secondary">
-                {cs.labelConsumptionDate}：{detail.consumptionDate}
+                {cs.detailCreatedAtLabel}：
+                {dayjs(detail.createdAt).format("YYYY-MM-DD HH:mm")}
               </Text>
-              {detail.completedAt ? (
-                <Text type="secondary">{dayjs(detail.completedAt).format("YYYY-MM-DD HH:mm")}</Text>
-              ) : null}
-              <Text type="secondary">{cs.readOnlyHint}</Text>
             </Space>
             {detail.note ? (
               <Text type="secondary" style={{ display: "block", marginBottom: 12 }}>
