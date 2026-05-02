@@ -470,6 +470,17 @@ export const zhtw = {
       visibilityLoadCatalogError: "無法載入分類或商品",
       visibilityLoadBoothError: "無法載入攤位顯示設定",
       visibilitySaveError: "無法儲存顯示設定",
+      visibilityOosGlobal: "缺貨商品顯示（全域）",
+      visibilityOosGlobalHint:
+        "關閉時，庫存為 0 的商品不會出現在 POS 商品清單。開啟時預設仍會顯示但無法加購，除非在下方指定分類改為不顯示。",
+      visibilityOosSwitchOn: "顯示缺貨商品",
+      visibilityOosSwitchOff: "不顯示缺貨商品",
+      visibilityOosOverrideWhenShowTitle: "以下分類不顯示缺貨商品",
+      visibilityOosOverrideWhenShowHint:
+        "當全域為「顯示缺貨」時，勾選的分類在庫存為 0 時不會出現在 POS。未分類商品僅跟隨上方全域設定。",
+      visibilityOosOverrideWhenHideTitle: "以下分類仍顯示缺貨商品",
+      visibilityOosOverrideWhenHideHint:
+        "當全域為「不顯示缺貨」時，勾選的分類在庫存為 0 時仍會顯示在 POS（無法加購）；其他分類缺貨則不顯示。",
       colPin: "進入驗證",
       labelPin: "進入驗證碼（PIN）",
       pinExtra: "設定後進入 POS 需輸入此驗證碼。選填：留空則不需驗證直接進入。",

@@ -3,6 +3,20 @@ import { fetchBoothVisibilityForPos } from './boothVisibilityAdmin'
 import { mapProductRow, productSelectWithCategory, sortCatalogProducts, type ProductRowWithCategory } from './productMapper'
 import type { Product } from '../types/pos'
 
+/** Whether an out-of-stock row should remain in the POS catalog for this booth. */
+function includeOutOfStockInCatalog(
+  stock: number,
+  categoryId: string | null | undefined,
+  showOutOfStock: boolean,
+  overrideCategoryIds: Set<string>,
+): boolean {
+  if (stock > 0) return true
+  const inOverride =
+    categoryId != null && categoryId !== '' && overrideCategoryIds.has(categoryId)
+  if (showOutOfStock) return !inOverride
+  return inOverride
+}
+
 export async function fetchProducts(): Promise<Product[]> {
   const { data, error } = await supabase
     .from('products')
@@ -36,7 +50,7 @@ export async function fetchProductsForPosBooth(boothId: string): Promise<Product
   for (const r of rows ?? []) {
     stockMap.set(r.product_id, r.stock)
   }
-  const { hiddenCategoryIds, hiddenProductIds } = vis
+  const { hiddenCategoryIds, hiddenProductIds, showOutOfStock, outOfStockCategoryOverrideIds } = vis
   const mapped = (data ?? []).map((row) => {
     const p = mapProductRow(row as ProductRowWithCategory)
     const st = stockMap.get(p.id)
@@ -47,6 +61,16 @@ export async function fetchProductsForPosBooth(boothId: string): Promise<Product
     mapped.filter((p) => {
       if (p.categoryId && hiddenCategoryIds.has(p.categoryId)) return false
       if (hiddenProductIds.has(p.id)) return false
+      if (
+        !includeOutOfStockInCatalog(
+          p.stock ?? 0,
+          p.categoryId ?? null,
+          showOutOfStock,
+          outOfStockCategoryOverrideIds,
+        )
+      ) {
+        return false
+      }
       return true
     }),
   )

@@ -73,7 +73,8 @@ create table if not exists public.booths (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   location text,
-  pin text
+  pin text,
+  show_out_of_stock boolean not null default true
 );
 
 create index if not exists booths_name_idx on public.booths (name);
@@ -81,6 +82,15 @@ create index if not exists booths_name_idx on public.booths (name);
 insert into public.booths (id, name, location)
 values ('00000000-0000-0000-0000-000000000001', '預設攤位', null)
 on conflict (id) do nothing;
+
+create table if not exists public.booth_out_of_stock_category_overrides (
+  booth_id uuid not null references public.booths (id) on delete cascade,
+  category_id uuid not null references public.categories (id) on delete cascade,
+  primary key (booth_id, category_id)
+);
+
+create index if not exists booth_oos_category_overrides_booth_id_idx
+  on public.booth_out_of_stock_category_overrides (booth_id);
 
 create table if not exists public.promotions (
   id uuid primary key default gen_random_uuid(),

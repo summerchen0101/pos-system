@@ -10,6 +10,7 @@ import {
   Modal,
   Select,
   Space,
+  Switch,
   Table,
   Tabs,
   Tag,
@@ -90,6 +91,8 @@ export function AdminBoothsPage() {
   const [visibilityLoading, setVisibilityLoading] = useState(false);
   const [hiddenCategoryIds, setHiddenCategoryIds] = useState<string[]>([]);
   const [hiddenProductIds, setHiddenProductIds] = useState<string[]>([]);
+  const [showOutOfStock, setShowOutOfStock] = useState(true);
+  const [oosOverrideCategoryIds, setOosOverrideCategoryIds] = useState<string[]>([]);
   const [productSearch, setProductSearch] = useState("");
 
   const load = useCallback(async () => {
@@ -132,6 +135,8 @@ export function AdminBoothsPage() {
     setModalTab("basic");
     setHiddenCategoryIds([]);
     setHiddenProductIds([]);
+    setShowOutOfStock(true);
+    setOosOverrideCategoryIds([]);
     setProductSearch("");
     setVisibilityLoading(false);
     form.resetFields();
@@ -172,6 +177,8 @@ export function AdminBoothsPage() {
     setModalTab("basic");
     setHiddenCategoryIds([]);
     setHiddenProductIds([]);
+    setShowOutOfStock(true);
+    setOosOverrideCategoryIds([]);
     setProductSearch("");
     form.setFieldsValue({
       name: row.name,
@@ -188,10 +195,14 @@ export function AdminBoothsPage() {
       const vis = await fetchBoothVisibilityForPos(row.id);
       setHiddenCategoryIds([...vis.hiddenCategoryIds]);
       setHiddenProductIds([...vis.hiddenProductIds]);
+      setShowOutOfStock(vis.showOutOfStock);
+      setOosOverrideCategoryIds([...vis.outOfStockCategoryOverrideIds]);
     } catch {
       message.error(b.visibilityLoadBoothError);
       setHiddenCategoryIds([]);
       setHiddenProductIds([]);
+      setShowOutOfStock(true);
+      setOosOverrideCategoryIds([]);
     } finally {
       setVisibilityLoading(false);
     }
@@ -217,6 +228,8 @@ export function AdminBoothsPage() {
     setModalTab("basic");
     setHiddenCategoryIds([]);
     setHiddenProductIds([]);
+    setShowOutOfStock(true);
+    setOosOverrideCategoryIds([]);
     setProductSearch("");
     form.resetFields();
   };
@@ -239,6 +252,12 @@ export function AdminBoothsPage() {
   const toggleHiddenProduct = (productId: string, hide: boolean) => {
     setHiddenProductIds((prev) =>
       hide ? [...new Set([...prev, productId])] : prev.filter((x) => x !== productId),
+    );
+  };
+
+  const toggleOosOverrideCategory = (categoryId: string, checked: boolean) => {
+    setOosOverrideCategoryIds((prev) =>
+      checked ? [...new Set([...prev, categoryId])] : prev.filter((x) => x !== categoryId),
     );
   };
 
@@ -291,7 +310,12 @@ export function AdminBoothsPage() {
         }
         await updateBooth(editingId, patch);
         try {
-          await replaceBoothVisibilityAdmin(editingId, hiddenCategoryIds, cleanedHiddenProductIds);
+          await replaceBoothVisibilityAdmin(editingId, {
+            hiddenCategoryIds,
+            hiddenProductIds: cleanedHiddenProductIds,
+            showOutOfStock,
+            outOfStockCategoryOverrideIds: oosOverrideCategoryIds,
+          });
         } catch (ve) {
           message.error(ve instanceof Error ? ve.message : b.visibilitySaveError);
           throw ve;
@@ -571,6 +595,50 @@ export function AdminBoothsPage() {
                           <Text type="secondary">{common.loading}</Text>
                         ) : (
                           <>
+                            <Title level={5} style={{ marginTop: 0, marginBottom: 8 }}>
+                              {b.visibilityOosGlobal}
+                            </Title>
+                            <Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
+                              {b.visibilityOosGlobalHint}
+                            </Text>
+                            <div style={{ marginBottom: 16 }}>
+                              <Space align="center">
+                                <Switch checked={showOutOfStock} onChange={setShowOutOfStock} />
+                                <Text>{showOutOfStock ? b.visibilityOosSwitchOn : b.visibilityOosSwitchOff}</Text>
+                              </Space>
+                            </div>
+                            <Title level={5} style={{ marginBottom: 8 }}>
+                              {showOutOfStock
+                                ? b.visibilityOosOverrideWhenShowTitle
+                                : b.visibilityOosOverrideWhenHideTitle}
+                            </Title>
+                            <Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
+                              {showOutOfStock
+                                ? b.visibilityOosOverrideWhenShowHint
+                                : b.visibilityOosOverrideWhenHideHint}
+                            </Text>
+                            <div
+                              style={{
+                                maxHeight: 200,
+                                overflowY: "auto",
+                                marginBottom: 24,
+                                padding: 8,
+                                border: "1px solid rgba(255,255,255,0.12)",
+                                borderRadius: 8,
+                              }}>
+                              <Space direction="vertical" size={4} style={{ width: "100%" }}>
+                                {catalogCategories.map((c) => (
+                                  <Checkbox
+                                    key={c.id}
+                                    checked={oosOverrideCategoryIds.includes(c.id)}
+                                    onChange={(e) =>
+                                      toggleOosOverrideCategory(c.id, e.target.checked)
+                                    }>
+                                    {c.name}
+                                  </Checkbox>
+                                ))}
+                              </Space>
+                            </div>
                             <Title level={5} style={{ marginTop: 0, marginBottom: 8 }}>
                               {b.visibilityHiddenCategories}
                             </Title>

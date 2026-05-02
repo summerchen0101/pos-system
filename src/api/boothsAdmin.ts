@@ -213,18 +213,38 @@ export async function copyBoothAdmin(
   }
 
   {
-    const [{ data: hCat }, { data: hProd }] = await Promise.all([
+    const [{ data: hCat }, { data: hProd }, { data: srcBoothOos }, { data: oosCat }] = await Promise.all([
       supabase.from('booth_hidden_categories').select('category_id').eq('booth_id', input.sourceBoothId),
       supabase.from('booth_hidden_products').select('product_id').eq('booth_id', input.sourceBoothId),
+      supabase.from('booths').select('show_out_of_stock').eq('id', input.sourceBoothId).single(),
+      supabase
+        .from('booth_out_of_stock_category_overrides')
+        .select('category_id')
+        .eq('booth_id', input.sourceBoothId),
     ])
+    const showOutOfStock = (srcBoothOos?.show_out_of_stock as boolean | undefined) !== false
+    const { error: uOos } = await supabase
+      .from('booths')
+      .update({ show_out_of_stock: showOutOfStock })
+      .eq('id', booth.id)
+    if (uOos) throw uOos
+
     const catRows = (hCat ?? []).map((r) => ({ booth_id: booth.id, category_id: r.category_id as string }))
     const prodRows = (hProd ?? []).map((r) => ({ booth_id: booth.id, product_id: r.product_id as string }))
+    const oosRows = (oosCat ?? []).map((r) => ({
+      booth_id: booth.id,
+      category_id: r.category_id as string,
+    }))
     if (catRows.length > 0) {
       const { error: he } = await supabase.from('booth_hidden_categories').insert(catRows)
       if (he) throw he
     }
     if (prodRows.length > 0) {
       const { error: he } = await supabase.from('booth_hidden_products').insert(prodRows)
+      if (he) throw he
+    }
+    if (oosRows.length > 0) {
+      const { error: he } = await supabase.from('booth_out_of_stock_category_overrides').insert(oosRows)
       if (he) throw he
     }
   }

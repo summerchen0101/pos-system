@@ -45,6 +45,7 @@ export type BoothRow = {
   end_date: string | null
   warehouse_id: string | null
   pin: string | null
+  show_out_of_stock: boolean
 }
 
 export type BoothHiddenCategoryRow = {
@@ -55,6 +56,11 @@ export type BoothHiddenCategoryRow = {
 export type BoothHiddenProductRow = {
   booth_id: string
   product_id: string
+}
+
+export type BoothOutOfStockCategoryOverrideRow = {
+  booth_id: string
+  category_id: string
 }
 
 export type WarehouseRow = {
@@ -337,7 +343,11 @@ export type Database = {
       }
       booths: {
         Row: BoothRow
-        Insert: Omit<BoothRow, 'id' | 'pin'> & { id?: string; pin?: string | null }
+        Insert: Omit<BoothRow, 'id' | 'pin' | 'show_out_of_stock'> & {
+          id?: string
+          pin?: string | null
+          show_out_of_stock?: boolean
+        }
         Update: Partial<BoothRow>
         Relationships: []
       }
@@ -351,6 +361,12 @@ export type Database = {
         Row: BoothHiddenProductRow
         Insert: BoothHiddenProductRow
         Update: Partial<BoothHiddenProductRow>
+        Relationships: []
+      }
+      booth_out_of_stock_category_overrides: {
+        Row: BoothOutOfStockCategoryOverrideRow
+        Insert: BoothOutOfStockCategoryOverrideRow
+        Update: Partial<BoothOutOfStockCategoryOverrideRow>
         Relationships: []
       }
       warehouses: {
