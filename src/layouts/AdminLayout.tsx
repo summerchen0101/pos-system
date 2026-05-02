@@ -161,7 +161,12 @@ export function AdminLayout() {
         icon: <InboxOutlined />,
         label: zhtw.admin.layout.menuStocktakes,
       };
-      flat = [...flat.slice(0, idx + 1), st, ...flat.slice(idx + 1)];
+      const csItem: ItemType = {
+        key: "/admin/inventory/consumption-sheets",
+        icon: <InboxOutlined />,
+        label: zhtw.admin.layout.menuConsumptionSheets,
+      };
+      flat = [...flat.slice(0, idx + 1), st, csItem, ...flat.slice(idx + 1)];
     }
     if (!isAdminRole(profile.role)) return flat;
     const idx = flat.findIndex((x) => x && typeof x === "object" && "key" in x && x.key === "/admin/booths");
@@ -173,6 +178,7 @@ export function AdminLayout() {
         { key: "/admin/inventory", label: zhtw.admin.layout.menuInventoryOverview },
         { key: "/admin/inventory/warehouses", label: zhtw.admin.layout.menuWarehouses },
         { key: "/admin/inventory/stocktakes", label: zhtw.admin.layout.menuStocktakes },
+        { key: "/admin/inventory/consumption-sheets", label: zhtw.admin.layout.menuConsumptionSheets },
         { key: "/admin/inventory/logs", label: zhtw.admin.layout.menuInventoryLogs },
       ],
     };

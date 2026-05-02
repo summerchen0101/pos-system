@@ -76,6 +76,9 @@ export function PosBoothHomePage() {
           <button type="button" className="pos-brand-btn-outline" onClick={() => navigate("stocktakes")}>
             {t.stocktakeMgmt}
           </button>
+          <button type="button" className="pos-brand-btn-outline" onClick={() => navigate("consumption-sheets")}>
+            {t.consumptionMgmt}
+          </button>
         </div>
       </div>
 

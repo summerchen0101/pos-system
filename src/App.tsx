@@ -14,6 +14,8 @@ import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 import { AdminInventoryLogsPage } from "./pages/AdminInventoryLogsPage";
 import { AdminInventoryOverviewPage } from "./pages/AdminInventoryOverviewPage";
 import { AdminOrdersPage } from "./pages/AdminOrdersPage";
+import { AdminConsumptionSheetDetailPage } from "./pages/AdminConsumptionSheetDetailPage";
+import { AdminConsumptionSheetsPage } from "./pages/AdminConsumptionSheetsPage";
 import { AdminStocktakeDetailPage } from "./pages/AdminStocktakeDetailPage";
 import { AdminStocktakesPage } from "./pages/AdminStocktakesPage";
 import { AdminWarehousesPage } from "./pages/AdminWarehousesPage";
@@ -22,6 +24,8 @@ import { AdminGiftsPage } from "./pages/AdminGiftsPage";
 import { AdminPromotionsPage } from "./pages/AdminPromotionsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { PosBoothHomePage } from "./pages/PosBoothHomePage";
+import { PosBoothConsumptionSheetDetailPage } from "./pages/PosBoothConsumptionSheetDetailPage";
+import { PosBoothConsumptionSheetsPage } from "./pages/PosBoothConsumptionSheetsPage";
 import { PosBoothStocktakeDetailPage } from "./pages/PosBoothStocktakeDetailPage";
 import { PosBoothStocktakesPage } from "./pages/PosBoothStocktakesPage";
 import { PosHomePage } from "./pages/PosHomePage";
@@ -67,6 +71,22 @@ export default function App() {
                   </RequireAuth>
                 }
               />
+              <Route
+                path="consumption-sheets"
+                element={
+                  <RequireAuth>
+                    <PosBoothConsumptionSheetsPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="consumption-sheets/:consumptionSheetId"
+                element={
+                  <RequireAuth>
+                    <PosBoothConsumptionSheetDetailPage />
+                  </RequireAuth>
+                }
+              />
             </Route>
             <Route
               path="/admin"
@@ -86,6 +106,11 @@ export default function App() {
               <Route path="inventory/warehouses" element={<AdminWarehousesPage />} />
               <Route path="inventory/stocktakes" element={<AdminStocktakesPage />} />
               <Route path="inventory/stocktakes/:stocktakeId" element={<AdminStocktakeDetailPage />} />
+              <Route path="inventory/consumption-sheets" element={<AdminConsumptionSheetsPage />} />
+              <Route
+                path="inventory/consumption-sheets/:consumptionSheetId"
+                element={<AdminConsumptionSheetDetailPage />}
+              />
               <Route path="inventory/logs" element={<AdminInventoryLogsPage />} />
               <Route path="gifts" element={<AdminGiftsPage />} />
               <Route path="promotions" element={<AdminPromotionsPage />} />

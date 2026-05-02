@@ -81,6 +81,7 @@ export type InventoryLogRow = {
   quantity: number
   note: string | null
   related_order_id: string | null
+  related_consumption_sheet_id: string | null
   created_by: string | null
   created_at: string
 }
@@ -104,6 +105,29 @@ export type StocktakeItemRow = {
   actual_stock: number | null
   difference: number | null
   reason: string | null
+}
+
+export type ConsumptionSheetKind = 'tasting' | 'loss' | 'complimentary' | 'pr' | 'other'
+
+export type ConsumptionSheetRow = {
+  id: string
+  warehouse_id: string
+  status: 'draft' | 'completed'
+  note: string | null
+  consumption_date: string
+  created_by: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ConsumptionSheetItemRow = {
+  id: string
+  consumption_sheet_id: string
+  product_id: string
+  kind: ConsumptionSheetKind
+  quantity: number
+  note: string | null
 }
 
 export type PromotionGroupRow = {
@@ -362,6 +386,23 @@ export type Database = {
         Row: StocktakeItemRow
         Insert: Omit<StocktakeItemRow, 'id'> & { id?: string }
         Update: Partial<Omit<StocktakeItemRow, 'id'>>
+        Relationships: []
+      }
+      consumption_sheets: {
+        Row: ConsumptionSheetRow
+        Insert: Omit<ConsumptionSheetRow, 'id' | 'created_at' | 'completed_at' | 'updated_at'> & {
+          id?: string
+          created_at?: string
+          completed_at?: string | null
+          updated_at?: string
+        }
+        Update: Partial<Omit<ConsumptionSheetRow, 'id'>>
+        Relationships: []
+      }
+      consumption_sheet_items: {
+        Row: ConsumptionSheetItemRow
+        Insert: Omit<ConsumptionSheetItemRow, 'id'> & { id?: string }
+        Update: Partial<Omit<ConsumptionSheetItemRow, 'id'>>
         Relationships: []
       }
       categories: {
@@ -765,6 +806,22 @@ export type Database = {
       }
       save_stocktake_progress: {
         Args: { p_stocktake_id: string; p_items?: unknown }
+        Returns: Record<string, unknown>
+      }
+      create_consumption_sheet: {
+        Args: {
+          p_warehouse_id: string
+          p_note?: string | null
+          p_consumption_date?: string | null
+        }
+        Returns: string
+      }
+      save_consumption_sheet_lines: {
+        Args: { p_sheet_id: string; p_lines?: unknown }
+        Returns: Record<string, unknown>
+      }
+      complete_consumption_sheet: {
+        Args: { p_sheet_id: string }
         Returns: Record<string, unknown>
       }
       pos_list_orders_for_booth_day: {

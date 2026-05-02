@@ -108,11 +108,20 @@ export function ProductSelect({
 
   const options = useMemo(
     () =>
-      buildProductSelectGroups(products, categories, kinds, ps.uncategorized, excludeSet),
+      buildProductSelectGroups(
+        products,
+        categories,
+        kinds,
+        ps.uncategorized,
+        excludeSet,
+      ),
     [products, categories, kinds, excludeSet],
   );
 
-  const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
+  const productById = useMemo(
+    () => new Map(products.map((p) => [p.id, p])),
+    [products],
+  );
 
   const filterOption: SelectProps["filterOption"] = (input, opt) => {
     const option = opt;
@@ -123,13 +132,17 @@ export function ProductSelect({
     if (ov === undefined || ov === null) return false;
     const id = String(ov);
     const prod = productById.get(id);
-    if (!prod) return String(option.label ?? "").toLowerCase().includes(q);
+    if (!prod)
+      return String(option.label ?? "")
+        .toLowerCase()
+        .includes(q);
     const blob = [prod.name, prod.sku, prod.size ?? "", prod.nameEn ?? ""]
       .join(" ")
       .toLowerCase();
     if (blob.includes(q)) return true;
     if ((prod.categoryName ?? "").toLowerCase().includes(q)) return true;
-    if (!prod.categoryId && ps.uncategorized.toLowerCase().includes(q)) return true;
+    if (!prod.categoryId && ps.uncategorized.toLowerCase().includes(q))
+      return true;
     return false;
   };
 
@@ -137,7 +150,9 @@ export function ProductSelect({
 
   return (
     <Select
-      className={className ? `admin-product-select ${className}` : "admin-product-select"}
+      className={
+        className ? `admin-product-select ${className}` : "admin-product-select"
+      }
       mode={multiple ? "multiple" : undefined}
       allowClear={allowClear}
       showSearch
