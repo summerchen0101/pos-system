@@ -113,7 +113,7 @@ export const zhtw = {
     appliedDiscountDescQtyTierFixed: (minQty: number, amount: string) =>
       `累計滿 ${minQty} 件 · 折 ${amount}`,
     appliedDiscountDescFixed: (amount: string) => `固定折抵 ${amount}`,
-    appliedDiscountDescFixedPercent: (pct: number) => `整單 ${pct}% 折扣`,
+    appliedDiscountDescFixedPercent: (pctOff: number) => `整單 ${100 - pctOff}折`,
     appliedDiscountAutoFallback: "自動優惠",
     appliedDiscountManualName: (name: string) => `手動 · ${name}`,
     productsAria: "商品列表",
@@ -1185,7 +1185,7 @@ export const zhtw = {
       summaryFreeSelection: (pool: number, max: number) =>
         `可選 ${pool} 品 · 須選滿 ${max} 件`,
       summaryFixed: (amount: string) => `折 ${amount}`,
-      summaryFixedPercent: (pct: number) => `整單 ${pct}% 折扣`,
+      summaryFixedPercent: (pctOff: number) => `整單 ${100 - pctOff}折`,
       summaryFreeUnits: (n: number) => `贈 ${n} 件`,
       labelApplyMode: "套用方式",
       applyAuto: "自動",
@@ -1201,7 +1201,7 @@ export const zhtw = {
       fixedDiscountError: "請輸入有效的折價金額",
       labelFixedPercentDiscount: "整單折扣％",
       fixedPercentDiscountExtra:
-        "依折扣％折抵整筆應付金額（在自動優惠之後套用，計算至元以下四捨五入）。",
+        "依折扣％折抵整筆應付金額（在自動優惠之後套用，計算至元以下四捨五入）。例如填 5 表示整單 95折。",
       fixedPercentDiscountError: "請輸入有效的整單折扣％（1–100）",
       freeItemsSection: "贈送品項（每列：商品 + 數量）",
       freeItemsAddRow: "新增贈送列",
