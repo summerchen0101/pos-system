@@ -85,13 +85,14 @@ export async function deleteWarehouseAdmin(id: string): Promise<void> {
 export type ProductWithCategory = {
   id: string
   name: string
+  categoryId: string | null
   categoryName: string | null
 }
 
 export async function listProductsForInventory(): Promise<ProductWithCategory[]> {
   const { data, error } = await supabase
     .from('products')
-    .select('id, name, sort_order, categories(name, sort_order)')
+    .select('id, name, sort_order, category_id, categories(name, sort_order)')
     .eq('is_active', true)
     .in('kind', ['STANDARD', 'CUSTOM_BUNDLE'])
   if (error) throw error
@@ -101,6 +102,7 @@ export async function listProductsForInventory(): Promise<ProductWithCategory[]>
     return {
       id: r.id as string,
       name: r.name as string,
+      categoryId: (r.category_id as string | null) ?? null,
       categoryName: c?.name ?? null,
       _catSort: catSo !== undefined && catSo !== null ? Math.trunc(Number(catSo) || 0) : 999999,
       _prodSort: Math.trunc(Number(r.sort_order) || 0),
@@ -115,6 +117,7 @@ export async function listProductsForInventory(): Promise<ProductWithCategory[]>
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
+    categoryId: r.categoryId,
     categoryName: r.categoryName,
   }))
 }

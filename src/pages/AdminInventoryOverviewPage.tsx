@@ -1,9 +1,22 @@
-import { App, Button, Card, Form, Input, InputNumber, Modal, Select, Space, Table, Typography } from "antd";
+import {
+  App,
+  Button,
+  Card,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Select,
+  Space,
+  Table,
+  Typography,
+} from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { isAdminRole } from "../api/authProfile";
+import { listCategoriesAdmin } from "../api/categoriesAdmin";
 import {
   fetchInventoryMatrix,
   inventoryStockIn,
@@ -15,10 +28,14 @@ import { createStocktakeAdmin } from "../api/stocktakesAdmin";
 import { useAuth } from "../auth/AuthContext";
 import { ProductSelect } from "../components/admin/ProductSelect";
 import { zhtw } from "../locales/zhTW";
+import type { Category } from "../types/pos";
+
+const UNCATEGORIZED_SORT_KEY = "__uncategorized__";
 
 const { Title, Text } = Typography;
 const inv = zhtw.admin.inventory;
 const st = zhtw.admin.stocktakes;
+const ps = zhtw.admin.productSelect;
 const common = zhtw.common;
 
 type MatrixRow = {
@@ -35,7 +52,10 @@ function stockCellStyle(n: number): CSSProperties | undefined {
 }
 
 function rpcErrorMessage(e: unknown): string {
-  const msg = e && typeof e === "object" && "message" in e ? String((e as { message: string }).message) : "";
+  const msg =
+    e && typeof e === "object" && "message" in e
+      ? String((e as { message: string }).message)
+      : "";
   if (msg.includes("insufficient_stock")) return inv.insufficientStock;
   if (msg.includes("forbidden")) return inv.forbidden;
   if (msg === "invalid_qty") return inv.invalidQty;
@@ -53,9 +73,17 @@ export function AdminInventoryOverviewPage() {
   const navigate = useNavigate();
   const admin = profile ? isAdminRole(profile.role) : false;
   const [loading, setLoading] = useState(true);
-  const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
+  const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>(
+    [],
+  );
   const [rows, setRows] = useState<MatrixRow[]>([]);
-  const [filterWarehouseId, setFilterWarehouseId] = useState<string | "all">("all");
+  const [filterWarehouseId, setFilterWarehouseId] = useState<string | "all">(
+    "all",
+  );
+  const [filterCategoryId, setFilterCategoryId] = useState<string | undefined>(
+    undefined,
+  );
+  const [categories, setCategories] = useState<Category[]>([]);
   const [nameQ, setNameQ] = useState("");
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferSaving, setTransferSaving] = useState(false);
@@ -69,8 +97,15 @@ export function AdminInventoryOverviewPage() {
   const [stockOpen, setStockOpen] = useState(false);
   const [stockMode, setStockMode] = useState<StockModalMode>("in");
   const [stockSaving, setStockSaving] = useState(false);
-  const [stockProduct, setStockProduct] = useState<{ id: string; name: string } | null>(null);
-  const [stockForm] = Form.useForm<{ warehouseId: string; quantity: number; note?: string }>();
+  const [stockProduct, setStockProduct] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [stockForm] = Form.useForm<{
+    warehouseId: string;
+    quantity: number;
+    note?: string;
+  }>();
   const [stModalOpen, setStModalOpen] = useState(false);
   const [stCreating, setStCreating] = useState(false);
   const [stForm] = Form.useForm<{ warehouseId: string; note?: string }>();
@@ -94,16 +129,46 @@ export function AdminInventoryOverviewPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void listCategoriesAdmin()
+      .then((c) => {
+        if (!cancelled) setCategories(c);
+      })
+      .catch(() => {
+        if (!cancelled) setCategories([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const categoryFilterOptions = useMemo(
+    () => [
+      ...categories.map((c) => ({ value: c.id, label: c.name })),
+      { value: UNCATEGORIZED_SORT_KEY, label: ps.uncategorized },
+    ],
+    [categories],
+  );
+
   const visibleWarehouses = useMemo(() => {
     if (filterWarehouseId === "all") return warehouses;
     return warehouses.filter((w) => w.id === filterWarehouseId);
   }, [filterWarehouseId, warehouses]);
 
   const filteredRows = useMemo(() => {
+    let list = rows;
+    if (filterCategoryId === UNCATEGORIZED_SORT_KEY) {
+      list = list.filter((r) => !r.product.categoryId);
+    } else if (filterCategoryId) {
+      list = list.filter((r) => r.product.categoryId === filterCategoryId);
+    }
     const q = nameQ.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => r.product.name.toLowerCase().includes(q));
-  }, [rows, nameQ]);
+    if (q) {
+      list = list.filter((r) => r.product.name.toLowerCase().includes(q));
+    }
+    return list;
+  }, [rows, nameQ, filterCategoryId]);
 
   const openStock = (mode: StockModalMode, product: ProductWithCategory) => {
     setStockMode(mode);
@@ -192,7 +257,10 @@ export function AdminInventoryOverviewPage() {
       navigate(`/admin/inventory/stocktakes/${id}`);
     } catch (e) {
       if (e && typeof e === "object" && "errorFields" in e) return;
-      const msg = e && typeof e === "object" && "message" in e ? String((e as { message: string }).message) : "";
+      const msg =
+        e && typeof e === "object" && "message" in e
+          ? String((e as { message: string }).message)
+          : "";
       message.error(stocktakeCreateErrorMessage(msg));
     } finally {
       setStCreating(false);
@@ -205,7 +273,7 @@ export function AdminInventoryOverviewPage() {
       {
         title: inv.colCategory,
         key: "cat",
-        width: 120,
+        width: 220,
         render: (_, r) => r.product.categoryName?.trim() || common.dash,
       },
     ];
@@ -213,7 +281,7 @@ export function AdminInventoryOverviewPage() {
       base.push({
         title: w.name,
         key: `wh-${w.id}`,
-        width: 110,
+        width: 180,
         align: "right",
         render: (_, r) => {
           const n = r.stockByWarehouse[w.id] ?? 0;
@@ -228,10 +296,16 @@ export function AdminInventoryOverviewPage() {
       fixed: "right",
       render: (_, r) => (
         <Space size={0} wrap>
-          <Button type="link" size="small" onClick={() => openStock("in", r.product)}>
+          <Button
+            type="link"
+            size="small"
+            onClick={() => openStock("in", r.product)}>
             {inv.stockIn}
           </Button>
-          <Button type="link" size="small" onClick={() => openStock("out", r.product)}>
+          <Button
+            type="link"
+            size="small"
+            onClick={() => openStock("out", r.product)}>
             {inv.stockOut}
           </Button>
         </Space>
@@ -242,7 +316,13 @@ export function AdminInventoryOverviewPage() {
 
   return (
     <div className="admin-page">
-      <Space align="center" style={{ justifyContent: "space-between", width: "100%", marginBottom: 16 }}>
+      <Space
+        align="center"
+        style={{
+          justifyContent: "space-between",
+          width: "100%",
+          marginBottom: 16,
+        }}>
         <Title level={4} style={{ margin: 0 }}>
           {inv.overviewTitle}
         </Title>
@@ -279,6 +359,19 @@ export function AdminInventoryOverviewPage() {
                 { value: "all", label: inv.filterWarehouseAll },
                 ...warehouses.map((w) => ({ value: w.id, label: w.name })),
               ]}
+            />
+          </Space>
+          <Space>
+            <Text type="secondary">{inv.filterCategory}</Text>
+            <Select
+              allowClear
+              placeholder={inv.filterCategoryAll}
+              style={{ minWidth: 200 }}
+              value={filterCategoryId}
+              onChange={(v) => setFilterCategoryId(v)}
+              options={categoryFilterOptions}
+              showSearch
+              optionFilterProp="label"
             />
           </Space>
           <Space>
@@ -358,7 +451,10 @@ export function AdminInventoryOverviewPage() {
             name="productId"
             label={inv.labelProduct}
             rules={[{ required: true, message: common.required }]}>
-            <ProductSelect placeholder={inv.labelProduct} style={{ width: "100%" }} />
+            <ProductSelect
+              placeholder={inv.labelProduct}
+              style={{ width: "100%" }}
+            />
           </Form.Item>
           <Form.Item
             name="fromWarehouseId"

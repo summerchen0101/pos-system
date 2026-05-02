@@ -496,6 +496,8 @@ export const zhtw = {
       filterWarehouseAll: "全部倉庫",
       filterName: "商品名稱",
       filterNamePh: "搜尋品名",
+      filterCategory: "分類",
+      filterCategoryAll: "全部分類",
       colProduct: "商品名稱",
       colCategory: "分類",
       stockIn: "入庫",
